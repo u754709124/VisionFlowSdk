@@ -1,67 +1,90 @@
 # 09 - Release and Integration
 
-## SDK 输出
+## SDK Package
 
-SDK 打包后输出 DLL：
+Run the package script from the repository root:
+
+```powershell
+./build/pack-sdk.ps1
+```
+
+The script builds the solution and writes the SDK package to:
+
+```text
+artifacts/sdk
+artifacts/samples/flows
+```
+
+Production WinForms hosts normally reference:
 
 ```text
 Vision.Flow.Core.dll
 Vision.Flow.Nodes.dll
 Vision.DeviceAdapters.dll
-Vision.Flow.Designer.Wpf.dll
 ```
 
-生产上位机通常只引用：
+Reference `Vision.Flow.Designer.Wpf.dll` only from editor or debug tooling that hosts the WPF designer. Production runtime should load `.flowruntime` and run through `FlowRunner` without creating designer UI.
 
-```text
-Vision.Flow.Core.dll
-Vision.Flow.Nodes.dll
-Vision.DeviceAdapters.dll
-```
+## Runtime Wiring
 
-需要编辑/调试流程时才额外引用：
-
-```text
-Vision.Flow.Designer.Wpf.dll
-```
-
-## 生产运行集成方式
-
-上位机应用：
-
-1. 初始化现有设备系统。
-2. 创建真实 Adapter。
-3. 注册 Adapter。
-4. 注册公共 NodeFactory。
-5. 加载 `.flowruntime`。
-6. 创建 `FlowRunner`。
-7. 从运控、相机、IO 事件触发入口。
-8. 监听 RuntimeEvent。
-
-示例：
+Register adapters implemented by the upper-machine application, then register common node factories:
 
 ```csharp
 var devices = new DefaultDeviceRegistry();
-
 devices.RegisterCamera("Camera01", new UpperMachineCameraAdapter(existingCamera));
 devices.RegisterLight("Light01", new UpperMachineLightAdapter(existingLight));
 devices.RegisterMotion("Motion01", new UpperMachineMotionAdapter(existingMotion));
+devices.RegisterRecipe("Recipe01", new UpperMachineRecipeAdapter(existingRecipeSystem));
+devices.RegisterImageSaver("ImageSave01", new UpperMachineImageSaveAdapter(existingImageStorage));
+devices.RegisterDatabase("VisionDb", new UpperMachineDatabaseAdapter(existingDatabase));
 
 var nodes = new NodeRegistry();
 CommonNodeRegistration.RegisterAll(nodes);
-
-var flow = RuntimeFlowSerializer.Load("Station01.flowruntime");
-
-var engine = new FlowEngine(nodes, devices);
-var runner = engine.CreateRunner(flow);
-
-runner.RuntimeEventReceived += OnRuntimeEvent;
-
-await runner.StartAsync(CancellationToken.None);
 ```
 
-## WinForms 中宿主 WPF Designer
+Load the published runtime:
 
-如果需要编辑流程，可通过 `ElementHost` 宿主 WPF Designer。
+```csharp
+var flow = RuntimeFlowSerializer.Load("Station01.flowruntime");
+```
 
-生产模式不要创建 Designer 控件。
+Subscribe to runtime events through `IFlowEventSink`:
+
+```csharp
+public sealed class StationEventSink : IFlowEventSink
+{
+    public Task PublishAsync(FlowRuntimeEvent runtimeEvent, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        // Forward to station logs, alarms, UI status, or trace storage.
+        return Task.FromResult(0);
+    }
+}
+
+var eventSink = new StationEventSink();
+var runner = new FlowRunner(flow, nodes, eventSink, devices);
+```
+
+Start the runner once during station initialization, then trigger flow entries from station events:
+
+```csharp
+await runner.StartAsync(CancellationToken.None);
+
+var token = new FlowToken { TokenId = Guid.NewGuid().ToString("N") };
+token.Set("PartId", partId);
+
+await runner.TriggerAsync("ManualStart", token, CancellationToken.None);
+```
+
+## Flow Files
+
+Use `.flowdesign` only for designer editing and debug publishing. Deploy `.flowruntime` to production stations. A runtime file must not contain canvas coordinates, zoom, WPF styles, or designer-only state.
+
+The package script copies sample flows into `artifacts/samples/flows`, including:
+
+```text
+single-shot.flowdesign
+single-shot.flowruntime
+two-position-stitch.flowdesign
+continuous-scan.flowdesign
+```
