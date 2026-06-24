@@ -71,6 +71,17 @@ namespace Vision.Flow.Core
             FlowToken token,
             IVariablePool variables,
             IFlowEventSink events)
+            : this(flow, node, token, variables, events, null)
+        {
+        }
+
+        public FlowExecutionContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            IFlowEventSink events,
+            IDeviceRegistry devices)
         {
             if (flow == null)
             {
@@ -102,6 +113,7 @@ namespace Vision.Flow.Core
             Token = token;
             Variables = variables;
             Events = events;
+            Devices = devices ?? EmptyDeviceRegistry.Instance;
         }
 
         public RuntimeFlowDefinition Flow { get; private set; }
@@ -113,6 +125,8 @@ namespace Vision.Flow.Core
         public IVariablePool Variables { get; private set; }
 
         public IFlowEventSink Events { get; private set; }
+
+        public IDeviceRegistry Devices { get; private set; }
 
         public object GetInputValue(string inputName)
         {

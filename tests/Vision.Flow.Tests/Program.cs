@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Vision.DeviceAdapters;
 using Vision.Flow.Core;
 
 namespace Vision.Flow.Tests
@@ -33,7 +34,11 @@ namespace Vision.Flow.Tests
                 new TestCase("FlowRunner executes A -> B -> C and writes output variables", FlowRunnerTests.LinearOrderAndVariables),
                 new TestCase("FlowRunner publishes NodeFailed and follows Error route", FlowRunnerTests.NodeFailedAndErrorRoute),
                 new TestCase("FlowRunner reports a clear missing entry exception", FlowRunnerTests.MissingEntryThrows),
-                new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder)
+                new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
+                new TestCase("DefaultDeviceRegistry resolves a fake camera", AdapterTests.RegistryGetsFakeCamera),
+                new TestCase("FakeCameraAdapter soft trigger raises FrameArrived", AdapterTests.SoftTriggerReceivesFrame),
+                new TestCase("FakeRecipeAdapter returns OK", AdapterTests.FakeRecipeReturnsOk),
+                new TestCase("FakeImageSaveAdapter returns a simulated path", AdapterTests.FakeImageSaveReturnsPath)
             };
 
             var failed = 0;
@@ -73,6 +78,92 @@ namespace Vision.Flow.Tests
         public Task RunAsync()
         {
             return _runAsync();
+        }
+    }
+
+    internal static class AdapterTests
+    {
+        public static Task RegistryGetsFakeCamera()
+        {
+            var registry = new DefaultDeviceRegistry();
+            var camera = new FakeCameraAdapter("Camera01");
+
+            registry.RegisterCamera(camera);
+
+            ICameraAdapter resolvedByTryGet;
+            AssertEx.True(registry.TryGetCamera("Camera01", out resolvedByTryGet), "Registry should find the registered fake camera.");
+            AssertEx.True(object.ReferenceEquals(camera, resolvedByTryGet), "TryGetCamera should return the registered camera instance.");
+            AssertEx.True(object.ReferenceEquals(camera, registry.GetCamera("Camera01")), "GetCamera should return the registered camera instance.");
+            return Task.FromResult(0);
+        }
+
+        public static async Task SoftTriggerReceivesFrame()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            var frameSource = new TaskCompletionSource<CameraFrameData>();
+
+            camera.FrameArrived += delegate(object sender, CameraFrameArrivedEventArgs args)
+            {
+                frameSource.TrySetResult(args.Frame);
+            };
+
+            await camera.SoftTriggerAsync(
+                new CameraTriggerContext
+                {
+                    CameraId = "Camera01",
+                    TriggerId = "trigger-001"
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            var completed = await Task.WhenAny(frameSource.Task, Task.Delay(1000)).ConfigureAwait(false);
+            AssertEx.True(object.ReferenceEquals(frameSource.Task, completed), "Soft trigger should raise FrameArrived within the timeout.");
+
+            var frame = await frameSource.Task.ConfigureAwait(false);
+            AssertEx.NotNull(frame, "FrameArrived should provide frame data.");
+            AssertEx.NotNull(frame.Image, "Frame data should include a fake image.");
+            AssertEx.Equal("Camera01", frame.CameraId, "Frame camera id should match the adapter.");
+            AssertEx.Equal("trigger-001", frame.TriggerId, "Frame trigger id should match the trigger context.");
+            AssertEx.Equal("Camera01", Convert.ToString(frame.Metadata["CameraId"]), "Frame metadata should include CameraId.");
+            AssertEx.Equal("trigger-001", Convert.ToString(frame.Metadata["TriggerId"]), "Frame metadata should include TriggerId.");
+            AssertEx.True(frame.Metadata.ContainsKey("FrameId"), "Frame metadata should include FrameId.");
+            AssertEx.True(frame.Metadata.ContainsKey("GrabTime"), "Frame metadata should include GrabTime.");
+        }
+
+        public static async Task FakeRecipeReturnsOk()
+        {
+            var recipe = new FakeRecipeAdapter("Recipe01");
+            var result = await recipe.RunAsync(
+                new RecipeRunRequest
+                {
+                    RecipeId = "Recipe01"
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            AssertEx.NotNull(result, "Fake recipe should return a result.");
+            AssertEx.True(result.IsSuccess, "Fake recipe should succeed.");
+            AssertEx.Equal("OK", result.Status, "Fake recipe status should be OK.");
+            AssertEx.Equal("Recipe01", Convert.ToString(result.Outputs["RecipeId"]), "Fake recipe output should include RecipeId.");
+        }
+
+        public static async Task FakeImageSaveReturnsPath()
+        {
+            var saver = new FakeImageSaveAdapter("ImageSave01");
+            var result = await saver.SaveAsync(
+                new ImageSaveRequest
+                {
+                    Image = new FakeVisionImage("image-001", 320, 240, "Mono8", null),
+                    FileName = "part-a",
+                    Format = "bmp"
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            AssertEx.NotNull(result, "Fake image saver should return a result.");
+            AssertEx.True(result.IsSuccess, "Fake image saver should succeed.");
+            AssertEx.True(result.Path.IndexOf("fake://images", StringComparison.OrdinalIgnoreCase) == 0, "Fake image saver should use the fake base path.");
+            AssertEx.True(result.Path.EndsWith("/part-a.bmp", StringComparison.OrdinalIgnoreCase), "Fake image saver should return a simulated file path.");
         }
     }
 

@@ -10,8 +10,19 @@ namespace Vision.Flow.Core
     {
         private readonly NodeRegistry _nodeRegistry;
         private readonly IFlowEventSink _eventSink;
+        private readonly IDeviceRegistry _devices;
 
         public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink = null)
+            : this(nodeRegistry, eventSink, null)
+        {
+        }
+
+        public FlowEngine(NodeRegistry nodeRegistry, IDeviceRegistry devices)
+            : this(nodeRegistry, null, devices)
+        {
+        }
+
+        public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink, IDeviceRegistry devices)
         {
             if (nodeRegistry == null)
             {
@@ -20,6 +31,7 @@ namespace Vision.Flow.Core
 
             _nodeRegistry = nodeRegistry;
             _eventSink = eventSink ?? new InMemoryFlowEventSink();
+            _devices = devices ?? EmptyDeviceRegistry.Instance;
         }
 
         public IFlowRunner CreateRunner(RuntimeFlowDefinition definition)
@@ -29,7 +41,7 @@ namespace Vision.Flow.Core
                 throw new ArgumentNullException("definition");
             }
 
-            return new FlowRunner(definition, _nodeRegistry, _eventSink);
+            return new FlowRunner(definition, _nodeRegistry, _eventSink, _devices);
         }
     }
 
@@ -39,9 +51,16 @@ namespace Vision.Flow.Core
         private readonly RuntimeFlowDefinition _definition;
         private readonly NodeRegistry _nodeRegistry;
         private readonly IFlowEventSink _eventSink;
+        private readonly IDeviceRegistry _devices;
+        private readonly Dictionary<string, IFlowNode> _nodeInstances;
         private CancellationTokenSource _runnerCancellation;
 
         public FlowRunner(RuntimeFlowDefinition definition, NodeRegistry nodeRegistry, IFlowEventSink eventSink = null)
+            : this(definition, nodeRegistry, eventSink, null)
+        {
+        }
+
+        public FlowRunner(RuntimeFlowDefinition definition, NodeRegistry nodeRegistry, IFlowEventSink eventSink, IDeviceRegistry devices)
         {
             if (definition == null)
             {
@@ -56,6 +75,8 @@ namespace Vision.Flow.Core
             _definition = definition;
             _nodeRegistry = nodeRegistry;
             _eventSink = eventSink ?? new InMemoryFlowEventSink();
+            _devices = devices ?? EmptyDeviceRegistry.Instance;
+            _nodeInstances = new Dictionary<string, IFlowNode>(StringComparer.OrdinalIgnoreCase);
         }
 
         public RuntimeFlowDefinition Definition
@@ -171,8 +192,8 @@ namespace Vision.Flow.Core
             NodeExecutionResult result;
             try
             {
-                var flowNode = _nodeRegistry.CreateNode(node);
-                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink);
+                var flowNode = GetOrCreateNode(node);
+                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices);
                 result = await flowNode.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
                 if (result == null)
                 {
@@ -300,6 +321,21 @@ namespace Vision.Flow.Core
                 string.Equals(x.FromPort, outputPort, StringComparison.OrdinalIgnoreCase));
 
             return edge == null ? null : edge.ToNodeId;
+        }
+
+        private IFlowNode GetOrCreateNode(NodeDefinition node)
+        {
+            lock (_gate)
+            {
+                IFlowNode flowNode;
+                if (!_nodeInstances.TryGetValue(node.Id, out flowNode))
+                {
+                    flowNode = _nodeRegistry.CreateNode(node);
+                    _nodeInstances[node.Id] = flowNode;
+                }
+
+                return flowNode;
+            }
         }
 
         private Task PublishAsync(FlowRuntimeEvent runtimeEvent, CancellationToken cancellationToken)
