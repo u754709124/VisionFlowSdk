@@ -12,6 +12,7 @@ using System.Windows.Shapes;
 using Microsoft.Win32;
 using Vision.Flow.Core;
 using Vision.Flow.Nodes;
+using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
@@ -20,9 +21,11 @@ namespace Vision.Flow.Designer.Wpf
         private const string DefaultEntryName = "ManualStart";
         private const double CanvasWidth = 1800;
         private const double CanvasHeight = 1100;
+        private const double GridSize = 32;
 
         private readonly NodeRegistry _nodeRegistry;
         private readonly Dictionary<string, NodeCardControl> _nodeCards;
+        private readonly Dictionary<string, DateTime> _nodeStartTimes;
         private readonly NodePaletteControl _palette;
         private readonly PropertyPanelControl _properties;
         private readonly RuntimeDebugPanelControl _debug;
@@ -33,23 +36,37 @@ namespace Vision.Flow.Designer.Wpf
         private FlowDesignDocument _document;
         private NodeDefinition _selectedNode;
         private IFlowRunner _runner;
+        private Grid _surface;
+        private ScrollViewer _canvasScroll;
+        private ScaleTransform _canvasScale;
         private Point _dragOffset;
         private NodeCardControl _dragCard;
+        private bool _isPanning;
+        private bool _isSpacePressed;
+        private Point _panStart;
+        private double _panStartHorizontalOffset;
+        private double _panStartVerticalOffset;
+        private bool _isConnecting;
+        private NodeDefinition _connectionSourceNode;
+        private string _connectionSourcePort;
+        private Point _connectionStartPoint;
 
         public FlowDesignerControl()
         {
             _nodeRegistry = new NodeRegistry();
             CommonNodeRegistration.RegisterAll(_nodeRegistry);
             _nodeCards = new Dictionary<string, NodeCardControl>(StringComparer.OrdinalIgnoreCase);
+            _nodeStartTimes = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
             _palette = new NodePaletteControl();
             _properties = new PropertyPanelControl();
             _debug = new RuntimeDebugPanelControl();
             _edges = new EdgeLayerControl();
+            _edges.EdgeDeleteRequested += DeleteEdge;
             _nodeLayer = new Canvas
             {
                 Width = CanvasWidth,
                 Height = CanvasHeight,
-                Background = Brushes.Transparent
+                Background = null
             };
             _statusText = new TextBlock
             {
@@ -62,6 +79,10 @@ namespace Vision.Flow.Designer.Wpf
             Content = CreateShell();
             _palette.SetDescriptors(_nodeRegistry.Descriptors.OrderBy(x => x.Category).ThenBy(x => x.DisplayName));
             _palette.NodeRequested += AddNodeFromPalette;
+            _debug.NodeRequested += SelectNodeById;
+            PreviewKeyDown += OnPreviewKeyDown;
+            PreviewKeyUp += OnPreviewKeyUp;
+            Focusable = true;
             LoadSingleShotTemplate();
         }
 
@@ -163,23 +184,30 @@ namespace Vision.Flow.Designer.Wpf
             var border = CreatePanelBorder(new Thickness(10, 0, 10, 0));
             border.Padding = new Thickness(0);
 
-            var surface = new Grid
+            _canvasScale = new ScaleTransform(1.0, 1.0);
+            _surface = new Grid
             {
                 Width = CanvasWidth,
                 Height = CanvasHeight,
                 Background = BrushFromRgb(248, 250, 252)
             };
-            surface.Children.Add(CreateGridLayer());
-            surface.Children.Add(_edges);
-            surface.Children.Add(_nodeLayer);
+            _surface.LayoutTransform = _canvasScale;
+            _surface.Children.Add(CreateGridLayer());
+            _surface.Children.Add(_edges);
+            _surface.Children.Add(_nodeLayer);
+            _surface.PreviewMouseWheel += OnCanvasMouseWheel;
+            _surface.MouseDown += OnSurfaceMouseDown;
+            _surface.MouseMove += OnSurfaceMouseMove;
+            _surface.MouseUp += OnSurfaceMouseUp;
 
-            var scroll = new ScrollViewer
+            _canvasScroll = new ScrollViewer
             {
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Content = surface
+                Content = _surface
             };
-            border.Child = scroll;
+            _canvasScroll.ScrollChanged += delegate { SaveCanvasViewState(); };
+            border.Child = _canvasScroll;
 
             return border;
         }
@@ -193,7 +221,7 @@ namespace Vision.Flow.Designer.Wpf
                 IsHitTestVisible = false
             };
 
-            for (var x = 0; x <= CanvasWidth; x += 32)
+            for (double x = 0; x <= CanvasWidth; x += GridSize)
             {
                 grid.Children.Add(new Line
                 {
@@ -202,11 +230,11 @@ namespace Vision.Flow.Designer.Wpf
                     X2 = x,
                     Y2 = CanvasHeight,
                     Stroke = BrushFromRgb(235, 240, 247),
-                    StrokeThickness = x % 128 == 0 ? 1.2 : 0.6
+                    StrokeThickness = x % (GridSize * 4) == 0 ? 1.2 : 0.6
                 });
             }
 
-            for (var y = 0; y <= CanvasHeight; y += 32)
+            for (double y = 0; y <= CanvasHeight; y += GridSize)
             {
                 grid.Children.Add(new Line
                 {
@@ -215,11 +243,142 @@ namespace Vision.Flow.Designer.Wpf
                     X2 = CanvasWidth,
                     Y2 = y,
                     Stroke = BrushFromRgb(235, 240, 247),
-                    StrokeThickness = y % 128 == 0 ? 1.2 : 0.6
+                    StrokeThickness = y % (GridSize * 4) == 0 ? 1.2 : 0.6
                 });
             }
 
             return grid;
+        }
+
+        private void ApplyCanvasViewState()
+        {
+            if (_document == null || _document.View == null || _canvasScale == null)
+            {
+                return;
+            }
+
+            var zoom = ClampZoom(_document.View.Zoom <= 0 ? 1.0 : _document.View.Zoom);
+            _canvasScale.ScaleX = zoom;
+            _canvasScale.ScaleY = zoom;
+
+            if (_canvasScroll != null)
+            {
+                Dispatcher.BeginInvoke(new Action(delegate
+                {
+                    _canvasScroll.ScrollToHorizontalOffset(Math.Max(0, _document.View.OffsetX));
+                    _canvasScroll.ScrollToVerticalOffset(Math.Max(0, _document.View.OffsetY));
+                }));
+            }
+        }
+
+        private void SaveCanvasViewState()
+        {
+            if (_document == null || _document.View == null || _canvasScale == null)
+            {
+                return;
+            }
+
+            _document.View.Zoom = _canvasScale.ScaleX;
+            if (_canvasScroll != null)
+            {
+                _document.View.OffsetX = _canvasScroll.HorizontalOffset;
+                _document.View.OffsetY = _canvasScroll.VerticalOffset;
+            }
+        }
+
+        private void OnCanvasMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (_canvasScale == null || _document == null)
+            {
+                return;
+            }
+
+            var factor = e.Delta > 0 ? 1.1 : 0.9;
+            var zoom = ClampZoom(_canvasScale.ScaleX * factor);
+            _canvasScale.ScaleX = zoom;
+            _canvasScale.ScaleY = zoom;
+            SaveCanvasViewState();
+            UpdateStatus();
+            e.Handled = true;
+        }
+
+        private void OnSurfaceMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            Focus();
+            if (e.ChangedButton == MouseButton.Middle || (_isSpacePressed && e.ChangedButton == MouseButton.Left))
+            {
+                _isPanning = true;
+                _panStart = e.GetPosition(this);
+                _panStartHorizontalOffset = _canvasScroll == null ? 0 : _canvasScroll.HorizontalOffset;
+                _panStartVerticalOffset = _canvasScroll == null ? 0 : _canvasScroll.VerticalOffset;
+                if (_surface != null)
+                {
+                    _surface.CaptureMouse();
+                    _surface.Cursor = Cursors.Hand;
+                }
+
+                e.Handled = true;
+            }
+        }
+
+        private void OnSurfaceMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_isConnecting)
+            {
+                _edges.SetPreview(_connectionStartPoint, e.GetPosition(_nodeLayer));
+            }
+
+            if (!_isPanning || _canvasScroll == null)
+            {
+                return;
+            }
+
+            var point = e.GetPosition(this);
+            _canvasScroll.ScrollToHorizontalOffset(_panStartHorizontalOffset - (point.X - _panStart.X));
+            _canvasScroll.ScrollToVerticalOffset(_panStartVerticalOffset - (point.Y - _panStart.Y));
+            SaveCanvasViewState();
+            e.Handled = true;
+        }
+
+        private void OnSurfaceMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isPanning)
+            {
+                _isPanning = false;
+                if (_surface != null)
+                {
+                    _surface.ReleaseMouseCapture();
+                    _surface.Cursor = Cursors.Arrow;
+                }
+
+                e.Handled = true;
+            }
+
+            if (_isConnecting)
+            {
+                CancelConnectionPreview();
+            }
+        }
+
+        private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Space)
+            {
+                _isSpacePressed = true;
+            }
+        }
+
+        private void OnPreviewKeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Space)
+            {
+                _isSpacePressed = false;
+            }
+        }
+
+        private static double ClampZoom(double zoom)
+        {
+            return Math.Max(0.35, Math.Min(2.5, zoom));
         }
 
         private void CreateNewDesign()
@@ -227,6 +386,7 @@ namespace Vision.Flow.Designer.Wpf
             _document = CreateDocument("designer-flow", "Designer Flow");
             _selectedNode = null;
             RenderCanvas();
+            ApplyCanvasViewState();
             RenderProperties();
             _debug.Clear();
             AddDebugMessage("New design created.");
@@ -283,6 +443,7 @@ namespace Vision.Flow.Designer.Wpf
 
             _selectedNode = flow.Nodes.FirstOrDefault();
             RenderCanvas();
+            ApplyCanvasViewState();
             RenderProperties();
             _debug.Clear();
             AddDebugMessage("Single-shot sample loaded.");
@@ -470,6 +631,11 @@ namespace Vision.Flow.Designer.Wpf
 
         private void AddEdge(string fromNodeId, string toNodeId)
         {
+            AddEdge(fromNodeId, "Next", toNodeId, "In");
+        }
+
+        private void AddEdge(string fromNodeId, string fromPort, string toNodeId, string toPort)
+        {
             if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId))
             {
                 return;
@@ -478,7 +644,8 @@ namespace Vision.Flow.Designer.Wpf
             var exists = _document.Runtime.Edges.Any(x =>
                 StringEquals(x.FromNodeId, fromNodeId) &&
                 StringEquals(x.ToNodeId, toNodeId) &&
-                StringEquals(x.FromPort, "Next"));
+                StringEquals(x.FromPort, fromPort) &&
+                StringEquals(x.ToPort, toPort));
             if (exists)
             {
                 return;
@@ -487,10 +654,22 @@ namespace Vision.Flow.Designer.Wpf
             _document.Runtime.Edges.Add(new EdgeDefinition
             {
                 FromNodeId = fromNodeId,
-                FromPort = "Next",
+                FromPort = string.IsNullOrWhiteSpace(fromPort) ? "Next" : fromPort,
                 ToNodeId = toNodeId,
-                ToPort = "In"
+                ToPort = string.IsNullOrWhiteSpace(toPort) ? "In" : toPort
             });
+        }
+
+        private void DeleteEdge(EdgeDefinition edge)
+        {
+            if (edge == null || _document == null || _document.Runtime == null)
+            {
+                return;
+            }
+
+            _document.Runtime.Edges.Remove(edge);
+            _edges.Render(_document);
+            AddDebugMessage("Deleted edge " + edge.FromNodeId + " -> " + edge.ToNodeId + ".");
         }
 
         private void RenderCanvas()
@@ -515,9 +694,13 @@ namespace Vision.Flow.Designer.Wpf
                 var descriptor = GetDescriptor(node.Type);
                 var card = new NodeCardControl(new NodeViewModel(node, descriptor));
                 card.SetSelected(StringEquals(node.Id, _selectedNode == null ? null : _selectedNode.Id));
+                card.SetDisabled(IsNodeDisabled(node));
                 card.MouseLeftButtonDown += OnNodeMouseDown;
                 card.MouseMove += OnNodeMouseMove;
                 card.MouseLeftButtonUp += OnNodeMouseUp;
+                card.OutputPortDragStarted += OnOutputPortDragStarted;
+                card.InputPortDragCompleted += OnInputPortDragCompleted;
+                card.ContextMenu = CreateNodeContextMenu(node);
                 Canvas.SetLeft(card, view.X);
                 Canvas.SetTop(card, view.Y);
                 _nodeLayer.Children.Add(card);
@@ -559,6 +742,250 @@ namespace Vision.Flow.Designer.Wpf
             UpdateStatus();
         }
 
+        private void SelectNodeById(string nodeId)
+        {
+            if (_document == null || _document.Runtime == null || string.IsNullOrWhiteSpace(nodeId))
+            {
+                return;
+            }
+
+            var node = _document.Runtime.Nodes.FirstOrDefault(x => StringEquals(x.Id, nodeId));
+            if (node == null)
+            {
+                return;
+            }
+
+            SelectNode(node);
+            NodeViewState view;
+            if (_document.View != null && _document.View.Nodes.TryGetValue(node.Id, out view) && _canvasScroll != null)
+            {
+                _canvasScroll.ScrollToHorizontalOffset(Math.Max(0, view.X - 80));
+                _canvasScroll.ScrollToVerticalOffset(Math.Max(0, view.Y - 80));
+            }
+        }
+
+        private ContextMenu CreateNodeContextMenu(NodeDefinition node)
+        {
+            var menu = new ContextMenu();
+            menu.Items.Add(CreateMenuItem("Rename", delegate { RenameNode(node); }));
+            menu.Items.Add(CreateMenuItem("Duplicate", delegate { DuplicateNode(node); }));
+            menu.Items.Add(CreateMenuItem(IsNodeDisabled(node) ? "Enable" : "Disable", delegate { ToggleNodeDisabled(node); }));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(CreateMenuItem("Delete", delegate { DeleteNode(node); }));
+            return menu;
+        }
+
+        private static MenuItem CreateMenuItem(string header, RoutedEventHandler click)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += click;
+            return item;
+        }
+
+        private void RenameNode(NodeDefinition node)
+        {
+            if (node == null)
+            {
+                return;
+            }
+
+            var dialog = new Window
+            {
+                Title = "Rename Node",
+                Width = 360,
+                Height = 150,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = Window.GetWindow(this)
+            };
+
+            var layout = new StackPanel { Margin = new Thickness(16) };
+            var textBox = new TextBox
+            {
+                Text = node.Name,
+                MinHeight = 28,
+                Padding = new Thickness(6, 4, 6, 4)
+            };
+            layout.Children.Add(textBox);
+
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 14, 0, 0)
+            };
+            var ok = new Button { Content = "OK", MinWidth = 70, Height = 28, Margin = new Thickness(0, 0, 8, 0) };
+            var cancel = new Button { Content = "Cancel", MinWidth = 70, Height = 28 };
+            ok.Click += delegate { dialog.DialogResult = true; };
+            cancel.Click += delegate { dialog.DialogResult = false; };
+            buttons.Children.Add(ok);
+            buttons.Children.Add(cancel);
+            layout.Children.Add(buttons);
+            dialog.Content = layout;
+
+            if (dialog.ShowDialog() == true)
+            {
+                node.Name = string.IsNullOrWhiteSpace(textBox.Text) ? node.Id : textBox.Text.Trim();
+                RenderCanvas();
+                SelectNode(node);
+            }
+        }
+
+        private void DuplicateNode(NodeDefinition node)
+        {
+            if (node == null || _document == null || _document.Runtime == null)
+            {
+                return;
+            }
+
+            var clone = new NodeDefinition
+            {
+                Id = CreateNodeId(node.Type),
+                Type = node.Type,
+                Name = (string.IsNullOrWhiteSpace(node.Name) ? node.Id : node.Name) + " Copy",
+                Version = node.Version
+            };
+
+            foreach (var setting in node.Settings)
+            {
+                clone.Settings[setting.Key] = setting.Value;
+            }
+
+            foreach (var binding in node.InputBindings)
+            {
+                clone.InputBindings[binding.Key] = CloneBinding(binding.Value);
+            }
+
+            _document.Runtime.Nodes.Add(clone);
+            NodeViewState view;
+            if (!_document.View.Nodes.TryGetValue(node.Id, out view))
+            {
+                view = new NodeViewState { X = 80, Y = 80 };
+            }
+
+            _document.View.Nodes[clone.Id] = new NodeViewState
+            {
+                X = SnapToGrid(view.X + 48),
+                Y = SnapToGrid(view.Y + 48)
+            };
+            RenderCanvas();
+            SelectNode(clone);
+            AddDebugMessage("Duplicated node " + node.Id + " as " + clone.Id + ".");
+        }
+
+        private void DeleteNode(NodeDefinition node)
+        {
+            if (node == null || _document == null || _document.Runtime == null)
+            {
+                return;
+            }
+
+            _document.Runtime.Nodes.Remove(node);
+            _document.Runtime.Edges.RemoveAll(x => StringEquals(x.FromNodeId, node.Id) || StringEquals(x.ToNodeId, node.Id));
+            if (_document.View != null)
+            {
+                _document.View.Nodes.Remove(node.Id);
+            }
+
+            if (_selectedNode == node)
+            {
+                _selectedNode = _document.Runtime.Nodes.FirstOrDefault();
+            }
+
+            RenderCanvas();
+            RenderProperties();
+            AddDebugMessage("Deleted node " + node.Id + ".");
+        }
+
+        private void ToggleNodeDisabled(NodeDefinition node)
+        {
+            if (node == null)
+            {
+                return;
+            }
+
+            node.Settings["Disabled"] = !IsNodeDisabled(node);
+            RenderCanvas();
+            SelectNode(node);
+        }
+
+        private static bool IsNodeDisabled(NodeDefinition node)
+        {
+            object value;
+            return node != null &&
+                node.Settings != null &&
+                node.Settings.TryGetValue("Disabled", out value) &&
+                value != null &&
+                Convert.ToBoolean(value, CultureInfo.InvariantCulture);
+        }
+
+        private void OnOutputPortDragStarted(object sender, PortConnectionEventArgs e)
+        {
+            var card = sender as NodeCardControl;
+            if (card == null || e == null || e.Port == null || e.PortControl == null)
+            {
+                return;
+            }
+
+            _isConnecting = true;
+            _connectionSourceNode = card.ViewModel.Node;
+            _connectionSourcePort = e.Port.Name;
+            _connectionStartPoint = GetPortCenter(e.PortControl);
+            _edges.SetPreview(_connectionStartPoint, _connectionStartPoint);
+        }
+
+        private void OnInputPortDragCompleted(object sender, PortConnectionEventArgs e)
+        {
+            var card = sender as NodeCardControl;
+            if (!_isConnecting || card == null || e == null || e.Port == null || _connectionSourceNode == null)
+            {
+                return;
+            }
+
+            var targetNode = card.ViewModel.Node;
+            if (targetNode == null || StringEquals(targetNode.Id, _connectionSourceNode.Id))
+            {
+                CancelConnectionPreview();
+                return;
+            }
+
+            AddEdge(_connectionSourceNode.Id, _connectionSourcePort, targetNode.Id, e.Port.Name);
+            AddDebugMessage("Connected " + _connectionSourceNode.Id + "." + _connectionSourcePort + " -> " + targetNode.Id + "." + e.Port.Name + ".");
+            CancelConnectionPreview();
+            RenderCanvas();
+        }
+
+        private Point GetPortCenter(PortControl port)
+        {
+            return port.TranslatePoint(new Point(port.ActualWidth / 2.0, port.ActualHeight / 2.0), _nodeLayer);
+        }
+
+        private void CancelConnectionPreview()
+        {
+            _isConnecting = false;
+            _connectionSourceNode = null;
+            _connectionSourcePort = null;
+            _edges.ClearPreview();
+        }
+
+        private static VariableBinding CloneBinding(VariableBinding source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new VariableBinding
+            {
+                Expression = source.Expression,
+                SourceNodeId = source.SourceNodeId,
+                SourceOutputName = source.SourceOutputName,
+                ConstantValue = source.ConstantValue,
+                ValueType = source.ValueType,
+                IsConstant = source.IsConstant
+            };
+        }
+
         private void OnNodeMouseDown(object sender, MouseButtonEventArgs e)
         {
             var card = sender as NodeCardControl;
@@ -568,6 +995,13 @@ namespace Vision.Flow.Designer.Wpf
             }
 
             SelectNode(card.ViewModel.Node);
+            if (e.ClickCount == 2)
+            {
+                RenameNode(card.ViewModel.Node);
+                e.Handled = true;
+                return;
+            }
+
             _dragCard = card;
             _dragOffset = e.GetPosition(card);
             card.CaptureMouse();
@@ -582,8 +1016,8 @@ namespace Vision.Flow.Designer.Wpf
             }
 
             var point = e.GetPosition(_nodeLayer);
-            var x = Math.Max(8, point.X - _dragOffset.X);
-            var y = Math.Max(8, point.Y - _dragOffset.Y);
+            var x = Math.Max(8, SnapToGrid(point.X - _dragOffset.X));
+            var y = Math.Max(8, SnapToGrid(point.Y - _dragOffset.Y));
             Canvas.SetLeft(_dragCard, x);
             Canvas.SetTop(_dragCard, y);
 
@@ -606,6 +1040,11 @@ namespace Vision.Flow.Designer.Wpf
             }
 
             e.Handled = true;
+        }
+
+        private static double SnapToGrid(double value)
+        {
+            return Math.Round(value / GridSize, MidpointRounding.AwayFromZero) * GridSize;
         }
 
         private void OpenDesign()
@@ -636,6 +1075,7 @@ namespace Vision.Flow.Designer.Wpf
 
                 _selectedNode = _document.Runtime.Nodes.FirstOrDefault();
                 RenderCanvas();
+                ApplyCanvasViewState();
                 RenderProperties();
                 AddDebugMessage("Opened " + dialog.FileName + ".");
             }
@@ -661,6 +1101,7 @@ namespace Vision.Flow.Designer.Wpf
 
             try
             {
+                SaveCanvasViewState();
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(dialog.FileName));
                 FlowDesignSerializer.Save(dialog.FileName, _document);
                 AddDebugMessage("Saved design " + dialog.FileName + ".");
@@ -750,6 +1191,7 @@ namespace Vision.Flow.Designer.Wpf
 
         private void ResetNodeStates()
         {
+            _nodeStartTimes.Clear();
             foreach (var card in _nodeCards.Values)
             {
                 card.SetRuntimeState(NodeRuntimeState.Waiting);
@@ -783,7 +1225,22 @@ namespace Vision.Flow.Designer.Wpf
             _debug.AddEvent(runtimeEvent);
             if (!string.IsNullOrWhiteSpace(runtimeEvent.NodeId) && _nodeCards.ContainsKey(runtimeEvent.NodeId))
             {
-                _nodeCards[runtimeEvent.NodeId].SetRuntimeState(runtimeEvent.State);
+                if (runtimeEvent.EventType == FlowRuntimeEventType.NodeStarted)
+                {
+                    _nodeStartTimes[runtimeEvent.NodeId] = DateTime.UtcNow;
+                }
+
+                TimeSpan? elapsed = null;
+                DateTime started;
+                if ((runtimeEvent.EventType == FlowRuntimeEventType.NodeCompleted ||
+                    runtimeEvent.EventType == FlowRuntimeEventType.NodeFailed ||
+                    runtimeEvent.EventType == FlowRuntimeEventType.NodeTimeout) &&
+                    _nodeStartTimes.TryGetValue(runtimeEvent.NodeId, out started))
+                {
+                    elapsed = DateTime.UtcNow - started;
+                }
+
+                _nodeCards[runtimeEvent.NodeId].SetRuntimeState(runtimeEvent.State, elapsed, runtimeEvent.Message);
             }
         }
 
@@ -798,7 +1255,8 @@ namespace Vision.Flow.Designer.Wpf
             var nodeCount = _document == null || _document.Runtime == null ? 0 : _document.Runtime.Nodes.Count;
             var edgeCount = _document == null || _document.Runtime == null ? 0 : _document.Runtime.Edges.Count;
             var selected = _selectedNode == null ? "none" : _selectedNode.Id;
-            _statusText.Text = string.Format(CultureInfo.InvariantCulture, "{0} nodes | {1} edges | selected: {2}", nodeCount, edgeCount, selected);
+            var zoom = _canvasScale == null ? 1.0 : _canvasScale.ScaleX;
+            _statusText.Text = string.Format(CultureInfo.InvariantCulture, "{0} nodes | {1} edges | zoom {2:P0} | selected: {3}", nodeCount, edgeCount, zoom, selected);
         }
 
         private NodeDescriptor GetDescriptor(string nodeType)
@@ -1090,6 +1548,7 @@ namespace Vision.Flow.Designer.Wpf
         private readonly TextBlock _summary;
         private readonly Border _stateChip;
         private readonly TextBlock _stateText;
+        private bool _isDisabled;
 
         public NodeCardControl(NodeViewModel viewModel)
         {
@@ -1183,6 +1642,10 @@ namespace Vision.Flow.Designer.Wpf
 
         public NodeViewModel ViewModel { get; private set; }
 
+        public event EventHandler<PortConnectionEventArgs> OutputPortDragStarted;
+
+        public event EventHandler<PortConnectionEventArgs> InputPortDragCompleted;
+
         public void UpdateSummary()
         {
             _title.Text = string.IsNullOrWhiteSpace(ViewModel.Node.Name) ? ViewModel.Node.Id : ViewModel.Node.Name;
@@ -1210,8 +1673,35 @@ namespace Vision.Flow.Designer.Wpf
             BorderThickness = isSelected ? new Thickness(2) : new Thickness(1);
         }
 
+        public void SetDisabled(bool isDisabled)
+        {
+            _isDisabled = isDisabled;
+            Opacity = isDisabled ? 0.58 : 1.0;
+            if (isDisabled)
+            {
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(226, 232, 240);
+                _stateText.Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105);
+                _stateText.Text = "Disabled";
+            }
+        }
+
         public void SetRuntimeState(NodeRuntimeState state)
         {
+            SetRuntimeState(state, null, null);
+        }
+
+        public void SetRuntimeState(NodeRuntimeState state, TimeSpan? elapsed, string message)
+        {
+            if (_isDisabled && state == NodeRuntimeState.Waiting)
+            {
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(226, 232, 240);
+                _stateText.Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105);
+                _stateText.Text = "Disabled";
+                ToolTip = "Node is disabled in the designer.";
+                return;
+            }
+
+            ToolTip = string.IsNullOrWhiteSpace(message) ? null : message;
             if (state == NodeRuntimeState.Running)
             {
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(254, 249, 195);
@@ -1224,7 +1714,7 @@ namespace Vision.Flow.Designer.Wpf
             {
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(220, 252, 231);
                 _stateText.Foreground = FlowDesignerControl.BrushFromRgb(22, 101, 52);
-                _stateText.Text = "Done";
+                _stateText.Text = elapsed.HasValue ? "Done " + FormatElapsed(elapsed.Value) : "Done";
                 return;
             }
 
@@ -1232,7 +1722,7 @@ namespace Vision.Flow.Designer.Wpf
             {
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(254, 226, 226);
                 _stateText.Foreground = FlowDesignerControl.BrushFromRgb(153, 27, 27);
-                _stateText.Text = "Failed";
+                _stateText.Text = elapsed.HasValue ? "Failed " + FormatElapsed(elapsed.Value) : "Failed";
                 return;
             }
 
@@ -1240,7 +1730,7 @@ namespace Vision.Flow.Designer.Wpf
             {
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(255, 237, 213);
                 _stateText.Foreground = FlowDesignerControl.BrushFromRgb(154, 52, 18);
-                _stateText.Text = "Timeout";
+                _stateText.Text = elapsed.HasValue ? "Timeout " + FormatElapsed(elapsed.Value) : "Timeout";
                 return;
             }
 
@@ -1249,7 +1739,7 @@ namespace Vision.Flow.Designer.Wpf
             _stateText.Text = "Ready";
         }
 
-        private static UIElement CreatePortRow(NodeViewModel viewModel)
+        private UIElement CreatePortRow(NodeViewModel viewModel)
         {
             var row = new DockPanel
             {
@@ -1262,7 +1752,18 @@ namespace Vision.Flow.Designer.Wpf
             };
             foreach (var port in viewModel.InputPorts)
             {
-                input.Children.Add(new PortControl(port));
+                var portControl = new PortControl(port);
+                portControl.MouseLeftButtonUp += delegate(object sender, MouseButtonEventArgs e)
+                {
+                    var handler = InputPortDragCompleted;
+                    if (handler != null)
+                    {
+                        handler(this, new PortConnectionEventArgs(port, portControl));
+                    }
+
+                    e.Handled = true;
+                };
+                input.Children.Add(portControl);
             }
 
             DockPanel.SetDock(input, Dock.Left);
@@ -1275,12 +1776,30 @@ namespace Vision.Flow.Designer.Wpf
             };
             foreach (var port in viewModel.OutputPorts)
             {
-                output.Children.Add(new PortControl(port));
+                var portControl = new PortControl(port);
+                portControl.MouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs e)
+                {
+                    var handler = OutputPortDragStarted;
+                    if (handler != null)
+                    {
+                        handler(this, new PortConnectionEventArgs(port, portControl));
+                    }
+
+                    e.Handled = true;
+                };
+                output.Children.Add(portControl);
             }
 
             DockPanel.SetDock(output, Dock.Right);
             row.Children.Add(output);
             return row;
+        }
+
+        private static string FormatElapsed(TimeSpan elapsed)
+        {
+            return elapsed.TotalMilliseconds < 1000
+                ? Math.Max(1, (int)elapsed.TotalMilliseconds).ToString(CultureInfo.InvariantCulture) + "ms"
+                : elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture) + "s";
         }
 
         private static string ToShortText(object value)
@@ -1315,14 +1834,33 @@ namespace Vision.Flow.Designer.Wpf
         }
     }
 
+    public sealed class PortConnectionEventArgs : EventArgs
+    {
+        public PortConnectionEventArgs(PortViewModel port, PortControl portControl)
+        {
+            Port = port;
+            PortControl = portControl;
+        }
+
+        public PortViewModel Port { get; private set; }
+
+        public PortControl PortControl { get; private set; }
+    }
+
     public sealed class EdgeLayerControl : Canvas
     {
+        private bool _hasPreview;
+        private Point _previewStart;
+        private Point _previewEnd;
+
         public EdgeLayerControl()
         {
             Width = 1800;
             Height = 1100;
-            IsHitTestVisible = false;
+            IsHitTestVisible = true;
         }
+
+        public event Action<EdgeDefinition> EdgeDeleteRequested;
 
         public void Render(FlowDesignDocument document)
         {
@@ -1342,18 +1880,106 @@ namespace Vision.Flow.Designer.Wpf
                     continue;
                 }
 
-                Children.Add(new Line
-                {
-                    X1 = from.X + 218,
-                    Y1 = from.Y + 82,
-                    X2 = to.X,
-                    Y2 = to.Y + 82,
-                    Stroke = FlowDesignerControl.BrushFromRgb(71, 85, 105),
-                    StrokeThickness = 2.0,
-                    StrokeStartLineCap = PenLineCap.Round,
-                    StrokeEndLineCap = PenLineCap.Triangle
-                });
+                var start = new Point(from.X + 218, from.Y + 82);
+                var end = new Point(to.X, to.Y + 82);
+                Children.Add(CreateEdgePath(start, end, edge, false));
             }
+
+            RenderPreview();
+        }
+
+        public void SetPreview(Point start, Point end)
+        {
+            _hasPreview = true;
+            _previewStart = start;
+            _previewEnd = end;
+            RenderPreview();
+        }
+
+        public void ClearPreview()
+        {
+            _hasPreview = false;
+            RenderPreview();
+        }
+
+        private void RenderPreview()
+        {
+            for (var index = Children.Count - 1; index >= 0; index--)
+            {
+                var path = Children[index] as ShapesPath;
+                if (path != null && string.Equals(Convert.ToString(path.Tag, CultureInfo.InvariantCulture), "__preview", StringComparison.Ordinal))
+                {
+                    Children.RemoveAt(index);
+                }
+            }
+
+            if (_hasPreview)
+            {
+                Children.Add(CreatePreviewPath(_previewStart, _previewEnd));
+            }
+        }
+
+        private UIElement CreateEdgePath(Point start, Point end, EdgeDefinition edge, bool isPreview)
+        {
+            var path = CreateBezierPath(start, end);
+            path.Stroke = isPreview ? FlowDesignerControl.BrushFromRgb(22, 101, 52) : FlowDesignerControl.BrushFromRgb(71, 85, 105);
+            path.StrokeThickness = isPreview ? 2.0 : 2.4;
+            path.StrokeStartLineCap = PenLineCap.Round;
+            path.StrokeEndLineCap = PenLineCap.Round;
+            path.Fill = Brushes.Transparent;
+            path.Tag = edge;
+            if (!isPreview)
+            {
+                path.ToolTip = edge.FromNodeId + "." + edge.FromPort + " -> " + edge.ToNodeId + "." + edge.ToPort;
+                path.MouseRightButtonDown += delegate(object sender, MouseButtonEventArgs e)
+                {
+                    var handler = EdgeDeleteRequested;
+                    if (handler != null)
+                    {
+                        handler(edge);
+                    }
+
+                    e.Handled = true;
+                };
+            }
+
+            return path;
+        }
+
+        private UIElement CreatePreviewPath(Point start, Point end)
+        {
+            var path = CreateBezierPath(start, end);
+            path.Stroke = FlowDesignerControl.BrushFromRgb(22, 101, 52);
+            path.StrokeThickness = 2.0;
+            path.StrokeDashArray = new DoubleCollection { 4, 4 };
+            path.StrokeStartLineCap = PenLineCap.Round;
+            path.StrokeEndLineCap = PenLineCap.Round;
+            path.Tag = "__preview";
+            path.IsHitTestVisible = false;
+            return path;
+        }
+
+        private static ShapesPath CreateBezierPath(Point start, Point end)
+        {
+            var distance = Math.Max(72, Math.Abs(end.X - start.X) * 0.45);
+            var geometry = new PathGeometry();
+            var figure = new PathFigure
+            {
+                StartPoint = start,
+                IsClosed = false,
+                IsFilled = false
+            };
+            figure.Segments.Add(new BezierSegment(
+                new Point(start.X + distance, start.Y),
+                new Point(end.X - distance, end.Y),
+                end,
+                true));
+            geometry.Figures.Add(figure);
+
+            return new ShapesPath
+            {
+                Data = geometry
+            };
         }
     }
 
@@ -1406,9 +2032,9 @@ namespace Vision.Flow.Designer.Wpf
                 {
                     object value;
                     node.Settings.TryGetValue(setting.Name, out value);
-                    AddTextField(setting.DisplayName + " (" + setting.Name + ")", ToEditorText(setting, value), true, delegate(string text)
+                    AddSettingField(setting, value, delegate(object newValue)
                     {
-                        node.Settings[setting.Name] = ConvertFromEditorText(setting, text);
+                        node.Settings[setting.Name] = newValue;
                     });
                 }
             }
@@ -1422,7 +2048,7 @@ namespace Vision.Flow.Designer.Wpf
                     var text = node.InputBindings.TryGetValue(input.Name, out binding) && binding != null
                         ? binding.Expression
                         : string.Empty;
-                    AddTextField(input.DisplayName + " (" + input.Name + ")", text, true, delegate(string value)
+                    AddBindingField(input.DisplayName + " (" + input.Name + ")", text, delegate(string value)
                     {
                         if (string.IsNullOrWhiteSpace(value))
                         {
@@ -1446,14 +2072,88 @@ namespace Vision.Flow.Designer.Wpf
             }
         }
 
+        private void AddSettingField(NodeSettingDescriptor setting, object value, Action<object> setter)
+        {
+            var label = setting.DisplayName + " (" + setting.Name + ")";
+            if (string.Equals(setting.DataType, "Boolean", StringComparison.OrdinalIgnoreCase))
+            {
+                _rows.Children.Add(CreateLabel(label));
+                var checkBox = new CheckBox
+                {
+                    IsChecked = value != null && Convert.ToBoolean(value, CultureInfo.InvariantCulture),
+                    Margin = new Thickness(0, 0, 0, 4)
+                };
+                checkBox.Checked += delegate { ApplySetting(setter, true); };
+                checkBox.Unchecked += delegate { ApplySetting(setter, false); };
+                _rows.Children.Add(checkBox);
+                return;
+            }
+
+            var selectorItems = GetSelectorItems(setting);
+            if (selectorItems.Count > 0)
+            {
+                _rows.Children.Add(CreateLabel(label));
+                var comboBox = new ComboBox
+                {
+                    IsEditable = true,
+                    Text = ToEditorText(setting, value),
+                    MinHeight = 28,
+                    Margin = new Thickness(0, 0, 0, 4),
+                    BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
+                };
+                foreach (var item in selectorItems)
+                {
+                    comboBox.Items.Add(item);
+                }
+
+                comboBox.LostFocus += delegate { ApplySetting(setter, ConvertFromEditorText(setting, comboBox.Text)); };
+                comboBox.DropDownClosed += delegate { ApplySetting(setter, ConvertFromEditorText(setting, comboBox.Text)); };
+                _rows.Children.Add(comboBox);
+                return;
+            }
+
+            AddTextField(label, ToEditorText(setting, value), true, delegate(string text)
+            {
+                ApplySetting(setter, ConvertFromEditorText(setting, text));
+            });
+        }
+
+        private void AddBindingField(string label, string value, Action<string> setter)
+        {
+            _rows.Children.Add(CreateLabel(label));
+            var dock = new DockPanel
+            {
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            var selector = new VariableSelectorControl();
+            DockPanel.SetDock(selector, Dock.Right);
+            dock.Children.Add(selector);
+
+            var textBox = new TextBox
+            {
+                Text = value ?? string.Empty,
+                MinHeight = 28,
+                Padding = new Thickness(7, 4, 7, 4),
+                BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
+            };
+            selector.VariableSelected += delegate(string expression)
+            {
+                textBox.Text = string.IsNullOrWhiteSpace(textBox.Text) ? expression : textBox.Text + " " + expression;
+                setter(textBox.Text);
+                RaiseChanged();
+            };
+            textBox.LostFocus += delegate
+            {
+                setter(textBox.Text);
+                RaiseChanged();
+            };
+            dock.Children.Add(textBox);
+            _rows.Children.Add(dock);
+        }
+
         private void AddTextField(string label, string value, bool editable, Action<string> setter)
         {
-            _rows.Children.Add(new TextBlock
-            {
-                Text = label,
-                Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105),
-                Margin = new Thickness(0, 8, 0, 3)
-            });
+            _rows.Children.Add(CreateLabel(label));
 
             var textBox = new TextBox
             {
@@ -1471,13 +2171,74 @@ namespace Vision.Flow.Designer.Wpf
                 if (setter != null)
                 {
                     setter(textBox.Text);
-                    if (_changed != null)
-                    {
-                        _changed();
-                    }
+                    RaiseChanged();
                 }
             };
             _rows.Children.Add(textBox);
+        }
+
+        private static TextBlock CreateLabel(string label)
+        {
+            return new TextBlock
+            {
+                Text = label,
+                Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105),
+                Margin = new Thickness(0, 8, 0, 3)
+            };
+        }
+
+        private void ApplySetting(Action<object> setter, object value)
+        {
+            if (setter != null)
+            {
+                setter(value);
+                RaiseChanged();
+            }
+        }
+
+        private void RaiseChanged()
+        {
+            if (_changed != null)
+            {
+                _changed();
+            }
+        }
+
+        private static IList<string> GetSelectorItems(NodeSettingDescriptor setting)
+        {
+            var items = new List<string>();
+            if (setting == null)
+            {
+                return items;
+            }
+
+            if (string.Equals(setting.Name, "CameraId", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("Camera01");
+            }
+            else if (string.Equals(setting.Name, "LightId", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("Light01");
+            }
+            else if (string.Equals(setting.Name, "RecipeId", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("Recipe01");
+            }
+            else if (string.Equals(setting.Name, "DatabaseId", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("VisionDb");
+            }
+            else if (string.Equals(setting.Name, "SaverId", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(setting.Name, "ImageSaverId", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("ImageSave01");
+            }
+            else if (string.Equals(setting.Name, "MatchMode", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("TriggerId");
+            }
+
+            return items;
         }
 
         private static TextBlock CreateTitle(string text)
@@ -1717,6 +2478,28 @@ namespace Vision.Flow.Designer.Wpf
         }
     }
 
+    public sealed class VariableSelectorControl : Button
+    {
+        public VariableSelectorControl()
+        {
+            Content = "Var";
+            MinWidth = 44;
+            Height = 28;
+            Margin = new Thickness(6, 0, 0, 0);
+            ToolTip = "Insert a variable binding placeholder.";
+            Click += delegate
+            {
+                var handler = VariableSelected;
+                if (handler != null)
+                {
+                    handler("{{ node.Output }}");
+                }
+            };
+        }
+
+        public event Action<string> VariableSelected;
+    }
+
     public sealed class RuntimeDebugPanelControl : Border
     {
         private readonly ListBox _events;
@@ -1749,8 +2532,11 @@ namespace Vision.Flow.Designer.Wpf
                 BorderThickness = new Thickness(0),
                 Background = Brushes.White
             };
+            _events.SelectionChanged += OnSelectionChanged;
             layout.Children.Add(_events);
         }
+
+        public event Action<string> NodeRequested;
 
         public void Clear()
         {
@@ -1759,7 +2545,10 @@ namespace Vision.Flow.Designer.Wpf
 
         public void AddMessage(string message)
         {
-            _events.Items.Add(DateTime.Now.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture) + "  " + message);
+            _events.Items.Add(new ListBoxItem
+            {
+                Content = DateTime.Now.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture) + "  " + message
+            });
             _events.ScrollIntoView(_events.Items[_events.Items.Count - 1]);
         }
 
@@ -1773,8 +2562,28 @@ namespace Vision.Flow.Designer.Wpf
                 runtimeEvent.EventType,
                 node,
                 runtimeEvent.Message ?? runtimeEvent.OutputPort ?? string.Empty);
-            _events.Items.Add(text);
+            _events.Items.Add(new ListBoxItem
+            {
+                Content = text,
+                Tag = runtimeEvent.NodeId
+            });
             _events.ScrollIntoView(_events.Items[_events.Items.Count - 1]);
+        }
+
+        private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var item = _events.SelectedItem as ListBoxItem;
+            var nodeId = item == null ? null : item.Tag as string;
+            if (string.IsNullOrWhiteSpace(nodeId))
+            {
+                return;
+            }
+
+            var handler = NodeRequested;
+            if (handler != null)
+            {
+                handler(nodeId);
+            }
         }
     }
 
