@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.cache
+TestResults/
+artifacts/
+packages/
+*.nupkg
+*.log
+*.tmp
+.DS_Store

@@ -1,0 +1,9 @@
+<Window x:Class="Vision.Flow.Demo.DesignerWpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:designer="clr-namespace:Vision.Flow.Designer.Wpf;assembly=Vision.Flow.Designer.Wpf"
+        Title="Vision Flow Designer Demo"
+        Width="1200"
+        Height="800">
+    <designer:FlowDesignerControl />
+</Window>

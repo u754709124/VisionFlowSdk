@@ -1,0 +1,158 @@
+{
+  "flowId": "continuous-scan",
+  "flowName": "Continuous Scan Demo",
+  "schemaVersion": 1,
+  "runtime": {
+    "flowId": "continuous-scan",
+    "flowName": "Continuous Scan Demo",
+    "schemaVersion": 1,
+    "version": "1.0.0",
+    "nodes": [
+      {
+        "id": "preprocess_1",
+        "type": "frame.preprocess",
+        "name": "单帧预处理",
+        "version": "1.0.0",
+        "settings": {
+          "AlgorithmId": "Pre3D2D"
+        },
+        "inputBindings": {
+          "Frame": "{{ Entry.Frame }}"
+        }
+      },
+      {
+        "id": "scan_join_1",
+        "type": "scan.group_join",
+        "name": "扫描组汇合",
+        "version": "1.0.0",
+        "settings": {
+          "ExpectedFrameCount": 100,
+          "GroupKey": "ScanGroupId"
+        },
+        "inputBindings": {
+          "PreprocessResult": "{{ preprocess_1.PreprocessResult }}"
+        }
+      },
+      {
+        "id": "fusion_1",
+        "type": "fusion.final_3d_2d",
+        "name": "最终3D/2D合成",
+        "version": "1.0.0",
+        "settings": {
+          "FusionMode": "3D2D"
+        },
+        "inputBindings": {
+          "ScanGroup": "{{ scan_join_1.ScanGroup }}"
+        }
+      },
+      {
+        "id": "recipe_1",
+        "type": "recipe.run",
+        "name": "合成后检测",
+        "version": "1.0.0",
+        "settings": {
+          "RecipeId": "ScanRecipe"
+        },
+        "inputBindings": {
+          "Final3DImage": "{{ fusion_1.Final3DImage }}",
+          "Final2DImage": "{{ fusion_1.Final2DImage }}"
+        }
+      },
+      {
+        "id": "image_save_1",
+        "type": "image.save",
+        "name": "保存合成图",
+        "version": "1.0.0",
+        "settings": {
+          "RootDirectory": "D:\\VisionImages"
+        },
+        "inputBindings": {
+          "Image": "{{ fusion_1.Final2DImage }}",
+          "ResultImage": "{{ recipe_1.ResultImage }}"
+        }
+      },
+      {
+        "id": "db_save_1",
+        "type": "database.save",
+        "name": "保存扫描结果",
+        "version": "1.0.0",
+        "settings": {
+          "DatabaseId": "VisionDb",
+          "TableName": "ScanInspectionResult"
+        },
+        "inputBindings": {
+          "Result": "{{ recipe_1.Result }}"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "fromNodeId": "preprocess_1",
+        "fromPort": "Next",
+        "toNodeId": "scan_join_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "scan_join_1",
+        "fromPort": "Completed",
+        "toNodeId": "fusion_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "fusion_1",
+        "fromPort": "Next",
+        "toNodeId": "recipe_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "recipe_1",
+        "fromPort": "Next",
+        "toNodeId": "image_save_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "image_save_1",
+        "fromPort": "Next",
+        "toNodeId": "db_save_1",
+        "toPort": "In"
+      }
+    ],
+    "entries": [
+      {
+        "entryName": "CameraFrameStream",
+        "targetNodeId": "preprocess_1"
+      }
+    ]
+  },
+  "view": {
+    "zoom": 1.0,
+    "offsetX": 0,
+    "offsetY": 0,
+    "nodes": {
+      "preprocess_1": {
+        "x": 120,
+        "y": 180
+      },
+      "scan_join_1": {
+        "x": 420,
+        "y": 180
+      },
+      "fusion_1": {
+        "x": 720,
+        "y": 180
+      },
+      "recipe_1": {
+        "x": 1020,
+        "y": 180
+      },
+      "image_save_1": {
+        "x": 1320,
+        "y": 180
+      },
+      "db_save_1": {
+        "x": 1620,
+        "y": 180
+      }
+    }
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "flowId": "single-shot",
+  "flowName": "Single Shot Demo",
+  "schemaVersion": 1,
+  "runtime": {
+    "flowId": "single-shot",
+    "flowName": "Single Shot Demo",
+    "schemaVersion": 1,
+    "version": "1.0.0",
+    "nodes": [
+      {
+        "id": "cam_params_1",
+        "type": "camera.set_parameters",
+        "name": "设置相机参数",
+        "version": "1.0.0",
+        "settings": {
+          "CameraId": "Camera01",
+          "TimeoutMs": 1000,
+          "Parameters": [
+            {
+              "Name": "ExposureTime",
+              "ValueSource": "Constant",
+              "Value": 8000
+            },
+            {
+              "Name": "Gain",
+              "ValueSource": "Constant",
+              "Value": 2.0
+            }
+          ]
+        },
+        "inputBindings": {}
+      },
+      {
+        "id": "cam_trigger_1",
+        "type": "camera.soft_trigger",
+        "name": "相机软触发",
+        "version": "1.0.0",
+        "settings": {
+          "CameraId": "Camera01",
+          "TimeoutMs": 1000
+        },
+        "inputBindings": {}
+      },
+      {
+        "id": "cam_callback_1",
+        "type": "camera.image_callback",
+        "name": "等待图像回调",
+        "version": "1.0.0",
+        "settings": {
+          "CameraId": "Camera01",
+          "TimeoutMs": 1000,
+          "MatchMode": "TriggerId"
+        },
+        "inputBindings": {}
+      },
+      {
+        "id": "recipe_1",
+        "type": "recipe.run",
+        "name": "配方检测",
+        "version": "1.0.0",
+        "settings": {
+          "RecipeId": "Recipe01",
+          "TimeoutMs": 5000
+        },
+        "inputBindings": {
+          "InputImage": "{{ cam_callback_1.Image }}"
+        }
+      },
+      {
+        "id": "image_save_1",
+        "type": "image.save",
+        "name": "保存图片",
+        "version": "1.0.0",
+        "settings": {
+          "RootDirectory": "D:\\VisionImages",
+          "DirectoryTemplate": "{Date:yyyyMMdd}\\{CameraId}\\{Result}",
+          "FileNameTemplate": "{Time:HHmmss_fff}_{FrameId}.png"
+        },
+        "inputBindings": {
+          "Image": "{{ cam_callback_1.Image }}",
+          "ResultImage": "{{ recipe_1.ResultImage }}"
+        }
+      },
+      {
+        "id": "db_save_1",
+        "type": "database.save",
+        "name": "保存数据库",
+        "version": "1.0.0",
+        "settings": {
+          "DatabaseId": "VisionDb",
+          "TableName": "InspectionResult",
+          "FieldMappings": []
+        },
+        "inputBindings": {
+          "Result": "{{ recipe_1.Result }}",
+          "ImagePath": "{{ image_save_1.ImagePath }}"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "fromNodeId": "cam_params_1",
+        "fromPort": "Next",
+        "toNodeId": "cam_trigger_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "cam_trigger_1",
+        "fromPort": "Next",
+        "toNodeId": "cam_callback_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "cam_callback_1",
+        "fromPort": "Next",
+        "toNodeId": "recipe_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "recipe_1",
+        "fromPort": "Next",
+        "toNodeId": "image_save_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "image_save_1",
+        "fromPort": "Next",
+        "toNodeId": "db_save_1",
+        "toPort": "In"
+      }
+    ],
+    "entries": [
+      {
+        "entryName": "ManualStart",
+        "targetNodeId": "cam_params_1"
+      }
+    ]
+  },
+  "view": {
+    "zoom": 1.0,
+    "offsetX": 0,
+    "offsetY": 0,
+    "nodes": {
+      "cam_params_1": {
+        "x": 100,
+        "y": 140
+      },
+      "cam_trigger_1": {
+        "x": 360,
+        "y": 140
+      },
+      "cam_callback_1": {
+        "x": 620,
+        "y": 140
+      },
+      "recipe_1": {
+        "x": 880,
+        "y": 140
+      },
+      "image_save_1": {
+        "x": 1140,
+        "y": 140
+      },
+      "db_save_1": {
+        "x": 1400,
+        "y": 140
+      }
+    }
+  }
+}

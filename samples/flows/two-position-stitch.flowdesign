@@ -1,0 +1,139 @@
+{
+  "flowId": "two-position-stitch",
+  "flowName": "Two Position Stitch Demo",
+  "schemaVersion": 1,
+  "runtime": {
+    "flowId": "two-position-stitch",
+    "flowName": "Two Position Stitch Demo",
+    "schemaVersion": 1,
+    "version": "1.0.0",
+    "nodes": [
+      {
+        "id": "frame_join_1",
+        "type": "group.frame_join",
+        "name": "图像组汇合",
+        "version": "1.0.0",
+        "settings": {
+          "ExpectedShotCount": 2,
+          "GroupKey": "CaptureGroupId"
+        },
+        "inputBindings": {
+          "Frame": "{{ Entry.Frame }}"
+        }
+      },
+      {
+        "id": "stitch_1",
+        "type": "image.stitch",
+        "name": "拼图",
+        "version": "1.0.0",
+        "settings": {
+          "Mode": "FixedOffset"
+        },
+        "inputBindings": {
+          "FrameGroup": "{{ frame_join_1.FrameGroup }}"
+        }
+      },
+      {
+        "id": "recipe_1",
+        "type": "recipe.run",
+        "name": "拼图后检测",
+        "version": "1.0.0",
+        "settings": {
+          "RecipeId": "StitchRecipe"
+        },
+        "inputBindings": {
+          "InputImage": "{{ stitch_1.StitchedImage }}"
+        }
+      },
+      {
+        "id": "image_save_1",
+        "type": "image.save",
+        "name": "保存图片",
+        "version": "1.0.0",
+        "settings": {
+          "RootDirectory": "D:\\VisionImages"
+        },
+        "inputBindings": {
+          "Image": "{{ stitch_1.StitchedImage }}",
+          "ResultImage": "{{ recipe_1.ResultImage }}"
+        }
+      },
+      {
+        "id": "db_save_1",
+        "type": "database.save",
+        "name": "保存数据库",
+        "version": "1.0.0",
+        "settings": {
+          "DatabaseId": "VisionDb",
+          "TableName": "InspectionGroupResult"
+        },
+        "inputBindings": {
+          "Result": "{{ recipe_1.Result }}"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "fromNodeId": "frame_join_1",
+        "fromPort": "Completed",
+        "toNodeId": "stitch_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "stitch_1",
+        "fromPort": "Next",
+        "toNodeId": "recipe_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "recipe_1",
+        "fromPort": "Next",
+        "toNodeId": "image_save_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "image_save_1",
+        "fromPort": "Next",
+        "toNodeId": "db_save_1",
+        "toPort": "In"
+      }
+    ],
+    "entries": [
+      {
+        "entryName": "Position1Frame",
+        "targetNodeId": "frame_join_1"
+      },
+      {
+        "entryName": "Position2Frame",
+        "targetNodeId": "frame_join_1"
+      }
+    ]
+  },
+  "view": {
+    "zoom": 1.0,
+    "offsetX": 0,
+    "offsetY": 0,
+    "nodes": {
+      "frame_join_1": {
+        "x": 260,
+        "y": 160
+      },
+      "stitch_1": {
+        "x": 560,
+        "y": 160
+      },
+      "recipe_1": {
+        "x": 840,
+        "y": 160
+      },
+      "image_save_1": {
+        "x": 1120,
+        "y": 160
+      },
+      "db_save_1": {
+        "x": 1400,
+        "y": 160
+      }
+    }
+  }
+}
