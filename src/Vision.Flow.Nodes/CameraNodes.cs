@@ -1161,7 +1161,7 @@ namespace Vision.Flow.Nodes
         {
             _cameraId = cameraId;
             _triggerId = triggerId;
-            _completion = new TaskCompletionSource<CameraFrameData>();
+            _completion = new TaskCompletionSource<CameraFrameData>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         public Task<CameraFrameData> Task

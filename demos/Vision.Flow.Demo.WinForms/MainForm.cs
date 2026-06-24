@@ -473,7 +473,7 @@ namespace Vision.Flow.Demo.WinForms
 
         private async Task StartRunnerAsync()
         {
-            EnsureRunnerLoaded();
+            await EnsureRunnerLoadedAsync().ConfigureAwait(true);
             await _runner.StartAsync(CancellationToken.None).ConfigureAwait(true);
             _runnerStateValue.Text = "Running";
         }
@@ -492,7 +492,7 @@ namespace Vision.Flow.Demo.WinForms
 
         private async Task TriggerAsync(string entryName)
         {
-            EnsureRunnerLoaded();
+            await EnsureRunnerLoadedAsync().ConfigureAwait(true);
             if (!_runner.IsRunning)
             {
                 await _runner.StartAsync(CancellationToken.None).ConfigureAwait(true);
@@ -511,11 +511,11 @@ namespace Vision.Flow.Demo.WinForms
             RefreshTokenSummary(entryName);
         }
 
-        private void EnsureRunnerLoaded()
+        private async Task EnsureRunnerLoadedAsync()
         {
             if (_runner == null)
             {
-                LoadRuntimeFlowAsync().GetAwaiter().GetResult();
+                await LoadRuntimeFlowAsync().ConfigureAwait(true);
             }
         }
 
