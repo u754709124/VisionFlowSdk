@@ -1,0 +1,310 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Vision.Flow.Core
+{
+    public sealed class FlowEngine
+    {
+        private readonly NodeRegistry _nodeRegistry;
+        private readonly IFlowEventSink _eventSink;
+
+        public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink = null)
+        {
+            if (nodeRegistry == null)
+            {
+                throw new ArgumentNullException("nodeRegistry");
+            }
+
+            _nodeRegistry = nodeRegistry;
+            _eventSink = eventSink ?? new InMemoryFlowEventSink();
+        }
+
+        public IFlowRunner CreateRunner(RuntimeFlowDefinition definition)
+        {
+            if (definition == null)
+            {
+                throw new ArgumentNullException("definition");
+            }
+
+            return new FlowRunner(definition, _nodeRegistry, _eventSink);
+        }
+    }
+
+    public sealed class FlowRunner : IFlowRunner
+    {
+        private readonly object _gate = new object();
+        private readonly RuntimeFlowDefinition _definition;
+        private readonly NodeRegistry _nodeRegistry;
+        private readonly IFlowEventSink _eventSink;
+        private CancellationTokenSource _runnerCancellation;
+
+        public FlowRunner(RuntimeFlowDefinition definition, NodeRegistry nodeRegistry, IFlowEventSink eventSink = null)
+        {
+            if (definition == null)
+            {
+                throw new ArgumentNullException("definition");
+            }
+
+            if (nodeRegistry == null)
+            {
+                throw new ArgumentNullException("nodeRegistry");
+            }
+
+            _definition = definition;
+            _nodeRegistry = nodeRegistry;
+            _eventSink = eventSink ?? new InMemoryFlowEventSink();
+        }
+
+        public RuntimeFlowDefinition Definition
+        {
+            get { return _definition; }
+        }
+
+        public bool IsRunning { get; private set; }
+
+        public Task StartAsync(CancellationToken cancellationToken = default(CancellationToken))
+        {
+            lock (_gate)
+            {
+                if (IsRunning)
+                {
+                    return Task.FromResult(0);
+                }
+
+                _runnerCancellation = new CancellationTokenSource();
+                IsRunning = true;
+            }
+
+            return PublishAsync(
+                FlowRuntimeEvent.Create(FlowRuntimeEventType.FlowStarted, _definition, null),
+                cancellationToken);
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken = default(CancellationToken))
+        {
+            CancellationTokenSource cancellationSource = null;
+            lock (_gate)
+            {
+                if (!IsRunning)
+                {
+                    return Task.FromResult(0);
+                }
+
+                cancellationSource = _runnerCancellation;
+                _runnerCancellation = null;
+                IsRunning = false;
+            }
+
+            if (cancellationSource != null)
+            {
+                cancellationSource.Cancel();
+            }
+
+            return PublishAsync(
+                FlowRuntimeEvent.Create(FlowRuntimeEventType.FlowStopped, _definition, null, null, NodeRuntimeState.Stopped),
+                cancellationToken);
+        }
+
+        public async Task TriggerAsync(string entryName, FlowToken token, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (string.IsNullOrWhiteSpace(entryName))
+            {
+                throw new ArgumentException("Entry name is required.", "entryName");
+            }
+
+            if (token == null)
+            {
+                throw new ArgumentNullException("token");
+            }
+
+            CancellationToken runnerToken;
+            lock (_gate)
+            {
+                if (!IsRunning || _runnerCancellation == null)
+                {
+                    throw new InvalidOperationException("FlowRunner must be started before TriggerAsync is called.");
+                }
+
+                runnerToken = _runnerCancellation.Token;
+            }
+
+            var entry = FindEntry(entryName);
+            using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, runnerToken))
+            {
+                var linkedToken = linkedCancellation.Token;
+                var variables = new VariablePool();
+                await PublishAsync(
+                    FlowRuntimeEvent.Create(FlowRuntimeEventType.TokenCreated, _definition, token),
+                    linkedToken).ConfigureAwait(false);
+
+                var currentNodeId = entry.TargetNodeId;
+                var visitedNodeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                while (!string.IsNullOrWhiteSpace(currentNodeId))
+                {
+                    linkedToken.ThrowIfCancellationRequested();
+                    if (!visitedNodeIds.Add(currentNodeId))
+                    {
+                        throw new InvalidOperationException("Cycle detected while executing node: " + currentNodeId);
+                    }
+
+                    var node = FindNode(currentNodeId);
+                    var result = await ExecuteNodeAsync(node, token, variables, linkedToken).ConfigureAwait(false);
+                    currentNodeId = FindNextNodeId(node.Id, string.IsNullOrWhiteSpace(result.OutputPort) ? "Next" : result.OutputPort);
+                }
+            }
+        }
+
+        private async Task<NodeExecutionResult> ExecuteNodeAsync(
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            CancellationToken cancellationToken)
+        {
+            await PublishAsync(
+                FlowRuntimeEvent.Create(FlowRuntimeEventType.NodeStarted, _definition, token, node, NodeRuntimeState.Running),
+                cancellationToken).ConfigureAwait(false);
+
+            NodeExecutionResult result;
+            try
+            {
+                var flowNode = _nodeRegistry.CreateNode(node);
+                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink);
+                result = await flowNode.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
+                if (result == null)
+                {
+                    result = NodeExecutionResult.Failure("Node returned a null execution result.");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                result = NodeExecutionResult.Failure(ex.Message);
+            }
+
+            if (result.IsTimeout)
+            {
+                await PublishAsync(
+                    FlowRuntimeEvent.Create(
+                        FlowRuntimeEventType.NodeTimeout,
+                        _definition,
+                        token,
+                        node,
+                        NodeRuntimeState.Timeout,
+                        result.ErrorMessage,
+                        string.IsNullOrWhiteSpace(result.OutputPort) ? "Error" : result.OutputPort),
+                    cancellationToken).ConfigureAwait(false);
+                return result;
+            }
+
+            if (!result.IsSuccess)
+            {
+                await PublishAsync(
+                    FlowRuntimeEvent.Create(
+                        FlowRuntimeEventType.NodeFailed,
+                        _definition,
+                        token,
+                        node,
+                        NodeRuntimeState.Failed,
+                        result.ErrorMessage,
+                        string.IsNullOrWhiteSpace(result.OutputPort) ? "Error" : result.OutputPort),
+                    cancellationToken).ConfigureAwait(false);
+                return result;
+            }
+
+            await WriteOutputsAsync(node, token, result, variables, cancellationToken).ConfigureAwait(false);
+            await PublishAsync(
+                FlowRuntimeEvent.Create(
+                    FlowRuntimeEventType.NodeCompleted,
+                    _definition,
+                    token,
+                    node,
+                    NodeRuntimeState.Completed,
+                    null,
+                    string.IsNullOrWhiteSpace(result.OutputPort) ? "Next" : result.OutputPort),
+                cancellationToken).ConfigureAwait(false);
+            return result;
+        }
+
+        private async Task WriteOutputsAsync(
+            NodeDefinition node,
+            FlowToken token,
+            NodeExecutionResult result,
+            IVariablePool variables,
+            CancellationToken cancellationToken)
+        {
+            if (result.Outputs == null)
+            {
+                return;
+            }
+
+            foreach (var output in result.Outputs)
+            {
+                var variableName = node.Id + "." + output.Key;
+                variables.Set(variableName, output.Value);
+
+                var runtimeEvent = FlowRuntimeEvent.Create(
+                    FlowRuntimeEventType.OutputProduced,
+                    _definition,
+                    token,
+                    node,
+                    NodeRuntimeState.Completed,
+                    null,
+                    result.OutputPort);
+                runtimeEvent.Data["VariableName"] = variableName;
+                runtimeEvent.Data["Value"] = output.Value;
+                await PublishAsync(runtimeEvent, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        private FlowEntryDefinition FindEntry(string entryName)
+        {
+            var entries = _definition.Entries ?? new List<FlowEntryDefinition>();
+            var entry = entries.FirstOrDefault(x => string.Equals(x.EntryName, entryName, StringComparison.OrdinalIgnoreCase));
+            if (entry == null)
+            {
+                throw new ArgumentException("Flow entry was not found: " + entryName, "entryName");
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.TargetNodeId))
+            {
+                throw new InvalidOperationException("Flow entry does not have a target node: " + entryName);
+            }
+
+            return entry;
+        }
+
+        private NodeDefinition FindNode(string nodeId)
+        {
+            var nodes = _definition.Nodes ?? new List<NodeDefinition>();
+            var node = nodes.FirstOrDefault(x => string.Equals(x.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+            if (node == null)
+            {
+                throw new InvalidOperationException("Flow node was not found: " + nodeId);
+            }
+
+            return node;
+        }
+
+        private string FindNextNodeId(string nodeId, string outputPort)
+        {
+            var edges = _definition.Edges ?? new List<EdgeDefinition>();
+            var edge = edges.FirstOrDefault(x =>
+                string.Equals(x.FromNodeId, nodeId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.FromPort, outputPort, StringComparison.OrdinalIgnoreCase));
+
+            return edge == null ? null : edge.ToNodeId;
+        }
+
+        private Task PublishAsync(FlowRuntimeEvent runtimeEvent, CancellationToken cancellationToken)
+        {
+            return _eventSink.PublishAsync(runtimeEvent, cancellationToken);
+        }
+    }
+}

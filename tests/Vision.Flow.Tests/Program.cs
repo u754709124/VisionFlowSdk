@@ -1,4 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Vision.Flow.Core;
 
 namespace Vision.Flow.Tests
 {
@@ -6,8 +11,515 @@ namespace Vision.Flow.Tests
     {
         private static int Main()
         {
-            Console.WriteLine("Vision.Flow.Tests placeholder passed.");
-            return 0;
+            try
+            {
+                return RunAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Unexpected test harness failure:");
+                Console.WriteLine(ex);
+                return 1;
+            }
+        }
+
+        private static async Task<int> RunAsync()
+        {
+            var tests = new List<TestCase>
+            {
+                new TestCase("FlowToken supports Set/Get/TryGet", FlowTokenTests.SetGetTryGet),
+                new TestCase("Runtime serialization round-trips without view state", SerializationTests.RuntimeRoundTrip),
+                new TestCase("Design serialization round-trips runtime and view state", SerializationTests.DesignRoundTrip),
+                new TestCase("FlowRunner executes A -> B -> C and writes output variables", FlowRunnerTests.LinearOrderAndVariables),
+                new TestCase("FlowRunner publishes NodeFailed and follows Error route", FlowRunnerTests.NodeFailedAndErrorRoute),
+                new TestCase("FlowRunner reports a clear missing entry exception", FlowRunnerTests.MissingEntryThrows),
+                new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder)
+            };
+
+            var failed = 0;
+            foreach (var test in tests)
+            {
+                try
+                {
+                    await test.RunAsync().ConfigureAwait(false);
+                    Console.WriteLine("[PASS] " + test.Name);
+                }
+                catch (Exception ex)
+                {
+                    failed++;
+                    Console.WriteLine("[FAIL] " + test.Name);
+                    Console.WriteLine(ex);
+                }
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Tests run: " + tests.Count + ", Failed: " + failed);
+            return failed == 0 ? 0 : 1;
+        }
+    }
+
+    internal sealed class TestCase
+    {
+        private readonly Func<Task> _runAsync;
+
+        public TestCase(string name, Func<Task> runAsync)
+        {
+            Name = name;
+            _runAsync = runAsync;
+        }
+
+        public string Name { get; private set; }
+
+        public Task RunAsync()
+        {
+            return _runAsync();
+        }
+    }
+
+    internal static class FlowTokenTests
+    {
+        public static Task SetGetTryGet()
+        {
+            var token = new FlowToken
+            {
+                ProductId = "P-001",
+                WorkpieceId = "W-001"
+            };
+
+            token.Set("Score", 98);
+            token.Set("Name", "part-a");
+            token.Metadata["Line"] = "L1";
+
+            AssertEx.Equal("P-001", token.ProductId, "ProductId should be stored.");
+            AssertEx.Equal(98, token.Get<int>("Score"), "Integer value should round-trip.");
+            AssertEx.Equal("part-a", token.Get<string>("Name"), "String value should round-trip.");
+            AssertEx.Equal("L1", Convert.ToString(token.Metadata["Line"]), "Metadata value should round-trip.");
+
+            int score;
+            AssertEx.True(token.TryGet<int>("Score", out score), "TryGet should find Score.");
+            AssertEx.Equal(98, score, "TryGet should return the converted Score.");
+
+            object missing;
+            AssertEx.False(token.TryGet("Missing", out missing), "TryGet should return false for missing keys.");
+            return Task.FromResult(0);
+        }
+    }
+
+    internal static class SerializationTests
+    {
+        public static Task RuntimeRoundTrip()
+        {
+            var runtime = CreateSampleRuntime();
+            var json = RuntimeFlowSerializer.Serialize(runtime);
+            var restored = RuntimeFlowSerializer.Deserialize(json);
+
+            AssertEx.Equal("Station01_Main", restored.FlowId, "Runtime FlowId should round-trip.");
+            AssertEx.Equal(2, restored.Nodes.Count, "Runtime nodes should round-trip.");
+            AssertEx.Equal("camera.soft_trigger", restored.Nodes[0].Type, "Node type should round-trip.");
+            AssertEx.Equal("Camera01", Convert.ToString(restored.Nodes[0].Settings["CameraId"]), "Node settings should round-trip.");
+            AssertEx.Equal("camera_trigger_1.Image", restored.Nodes[1].InputBindings["Image"].GetVariableName(), "Input binding should round-trip.");
+            AssertEx.Equal(1, restored.Edges.Count, "Runtime edges should round-trip.");
+            AssertEx.Equal("ManualStart", restored.Entries[0].EntryName, "Runtime entry should round-trip.");
+            AssertEx.False(json.IndexOf("Zoom", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view zoom.");
+            AssertEx.False(json.IndexOf("OffsetX", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view offsets.");
+            AssertEx.False(json.IndexOf("NodeViewState", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain designer view types.");
+            return Task.FromResult(0);
+        }
+
+        public static Task DesignRoundTrip()
+        {
+            var document = new FlowDesignDocument
+            {
+                FlowId = "Station01_Main",
+                FlowName = "Station01 Main Flow",
+                Runtime = CreateSampleRuntime(),
+                View = new FlowViewState
+                {
+                    Zoom = 1.25,
+                    OffsetX = 12,
+                    OffsetY = 34
+                }
+            };
+            document.View.Nodes["camera_trigger_1"] = new NodeViewState
+            {
+                X = 100,
+                Y = 200,
+                IsCollapsed = true
+            };
+
+            var json = FlowDesignSerializer.Serialize(document);
+            var restored = FlowDesignSerializer.Deserialize(json);
+
+            AssertEx.Equal("Station01_Main", restored.FlowId, "Design FlowId should round-trip.");
+            AssertEx.Equal("Station01_Main", restored.Runtime.FlowId, "Design runtime should round-trip.");
+            AssertEx.Equal(1.25, restored.View.Zoom, "View zoom should round-trip.");
+            AssertEx.Equal(100.0, restored.View.Nodes["camera_trigger_1"].X, "Node X should round-trip.");
+            AssertEx.True(restored.View.Nodes["camera_trigger_1"].IsCollapsed, "Node collapsed state should round-trip.");
+            return Task.FromResult(0);
+        }
+
+        private static RuntimeFlowDefinition CreateSampleRuntime()
+        {
+            var runtime = new RuntimeFlowDefinition
+            {
+                FlowId = "Station01_Main",
+                FlowName = "Station01 Main Flow",
+                Version = "1.0.0"
+            };
+
+            runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "camera_trigger_1",
+                Type = "camera.soft_trigger",
+                Name = "Camera Soft Trigger",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "CameraId", "Camera01" },
+                    { "TimeoutMs", 1000 }
+                }
+            });
+
+            runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "image_save_1",
+                Type = "image.save",
+                Name = "Save Image",
+                Version = "1.0.0",
+                InputBindings =
+                {
+                    { "Image", VariableBinding.ForVariable("camera_trigger_1", "Image") }
+                }
+            });
+
+            runtime.Edges.Add(new EdgeDefinition
+            {
+                FromNodeId = "camera_trigger_1",
+                FromPort = "Next",
+                ToNodeId = "image_save_1",
+                ToPort = "In"
+            });
+
+            runtime.Entries.Add(new FlowEntryDefinition
+            {
+                EntryName = "ManualStart",
+                TargetNodeId = "camera_trigger_1"
+            });
+
+            return runtime;
+        }
+    }
+
+    internal static class FlowRunnerTests
+    {
+        public static async Task LinearOrderAndVariables()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateLinearFlow(includeOutputs: true), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-linear" }).ConfigureAwait(false);
+
+            AssertEx.SequenceEqual(new[] { "A", "B", "C" }, executionLog, "Nodes should execute in A -> B -> C order.");
+            AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data["VariableName"]) == "A.Value"), "A.Value output should be written.");
+            AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data["VariableName"]) == "B.Value"), "B.Value output should be written.");
+        }
+
+        public static async Task NodeFailedAndErrorRoute()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateFailureFlow(), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-failure" }).ConfigureAwait(false);
+
+            AssertEx.SequenceEqual(new[] { "A", "ErrorHandler" }, executionLog, "Failure should follow the Error route.");
+            var failedEvent = sink.Events.FirstOrDefault(x => x.EventType == FlowRuntimeEventType.NodeFailed);
+            AssertEx.NotNull(failedEvent, "NodeFailed event should be published.");
+            AssertEx.Equal("A", failedEvent.NodeId, "NodeFailed should identify the failing node.");
+            AssertEx.Equal("Error", failedEvent.OutputPort, "NodeFailed should use the Error output port.");
+        }
+
+        public static async Task MissingEntryThrows()
+        {
+            var runner = CreateRunner(CreateLinearFlow(includeOutputs: false), new List<string>(), new InMemoryFlowEventSink());
+            await runner.StartAsync().ConfigureAwait(false);
+
+            var exception = await AssertEx.ThrowsAsync<ArgumentException>(
+                () => runner.TriggerAsync("MissingEntry", new FlowToken())).ConfigureAwait(false);
+
+            AssertEx.True(exception.Message.IndexOf("MissingEntry", StringComparison.OrdinalIgnoreCase) >= 0, "Missing entry exception should include the entry name.");
+        }
+
+        public static async Task RuntimeEventOrder()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateSingleNodeFlow(), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-events" }).ConfigureAwait(false);
+
+            var eventTypes = sink.Events.Select(x => x.EventType).ToList();
+            AssertEx.SequenceEqual(
+                new[]
+                {
+                    FlowRuntimeEventType.FlowStarted,
+                    FlowRuntimeEventType.TokenCreated,
+                    FlowRuntimeEventType.NodeStarted,
+                    FlowRuntimeEventType.NodeCompleted
+                },
+                eventTypes,
+                "Runtime events should be published in execution order.");
+        }
+
+        private static IFlowRunner CreateRunner(RuntimeFlowDefinition flow, IList<string> executionLog, InMemoryFlowEventSink sink)
+        {
+            var registry = new NodeRegistry();
+            registry.Register(new RecordingNodeFactory(executionLog));
+            return new FlowEngine(registry, sink).CreateRunner(flow);
+        }
+
+        private static RuntimeFlowDefinition CreateLinearFlow(bool includeOutputs)
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "linear",
+                FlowName = "Linear",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(CreateNode("A", includeOutputs ? "Value" : null, null));
+            flow.Nodes.Add(CreateNode("B", includeOutputs ? "Value" : null, includeOutputs ? "A.Value" : null));
+            flow.Nodes.Add(CreateNode("C", null, includeOutputs ? "B.Value" : null));
+            flow.Edges.Add(CreateEdge("A", "Next", "B"));
+            flow.Edges.Add(CreateEdge("B", "Next", "C"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateFailureFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "failure",
+                FlowName = "Failure",
+                Version = "1.0.0"
+            };
+
+            var failing = CreateNode("A", null, null);
+            failing.Settings["Mode"] = "Fail";
+            flow.Nodes.Add(failing);
+            flow.Nodes.Add(CreateNode("ErrorHandler", null, null));
+            flow.Edges.Add(CreateEdge("A", "Error", "ErrorHandler"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateSingleNodeFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "single",
+                FlowName = "Single",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(CreateNode("A", null, null));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static NodeDefinition CreateNode(string id, string outputName, string requiredVariable)
+        {
+            var node = new NodeDefinition
+            {
+                Id = id,
+                Type = RecordingNodeFactory.TypeName,
+                Name = id,
+                Version = "1.0.0"
+            };
+
+            if (!string.IsNullOrWhiteSpace(outputName))
+            {
+                node.Settings["OutputName"] = outputName;
+                node.Settings["OutputValue"] = id + "-output";
+            }
+
+            if (!string.IsNullOrWhiteSpace(requiredVariable))
+            {
+                node.Settings["RequiredVariable"] = requiredVariable;
+            }
+
+            return node;
+        }
+
+        private static EdgeDefinition CreateEdge(string fromNodeId, string fromPort, string toNodeId)
+        {
+            return new EdgeDefinition
+            {
+                FromNodeId = fromNodeId,
+                FromPort = fromPort,
+                ToNodeId = toNodeId,
+                ToPort = "In"
+            };
+        }
+    }
+
+    internal sealed class RecordingNodeFactory : INodeFactory
+    {
+        public const string TypeName = "test.record";
+        private readonly IList<string> _executionLog;
+
+        public RecordingNodeFactory(IList<string> executionLog)
+        {
+            _executionLog = executionLog;
+        }
+
+        public string NodeType
+        {
+            get { return TypeName; }
+        }
+
+        public NodeDescriptor Descriptor
+        {
+            get
+            {
+                return new NodeDescriptor
+                {
+                    NodeType = TypeName,
+                    DisplayName = "Recording Test Node",
+                    Version = "1.0.0"
+                };
+            }
+        }
+
+        public IFlowNode Create(NodeDefinition definition)
+        {
+            return new RecordingNode(definition, _executionLog);
+        }
+    }
+
+    internal sealed class RecordingNode : IFlowNode
+    {
+        private readonly NodeDefinition _definition;
+        private readonly IList<string> _executionLog;
+
+        public RecordingNode(NodeDefinition definition, IList<string> executionLog)
+        {
+            _definition = definition;
+            _executionLog = executionLog;
+        }
+
+        public Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _executionLog.Add(_definition.Id);
+
+            var mode = GetSetting("Mode");
+            if (string.Equals(mode, "Fail", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(NodeExecutionResult.Failure("Requested failure."));
+            }
+
+            if (string.Equals(mode, "Timeout", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(NodeExecutionResult.Timeout("Requested timeout."));
+            }
+
+            var requiredVariable = GetSetting("RequiredVariable");
+            if (!string.IsNullOrWhiteSpace(requiredVariable))
+            {
+                object value;
+                if (!context.Variables.TryGet(requiredVariable, out value))
+                {
+                    return Task.FromResult(NodeExecutionResult.Failure("Required variable was missing: " + requiredVariable));
+                }
+            }
+
+            var outputs = new Dictionary<string, object>();
+            var outputName = GetSetting("OutputName");
+            if (!string.IsNullOrWhiteSpace(outputName))
+            {
+                outputs[outputName] = GetSetting("OutputValue");
+            }
+
+            return Task.FromResult(NodeExecutionResult.Success("Next", outputs));
+        }
+
+        private string GetSetting(string name)
+        {
+            object value;
+            if (_definition.Settings != null && _definition.Settings.TryGetValue(name, out value))
+            {
+                return Convert.ToString(value);
+            }
+
+            return null;
+        }
+    }
+
+    internal static class AssertEx
+    {
+        public static void True(bool condition, string message)
+        {
+            if (!condition)
+            {
+                throw new InvalidOperationException(message);
+            }
+        }
+
+        public static void False(bool condition, string message)
+        {
+            True(!condition, message);
+        }
+
+        public static void NotNull(object value, string message)
+        {
+            True(value != null, message);
+        }
+
+        public static void Equal<T>(T expected, T actual, string message)
+        {
+            if (!object.Equals(expected, actual))
+            {
+                throw new InvalidOperationException(message + " Expected: " + expected + ", Actual: " + actual);
+            }
+        }
+
+        public static void SequenceEqual<T>(IEnumerable<T> expected, IEnumerable<T> actual, string message)
+        {
+            var expectedList = expected.ToList();
+            var actualList = actual.ToList();
+            if (expectedList.Count != actualList.Count)
+            {
+                throw new InvalidOperationException(message + " Expected count: " + expectedList.Count + ", Actual count: " + actualList.Count + ". Actual: " + string.Join(", ", actualList));
+            }
+
+            for (var index = 0; index < expectedList.Count; index++)
+            {
+                if (!object.Equals(expectedList[index], actualList[index]))
+                {
+                    throw new InvalidOperationException(message + " Difference at index " + index + ". Expected: " + expectedList[index] + ", Actual: " + actualList[index]);
+                }
+            }
+        }
+
+        public static async Task<TException> ThrowsAsync<TException>(Func<Task> action)
+            where TException : Exception
+        {
+            try
+            {
+                await action().ConfigureAwait(false);
+            }
+            catch (TException ex)
+            {
+                return ex;
+            }
+
+            throw new InvalidOperationException("Expected exception was not thrown: " + typeof(TException).FullName);
         }
     }
 }
