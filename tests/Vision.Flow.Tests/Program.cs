@@ -45,7 +45,8 @@ namespace Vision.Flow.Tests
                 new TestCase("DelayNode executes a configured delay", CommonNodeTests.DelayNodeExecutes),
                 new TestCase("VariableSetNode writes a variable subsequent node can read", CommonNodeTests.VariableSetNodeWritesVariableForNextNode),
                 new TestCase("Camera nodes set parameters, trigger, and receive a matching frame", CameraNodeTests.SetTriggerCallbackFlow),
-                new TestCase("CameraImageCallbackNode times out on mismatched TriggerId", CameraNodeTests.ImageCallbackTimeoutWhenTriggerIdDoesNotMatch)
+                new TestCase("CameraImageCallbackNode times out on mismatched TriggerId", CameraNodeTests.ImageCallbackTimeoutWhenTriggerIdDoesNotMatch),
+                new TestCase("Stage 07 nodes run callback recipe save and database chain", Stage07NodeTests.CallbackRecipeSaveDatabaseFlow)
             };
 
             var failed = 0;
@@ -103,6 +104,10 @@ namespace Vision.Flow.Tests
             AssertFactoryRegistered(registry, CameraSetParameterNodeFactory.TypeName);
             AssertFactoryRegistered(registry, CameraSoftTriggerNodeFactory.TypeName);
             AssertFactoryRegistered(registry, CameraImageCallbackNodeFactory.TypeName);
+            AssertFactoryRegistered(registry, LightControlNodeFactory.TypeName);
+            AssertFactoryRegistered(registry, RecipeRunNodeFactory.TypeName);
+            AssertFactoryRegistered(registry, ImageSaveNodeFactory.TypeName);
+            AssertFactoryRegistered(registry, DatabaseSaveNodeFactory.TypeName);
             return Task.FromResult(0);
         }
 
@@ -472,6 +477,260 @@ namespace Vision.Flow.Tests
             flow.Edges.Add(CreateEdge("trigger1", "Next", "callback1"));
             flow.Edges.Add(CreateEdge("callback1", "Timeout", "TimeoutHandler"));
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "trigger1" });
+            return flow;
+        }
+
+        private static EdgeDefinition CreateEdge(string fromNodeId, string fromPort, string toNodeId)
+        {
+            return new EdgeDefinition
+            {
+                FromNodeId = fromNodeId,
+                FromPort = fromPort,
+                ToNodeId = toNodeId,
+                ToPort = "In"
+            };
+        }
+
+        private static object FindOutput(InMemoryFlowEventSink sink, string nodeId, string outputName)
+        {
+            var variableName = nodeId + "." + outputName;
+            var runtimeEvent = sink.Events.FirstOrDefault(x =>
+                x.EventType == FlowRuntimeEventType.OutputProduced &&
+                string.Equals(Convert.ToString(x.Data["VariableName"]), variableName, StringComparison.OrdinalIgnoreCase));
+
+            AssertEx.NotNull(runtimeEvent, "Expected output was not produced: " + variableName);
+            return runtimeEvent.Data["Value"];
+        }
+    }
+
+    internal static class Stage07NodeTests
+    {
+        public static async Task CallbackRecipeSaveDatabaseFlow()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            var light = new FakeLightAdapter("Light01");
+            var recipe = new FakeRecipeAdapter("Recipe01");
+            var resultImage = new FakeVisionImage("result-image-001", 640, 480, "RGB24", null);
+            recipe.DefaultOutputs["ResultImage"] = resultImage;
+            recipe.DefaultOutputs["IsOk"] = true;
+
+            var saver = new FakeImageSaveAdapter("ImageSave01");
+            var database = new FakeDatabaseAdapter("VisionDb");
+            var devices = new DefaultDeviceRegistry();
+            devices.RegisterCamera(camera);
+            devices.RegisterLight(light);
+            devices.RegisterRecipe(recipe);
+            devices.RegisterImageSaver(saver);
+            devices.RegisterDatabase(database);
+
+            var sink = new InMemoryFlowEventSink();
+            var registry = new NodeRegistry();
+            CommonNodeRegistration.RegisterAll(registry);
+            var runner = new FlowEngine(registry, sink, devices).CreateRunner(CreateStage07Flow());
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync(
+                "ManualStart",
+                new FlowToken
+                {
+                    TokenId = "token-stage07",
+                    ProductId = "P-007",
+                    WorkpieceId = "W-007"
+                }).ConfigureAwait(false);
+
+            var lightSnapshot = light.Snapshot();
+            AssertEx.True(lightSnapshot.ContainsKey("CH1"), "LightControlNode should set CH1.");
+            AssertEx.True(lightSnapshot["CH1"].IsEnabled, "LightControlNode should enable CH1.");
+            AssertEx.Equal(75.0, lightSnapshot["CH1"].Intensity, "LightControlNode should set CH1 intensity.");
+
+            var callbackImage = FindOutput(sink, "callback1", "Image") as IVisionImage;
+            var frameId = Convert.ToString(FindOutput(sink, "callback1", "FrameId"));
+            var recipeResult = FindOutput(sink, "recipe1", "Result") as RecipeRunResult;
+            var isOk = Convert.ToBoolean(FindOutput(sink, "recipe1", "IsOk"));
+            var recipeResultImage = FindOutput(sink, "recipe1", "ResultImage") as IVisionImage;
+
+            AssertEx.NotNull(callbackImage, "Camera callback should output an image for the stage 07 chain.");
+            AssertEx.NotNull(recipeResult, "RecipeRunNode should output the adapter result.");
+            AssertEx.True(isOk, "RecipeRunNode should output IsOk from the fake recipe.");
+            AssertEx.True(object.ReferenceEquals(resultImage, recipeResultImage), "RecipeRunNode should output the fake recipe result image.");
+            AssertEx.True(object.ReferenceEquals(callbackImage, recipeResult.Outputs["Input.InputImage"]), "RecipeRunNode should pass InputImage through variable binding.");
+
+            var imagePath = Convert.ToString(FindOutput(sink, "save1", "ImagePath"));
+            var resultImagePath = Convert.ToString(FindOutput(sink, "save1", "ResultImagePath"));
+            var expectedDirectory = "fake://images/Camera01/OK";
+            AssertEx.Equal(expectedDirectory + "/" + frameId + ".png", imagePath, "ImageSaveNode should output the raw image save path.");
+            AssertEx.Equal(expectedDirectory + "/" + frameId + "_result.png", resultImagePath, "ImageSaveNode should output the result image save path.");
+
+            var savedImages = saver.SnapshotSavedRequests();
+            AssertEx.Equal(2, savedImages.Count, "ImageSaveNode should call the image saver for raw and result images.");
+            AssertEx.Equal(expectedDirectory, savedImages[0].DirectoryPath, "Raw image save request should use the rendered directory.");
+            AssertEx.Equal(frameId + ".png", savedImages[0].FileName, "Raw image save request should use the rendered file name.");
+            AssertEx.Equal("Image", Convert.ToString(savedImages[0].Metadata["Role"]), "Raw image save request should be marked as Image.");
+            AssertEx.Equal(frameId + "_result.png", savedImages[1].FileName, "Result image save request should use a result file name.");
+            AssertEx.Equal("ResultImage", Convert.ToString(savedImages[1].Metadata["Role"]), "Result image save request should be marked as ResultImage.");
+
+            var dbSaved = Convert.ToBoolean(FindOutput(sink, "db1", "Saved"));
+            var savedRows = database.SnapshotSavedRequests();
+            AssertEx.True(dbSaved, "DatabaseSaveNode should output Saved=true.");
+            AssertEx.Equal(1, savedRows.Count, "DatabaseSaveNode should call the database adapter once.");
+            AssertEx.Equal("InspectionResult", savedRows[0].TableName, "DatabaseSaveNode should use the configured table.");
+            AssertEx.Equal(frameId, Convert.ToString(savedRows[0].Values["FrameId"]), "DatabaseSaveNode should save the bound FrameId.");
+            AssertEx.Equal(imagePath, Convert.ToString(savedRows[0].Values["ImagePath"]), "DatabaseSaveNode should save the bound ImagePath.");
+            AssertEx.Equal(resultImagePath, Convert.ToString(savedRows[0].Values["ResultImagePath"]), "DatabaseSaveNode should save the bound ResultImagePath.");
+            AssertEx.True(Convert.ToBoolean(savedRows[0].Values["IsOk"]), "DatabaseSaveNode should save the bound IsOk value.");
+        }
+
+        private static RuntimeFlowDefinition CreateStage07Flow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "stage07-chain",
+                FlowName = "Stage 07 Chain",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "light1",
+                Type = LightControlNodeFactory.TypeName,
+                Name = "Light Control",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "LightId", "Light01" },
+                    { "StableDelayMs", 1 },
+                    {
+                        "Channels",
+                        new[]
+                        {
+                            new LightChannelControlConfig
+                            {
+                                ChannelName = "CH1",
+                                IsEnabled = true,
+                                Intensity = 75.0,
+                                DurationMs = 10
+                            }
+                        }
+                    }
+                }
+            });
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "trigger1",
+                Type = CameraSoftTriggerNodeFactory.TypeName,
+                Name = "Soft Trigger",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "CameraId", "Camera01" },
+                    { "TimeoutMs", 500 }
+                }
+            });
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "callback1",
+                Type = CameraImageCallbackNodeFactory.TypeName,
+                Name = "Image Callback",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "CameraId", "Camera01" },
+                    { "MatchMode", "TriggerId" },
+                    { "TimeoutMs", 1000 }
+                },
+                InputBindings =
+                {
+                    { "TriggerId", VariableBinding.ForVariable("trigger1", "TriggerId") }
+                }
+            });
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "recipe1",
+                Type = RecipeRunNodeFactory.TypeName,
+                Name = "Recipe Run",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "RecipeId", "Recipe01" },
+                    { "TimeoutMs", 1000 }
+                },
+                InputBindings =
+                {
+                    { "InputImage", VariableBinding.ForVariable("callback1", "Image") }
+                }
+            });
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "save1",
+                Type = ImageSaveNodeFactory.TypeName,
+                Name = "Image Save",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "SaverId", "ImageSave01" },
+                    { "RootDirectory", "fake://images" },
+                    { "DirectoryTemplate", "{CameraId}/{Result}" },
+                    { "FileNameTemplate", "{FrameId}.png" }
+                },
+                InputBindings =
+                {
+                    { "Image", VariableBinding.ForVariable("callback1", "Image") },
+                    { "ResultImage", VariableBinding.ForVariable("recipe1", "ResultImage") }
+                }
+            });
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "db1",
+                Type = DatabaseSaveNodeFactory.TypeName,
+                Name = "Database Save",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "DatabaseId", "VisionDb" },
+                    { "TableName", "InspectionResult" },
+                    {
+                        "FieldMappings",
+                        new[]
+                        {
+                            new DatabaseFieldMappingConfig
+                            {
+                                FieldName = "FrameId",
+                                ValueBinding = "{{ callback1.FrameId }}"
+                            },
+                            new DatabaseFieldMappingConfig
+                            {
+                                FieldName = "ImagePath",
+                                ValueBinding = "{{ save1.ImagePath }}"
+                            },
+                            new DatabaseFieldMappingConfig
+                            {
+                                FieldName = "ResultImagePath",
+                                ValueBinding = "{{ save1.ResultImagePath }}"
+                            },
+                            new DatabaseFieldMappingConfig
+                            {
+                                FieldName = "IsOk",
+                                ValueBinding = "{{ recipe1.IsOk }}"
+                            }
+                        }
+                    }
+                }
+            });
+
+            flow.Edges.Add(CreateEdge("light1", "Next", "trigger1"));
+            flow.Edges.Add(CreateEdge("trigger1", "Next", "callback1"));
+            flow.Edges.Add(CreateEdge("callback1", "Next", "recipe1"));
+            flow.Edges.Add(CreateEdge("recipe1", "Next", "save1"));
+            flow.Edges.Add(CreateEdge("save1", "Next", "db1"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "light1" });
             return flow;
         }
 
