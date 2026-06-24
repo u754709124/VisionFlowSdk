@@ -23,6 +23,11 @@ namespace Vision.Flow.Nodes
             registry.Register(new RecipeRunNodeFactory());
             registry.Register(new ImageSaveNodeFactory());
             registry.Register(new DatabaseSaveNodeFactory());
+            registry.Register(new FrameGroupJoinNodeFactory());
+            registry.Register(new StitchNodeFactory());
+            registry.Register(new FramePreprocessNodeFactory());
+            registry.Register(new ScanGroupJoinNodeFactory());
+            registry.Register(new Final3D2DFusionNodeFactory());
         }
     }
 }
