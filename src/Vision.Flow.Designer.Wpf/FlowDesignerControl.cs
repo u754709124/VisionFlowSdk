@@ -1128,8 +1128,15 @@ namespace Vision.Flow.Designer.Wpf
 
             try
             {
+                var publishResult = new FlowPublishService(_nodeRegistry).Publish(_document);
+                if (!publishResult.IsSuccess)
+                {
+                    AddDebugMessage("Publish validation failed: " + FormatValidationIssues(publishResult.Validation));
+                    return;
+                }
+
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(dialog.FileName));
-                RuntimeFlowSerializer.Save(dialog.FileName, _document.Runtime);
+                RuntimeFlowSerializer.Save(dialog.FileName, publishResult.Runtime);
                 AddDebugMessage("Published runtime " + dialog.FileName + ".");
             }
             catch (Exception ex)
@@ -1257,6 +1264,23 @@ namespace Vision.Flow.Designer.Wpf
             var selected = _selectedNode == null ? "none" : _selectedNode.Id;
             var zoom = _canvasScale == null ? 1.0 : _canvasScale.ScaleX;
             _statusText.Text = string.Format(CultureInfo.InvariantCulture, "{0} nodes | {1} edges | zoom {2:P0} | selected: {3}", nodeCount, edgeCount, zoom, selected);
+        }
+
+        private static string FormatValidationIssues(FlowValidationResult validation)
+        {
+            if (validation == null || validation.Issues.Count == 0)
+            {
+                return "unknown validation failure.";
+            }
+
+            var parts = validation.Issues
+                .Where(x => x.Severity == FlowValidationSeverity.Error)
+                .Take(4)
+                .Select(x => string.IsNullOrWhiteSpace(x.NodeId)
+                    ? x.Code + ": " + x.Message
+                    : x.Code + " [" + x.NodeId + "]: " + x.Message)
+                .ToArray();
+            return string.Join("; ", parts);
         }
 
         private NodeDescriptor GetDescriptor(string nodeType)
