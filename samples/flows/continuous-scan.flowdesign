@@ -11,23 +11,21 @@
       {
         "id": "preprocess_1",
         "type": "frame.preprocess",
-        "name": "单帧预处理",
+        "name": "Preprocess Scan Frame",
         "version": "1.0.0",
         "settings": {
-          "AlgorithmId": "Pre3D2D"
+          "FrameIndex": -1
         },
-        "inputBindings": {
-          "Frame": "{{ Entry.Frame }}"
-        }
+        "inputBindings": {}
       },
       {
         "id": "scan_join_1",
         "type": "scan.group_join",
-        "name": "扫描组汇合",
+        "name": "Join Scan Frames",
         "version": "1.0.0",
         "settings": {
-          "ExpectedFrameCount": 100,
-          "GroupKey": "ScanGroupId"
+          "ExpectedFrameCount": 3,
+          "TimeoutMs": 0
         },
         "inputBindings": {
           "PreprocessResult": "{{ preprocess_1.PreprocessResult }}"
@@ -36,22 +34,21 @@
       {
         "id": "fusion_1",
         "type": "fusion.final_3d_2d",
-        "name": "最终3D/2D合成",
+        "name": "Final 3D 2D Fusion",
         "version": "1.0.0",
-        "settings": {
-          "FusionMode": "3D2D"
-        },
+        "settings": {},
         "inputBindings": {
-          "ScanGroup": "{{ scan_join_1.ScanGroup }}"
+          "ScanGroupResult": "{{ scan_join_1.ScanGroupResult }}"
         }
       },
       {
         "id": "recipe_1",
         "type": "recipe.run",
-        "name": "合成后检测",
+        "name": "Run Scan Recipe",
         "version": "1.0.0",
         "settings": {
-          "RecipeId": "ScanRecipe"
+          "RecipeId": "ScanRecipe",
+          "TimeoutMs": 5000
         },
         "inputBindings": {
           "Final3DImage": "{{ fusion_1.Final3DImage }}",
@@ -61,28 +58,46 @@
       {
         "id": "image_save_1",
         "type": "image.save",
-        "name": "保存合成图",
+        "name": "Save Fusion Images",
         "version": "1.0.0",
         "settings": {
-          "RootDirectory": "D:\\VisionImages"
+          "SaverId": "ImageSave01",
+          "ImageBinding": "{{ fusion_1.Final2DImage }}",
+          "ResultImageBinding": "{{ recipe_1.ResultImage }}",
+          "RootDirectory": "D:\\VisionImages",
+          "DirectoryTemplate": "{Date:yyyyMMdd}\\Scan\\{ScanGroupId}",
+          "FileNameTemplate": "{Time:HHmmss_fff}_{ImageId}.png"
         },
-        "inputBindings": {
-          "Image": "{{ fusion_1.Final2DImage }}",
-          "ResultImage": "{{ recipe_1.ResultImage }}"
-        }
+        "inputBindings": {}
       },
       {
         "id": "db_save_1",
         "type": "database.save",
-        "name": "保存扫描结果",
+        "name": "Save Scan Row",
         "version": "1.0.0",
         "settings": {
           "DatabaseId": "VisionDb",
-          "TableName": "ScanInspectionResult"
+          "TableName": "ScanInspectionResult",
+          "FieldMappings": [
+            {
+              "FieldName": "ScanGroupId",
+              "ValueBinding": "{{ scan_join_1.ScanGroupId }}"
+            },
+            {
+              "FieldName": "FrameCount",
+              "ValueBinding": "{{ scan_join_1.FrameCount }}"
+            },
+            {
+              "FieldName": "IsOk",
+              "ValueBinding": "{{ recipe_1.IsOk }}"
+            },
+            {
+              "FieldName": "ImagePath",
+              "ValueBinding": "{{ image_save_1.ImagePath }}"
+            }
+          ]
         },
-        "inputBindings": {
-          "Result": "{{ recipe_1.Result }}"
-        }
+        "inputBindings": {}
       }
     ],
     "edges": [
@@ -94,7 +109,7 @@
       },
       {
         "fromNodeId": "scan_join_1",
-        "fromPort": "Completed",
+        "fromPort": "Next",
         "toNodeId": "fusion_1",
         "toPort": "In"
       },
@@ -130,28 +145,28 @@
     "offsetY": 0,
     "nodes": {
       "preprocess_1": {
-        "x": 120,
-        "y": 180
+        "x": 96,
+        "y": 192
       },
       "scan_join_1": {
-        "x": 420,
-        "y": 180
+        "x": 384,
+        "y": 192
       },
       "fusion_1": {
-        "x": 720,
-        "y": 180
+        "x": 672,
+        "y": 192
       },
       "recipe_1": {
-        "x": 1020,
-        "y": 180
+        "x": 960,
+        "y": 192
       },
       "image_save_1": {
-        "x": 1320,
-        "y": 180
+        "x": 1248,
+        "y": 192
       },
       "db_save_1": {
-        "x": 1620,
-        "y": 180
+        "x": 1536,
+        "y": 192
       }
     }
   }

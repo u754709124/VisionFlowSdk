@@ -11,7 +11,7 @@
       {
         "id": "cam_params_1",
         "type": "camera.set_parameters",
-        "name": "设置相机参数",
+        "name": "Set Camera Parameters",
         "version": "1.0.0",
         "settings": {
           "CameraId": "Camera01",
@@ -19,12 +19,10 @@
           "Parameters": [
             {
               "Name": "ExposureTime",
-              "ValueSource": "Constant",
               "Value": 8000
             },
             {
               "Name": "Gain",
-              "ValueSource": "Constant",
               "Value": 2.0
             }
           ]
@@ -34,7 +32,7 @@
       {
         "id": "cam_trigger_1",
         "type": "camera.soft_trigger",
-        "name": "相机软触发",
+        "name": "Soft Trigger",
         "version": "1.0.0",
         "settings": {
           "CameraId": "Camera01",
@@ -45,7 +43,7 @@
       {
         "id": "cam_callback_1",
         "type": "camera.image_callback",
-        "name": "等待图像回调",
+        "name": "Wait Image Callback",
         "version": "1.0.0",
         "settings": {
           "CameraId": "Camera01",
@@ -57,45 +55,58 @@
       {
         "id": "recipe_1",
         "type": "recipe.run",
-        "name": "配方检测",
+        "name": "Run Inspection Recipe",
         "version": "1.0.0",
         "settings": {
           "RecipeId": "Recipe01",
+          "InputImageBinding": "{{ cam_callback_1.Image }}",
           "TimeoutMs": 5000
         },
-        "inputBindings": {
-          "InputImage": "{{ cam_callback_1.Image }}"
-        }
+        "inputBindings": {}
       },
       {
         "id": "image_save_1",
         "type": "image.save",
-        "name": "保存图片",
+        "name": "Save Images",
         "version": "1.0.0",
         "settings": {
+          "SaverId": "ImageSave01",
+          "ImageBinding": "{{ cam_callback_1.Image }}",
+          "ResultImageBinding": "{{ recipe_1.ResultImage }}",
           "RootDirectory": "D:\\VisionImages",
           "DirectoryTemplate": "{Date:yyyyMMdd}\\{CameraId}\\{Result}",
           "FileNameTemplate": "{Time:HHmmss_fff}_{FrameId}.png"
         },
-        "inputBindings": {
-          "Image": "{{ cam_callback_1.Image }}",
-          "ResultImage": "{{ recipe_1.ResultImage }}"
-        }
+        "inputBindings": {}
       },
       {
         "id": "db_save_1",
         "type": "database.save",
-        "name": "保存数据库",
+        "name": "Save Inspection Row",
         "version": "1.0.0",
         "settings": {
           "DatabaseId": "VisionDb",
           "TableName": "InspectionResult",
-          "FieldMappings": []
+          "FieldMappings": [
+            {
+              "FieldName": "FrameId",
+              "ValueBinding": "{{ cam_callback_1.FrameId }}"
+            },
+            {
+              "FieldName": "IsOk",
+              "ValueBinding": "{{ recipe_1.IsOk }}"
+            },
+            {
+              "FieldName": "ImagePath",
+              "ValueBinding": "{{ image_save_1.ImagePath }}"
+            },
+            {
+              "FieldName": "ResultImagePath",
+              "ValueBinding": "{{ image_save_1.ResultImagePath }}"
+            }
+          ]
         },
-        "inputBindings": {
-          "Result": "{{ recipe_1.Result }}",
-          "ImagePath": "{{ image_save_1.ImagePath }}"
-        }
+        "inputBindings": {}
       }
     ],
     "edges": [
@@ -143,28 +154,28 @@
     "offsetY": 0,
     "nodes": {
       "cam_params_1": {
-        "x": 100,
-        "y": 140
+        "x": 96,
+        "y": 128
       },
       "cam_trigger_1": {
-        "x": 360,
-        "y": 140
+        "x": 352,
+        "y": 128
       },
       "cam_callback_1": {
-        "x": 620,
-        "y": 140
+        "x": 608,
+        "y": 128
       },
       "recipe_1": {
-        "x": 880,
-        "y": 140
+        "x": 864,
+        "y": 128
       },
       "image_save_1": {
-        "x": 1140,
-        "y": 140
+        "x": 1120,
+        "y": 128
       },
       "db_save_1": {
-        "x": 1400,
-        "y": 140
+        "x": 1376,
+        "y": 128
       }
     }
   }

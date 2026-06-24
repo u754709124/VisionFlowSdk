@@ -11,24 +11,20 @@
       {
         "id": "frame_join_1",
         "type": "group.frame_join",
-        "name": "图像组汇合",
+        "name": "Join Position Frames",
         "version": "1.0.0",
         "settings": {
           "ExpectedShotCount": 2,
-          "GroupKey": "CaptureGroupId"
+          "TimeoutMs": 0
         },
-        "inputBindings": {
-          "Frame": "{{ Entry.Frame }}"
-        }
+        "inputBindings": {}
       },
       {
         "id": "stitch_1",
         "type": "image.stitch",
-        "name": "拼图",
+        "name": "Stitch Images",
         "version": "1.0.0",
-        "settings": {
-          "Mode": "FixedOffset"
-        },
+        "settings": {},
         "inputBindings": {
           "FrameGroup": "{{ frame_join_1.FrameGroup }}"
         }
@@ -36,46 +32,64 @@
       {
         "id": "recipe_1",
         "type": "recipe.run",
-        "name": "拼图后检测",
+        "name": "Run Stitch Recipe",
         "version": "1.0.0",
         "settings": {
-          "RecipeId": "StitchRecipe"
+          "RecipeId": "StitchRecipe",
+          "InputImageBinding": "{{ stitch_1.StitchedImage }}",
+          "TimeoutMs": 5000
         },
-        "inputBindings": {
-          "InputImage": "{{ stitch_1.StitchedImage }}"
-        }
+        "inputBindings": {}
       },
       {
         "id": "image_save_1",
         "type": "image.save",
-        "name": "保存图片",
+        "name": "Save Stitch Images",
         "version": "1.0.0",
         "settings": {
-          "RootDirectory": "D:\\VisionImages"
+          "SaverId": "ImageSave01",
+          "ImageBinding": "{{ stitch_1.StitchedImage }}",
+          "ResultImageBinding": "{{ recipe_1.ResultImage }}",
+          "RootDirectory": "D:\\VisionImages",
+          "DirectoryTemplate": "{Date:yyyyMMdd}\\Stitch\\{CaptureGroupId}",
+          "FileNameTemplate": "{Time:HHmmss_fff}_{ImageId}.png"
         },
-        "inputBindings": {
-          "Image": "{{ stitch_1.StitchedImage }}",
-          "ResultImage": "{{ recipe_1.ResultImage }}"
-        }
+        "inputBindings": {}
       },
       {
         "id": "db_save_1",
         "type": "database.save",
-        "name": "保存数据库",
+        "name": "Save Stitch Row",
         "version": "1.0.0",
         "settings": {
           "DatabaseId": "VisionDb",
-          "TableName": "InspectionGroupResult"
+          "TableName": "InspectionGroupResult",
+          "FieldMappings": [
+            {
+              "FieldName": "CaptureGroupId",
+              "ValueBinding": "{{ frame_join_1.CaptureGroupId }}"
+            },
+            {
+              "FieldName": "FrameCount",
+              "ValueBinding": "{{ frame_join_1.FrameCount }}"
+            },
+            {
+              "FieldName": "IsOk",
+              "ValueBinding": "{{ recipe_1.IsOk }}"
+            },
+            {
+              "FieldName": "ImagePath",
+              "ValueBinding": "{{ image_save_1.ImagePath }}"
+            }
+          ]
         },
-        "inputBindings": {
-          "Result": "{{ recipe_1.Result }}"
-        }
+        "inputBindings": {}
       }
     ],
     "edges": [
       {
         "fromNodeId": "frame_join_1",
-        "fromPort": "Completed",
+        "fromPort": "Next",
         "toNodeId": "stitch_1",
         "toPort": "In"
       },
@@ -115,15 +129,15 @@
     "offsetY": 0,
     "nodes": {
       "frame_join_1": {
-        "x": 260,
+        "x": 256,
         "y": 160
       },
       "stitch_1": {
-        "x": 560,
+        "x": 544,
         "y": 160
       },
       "recipe_1": {
-        "x": 840,
+        "x": 832,
         "y": 160
       },
       "image_save_1": {
@@ -131,7 +145,7 @@
         "y": 160
       },
       "db_save_1": {
-        "x": 1400,
+        "x": 1408,
         "y": 160
       }
     }
