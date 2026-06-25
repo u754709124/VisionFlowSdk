@@ -94,6 +94,19 @@ namespace Vision.Flow.Core
             IFlowEventSink events,
             IDeviceRegistry devices,
             ICameraFrameRouter cameraFrames)
+            : this(flow, node, token, variables, events, devices, cameraFrames, null)
+        {
+        }
+
+        public FlowExecutionContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            IFlowEventSink events,
+            IDeviceRegistry devices,
+            ICameraFrameRouter cameraFrames,
+            IFlowTaskQueueRegistry queues)
         {
             if (flow == null)
             {
@@ -127,6 +140,7 @@ namespace Vision.Flow.Core
             Events = events;
             Devices = devices ?? EmptyDeviceRegistry.Instance;
             CameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
+            Queues = queues ?? new FlowTaskQueueRegistry(events);
         }
 
         public RuntimeFlowDefinition Flow { get; private set; }
@@ -142,6 +156,8 @@ namespace Vision.Flow.Core
         public IDeviceRegistry Devices { get; private set; }
 
         public ICameraFrameRouter CameraFrames { get; private set; }
+
+        public IFlowTaskQueueRegistry Queues { get; private set; }
 
         public object GetInputValue(string inputName)
         {

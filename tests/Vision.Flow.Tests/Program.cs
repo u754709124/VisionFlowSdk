@@ -51,6 +51,8 @@ namespace Vision.Flow.Tests
                 new TestCase("FlowRunner detects cycles on the current execution path", FlowRunnerTests.CycleRouteThrows),
                 new TestCase("FlowRunner reports a clear missing entry exception", FlowRunnerTests.MissingEntryThrows),
                 new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
+                new TestCase("FlowTaskQueue enforces capacity and publishes events", FlowTaskQueueTests.CapacityRejectsAndPublishesEvents),
+                new TestCase("FlowTaskQueueRegistry reuses named queues", FlowTaskQueueTests.RegistryReusesNamedQueues),
                 new TestCase("DefaultDeviceRegistry resolves a fake camera", AdapterTests.RegistryGetsFakeCamera),
                 new TestCase("FakeCameraAdapter soft trigger raises FrameArrived", AdapterTests.SoftTriggerReceivesFrame),
                 new TestCase("FakeCameraAdapter cancellation prevents frame creation", AdapterTests.SoftTriggerCancellationPreventsFrame),
@@ -2583,6 +2585,92 @@ namespace Vision.Flow.Tests
                 ToNodeId = toNodeId,
                 ToPort = "In"
             };
+        }
+    }
+
+    internal static class FlowTaskQueueTests
+    {
+        public static async Task CapacityRejectsAndPublishesEvents()
+        {
+            var sink = new InMemoryFlowEventSink();
+            var queue = new FlowTaskQueue(
+                new FlowTaskQueueOptions
+                {
+                    QueueName = "save",
+                    Capacity = 1,
+                    MaxDegreeOfParallelism = 1,
+                    FullMode = FlowTaskQueueFullMode.Reject
+                },
+                sink);
+            var release = new TaskCompletionSource<int>();
+            var firstStarted = new TaskCompletionSource<int>();
+            var context = new FlowTaskQueueItemContext
+            {
+                FlowId = "flow-queue",
+                TokenId = "token-queue",
+                NodeId = "save1",
+                OperationName = "SaveImage"
+            };
+
+            var first = queue.EnqueueAsync<int>(
+                async delegate(CancellationToken token)
+                {
+                    firstStarted.TrySetResult(0);
+                    await release.Task.ConfigureAwait(false);
+                    return 7;
+                },
+                context,
+                CancellationToken.None);
+
+            await firstStarted.Task.ConfigureAwait(false);
+            AssertEx.Equal(1, queue.CurrentDepth, "Queue depth should count the running first item.");
+
+            var rejected = await queue.EnqueueAsync<int>(
+                delegate(CancellationToken token)
+                {
+                    return Task.FromResult(9);
+                },
+                context,
+                CancellationToken.None).ConfigureAwait(false);
+
+            AssertEx.True(rejected.IsRejected, "Queue should reject when capacity is full and FullMode is Reject.");
+            AssertEx.False(rejected.IsAccepted, "Rejected queue work should not be accepted.");
+            release.TrySetResult(0);
+
+            var firstResult = await first.ConfigureAwait(false);
+            AssertEx.True(firstResult.IsSuccess, "First queue work should complete successfully.");
+            AssertEx.Equal(7, firstResult.Value, "Queue should return work result.");
+            AssertEx.Equal(0, queue.CurrentDepth, "Queue depth should return to zero after completion.");
+
+            var events = sink.Events.Select(x => x.EventType).ToList();
+            AssertEx.True(events.Contains(FlowRuntimeEventType.QueueEnqueued), "QueueEnqueued event should be published.");
+            AssertEx.True(events.Contains(FlowRuntimeEventType.QueueStarted), "QueueStarted event should be published.");
+            AssertEx.True(events.Contains(FlowRuntimeEventType.QueueRejected), "QueueRejected event should be published.");
+            AssertEx.True(events.Contains(FlowRuntimeEventType.QueueCompleted), "QueueCompleted event should be published.");
+            AssertEx.True(
+                sink.Events.Any(x => string.Equals(Convert.ToString(x.Data["QueueName"]), "save", StringComparison.OrdinalIgnoreCase)),
+                "Queue events should include queue name.");
+        }
+
+        public static Task RegistryReusesNamedQueues()
+        {
+            var registry = new FlowTaskQueueRegistry(new InMemoryFlowEventSink());
+            var first = registry.GetOrCreate(
+                "save",
+                new FlowTaskQueueOptions
+                {
+                    QueueName = "save",
+                    Capacity = 2,
+                    MaxDegreeOfParallelism = 1
+                });
+            var second = registry.GetOrCreate("save");
+
+            FlowTaskQueue resolved;
+            AssertEx.True(object.ReferenceEquals(first, second), "Queue registry should reuse named queue instances.");
+            AssertEx.True(registry.TryGetQueue("save", out resolved), "Queue registry should resolve existing queue.");
+            AssertEx.True(object.ReferenceEquals(first, resolved), "TryGetQueue should return the registered queue.");
+            AssertEx.Equal(2, first.Capacity, "Queue registry should preserve initial options.");
+            return Task.FromResult(0);
         }
     }
 

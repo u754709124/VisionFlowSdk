@@ -15,7 +15,12 @@ namespace Vision.Flow.Core
         NodeTimeout = 7,
         OutputProduced = 8,
         ImageProduced = 9,
-        QueueWarning = 10
+        QueueWarning = 10,
+        QueueEnqueued = 11,
+        QueueStarted = 12,
+        QueueCompleted = 13,
+        QueueFailed = 14,
+        QueueRejected = 15
     }
 
     public enum NodeRuntimeState
