@@ -47,6 +47,8 @@ namespace Vision.Flow.Core
 
         public string FlowId { get; set; }
 
+        public string FlowRunId { get; set; }
+
         public string TokenId { get; set; }
 
         public string NodeId { get; set; }
@@ -58,6 +60,8 @@ namespace Vision.Flow.Core
         public string OutputPort { get; set; }
 
         public string Message { get; set; }
+
+        public long ElapsedMs { get; set; }
 
         public Dictionary<string, object> Data { get; set; }
 

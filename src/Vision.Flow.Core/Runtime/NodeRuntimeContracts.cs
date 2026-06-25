@@ -6,6 +6,64 @@ using System.Threading.Tasks;
 
 namespace Vision.Flow.Core
 {
+    public enum FlowFanOutMode
+    {
+        Sequential = 0,
+        Parallel = 1
+    }
+
+    public enum FlowBranchTokenMode
+    {
+        Shared = 0,
+        Clone = 1
+    }
+
+    public sealed class FlowExecutionOptions
+    {
+        public FlowExecutionOptions()
+        {
+            FanOutMode = FlowFanOutMode.Sequential;
+            MaxDegreeOfParallelism = 1;
+            BranchTokenMode = FlowBranchTokenMode.Shared;
+        }
+
+        public FlowFanOutMode FanOutMode { get; set; }
+
+        public int MaxDegreeOfParallelism { get; set; }
+
+        public FlowBranchTokenMode BranchTokenMode { get; set; }
+
+        public bool ContinueOnBranchFailure { get; set; }
+
+        public int DefaultNodeTimeoutMs { get; set; }
+    }
+
+    public sealed class FlowContinuation
+    {
+        public FlowContinuation()
+        {
+            OutputPort = "Next";
+            Outputs = new Dictionary<string, object>();
+        }
+
+        public string SourceNodeId { get; set; }
+
+        public string OutputPort { get; set; }
+
+        public FlowToken Token { get; set; }
+
+        public IVariablePool Variables { get; set; }
+
+        public IDictionary<string, object> Outputs { get; set; }
+
+        public string FlowRunId { get; set; }
+    }
+
+    public interface IFlowContinuationDispatcher
+    {
+        Task DispatchAsync(FlowContinuation continuation, CancellationToken cancellationToken);
+    }
+
     public interface IFlowNode
     {
         Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken);
@@ -107,6 +165,21 @@ namespace Vision.Flow.Core
             IDeviceRegistry devices,
             ICameraFrameRouter cameraFrames,
             IFlowTaskQueueRegistry queues)
+            : this(flow, node, token, variables, events, devices, cameraFrames, queues, null, null)
+        {
+        }
+
+        public FlowExecutionContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            IFlowEventSink events,
+            IDeviceRegistry devices,
+            ICameraFrameRouter cameraFrames,
+            IFlowTaskQueueRegistry queues,
+            IFlowContinuationDispatcher continuations,
+            string flowRunId)
         {
             if (flow == null)
             {
@@ -141,6 +214,8 @@ namespace Vision.Flow.Core
             Devices = devices ?? EmptyDeviceRegistry.Instance;
             CameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
             Queues = queues ?? new FlowTaskQueueRegistry(events);
+            Continuations = continuations ?? NullFlowContinuationDispatcher.Instance;
+            FlowRunId = flowRunId;
         }
 
         public RuntimeFlowDefinition Flow { get; private set; }
@@ -158,6 +233,10 @@ namespace Vision.Flow.Core
         public ICameraFrameRouter CameraFrames { get; private set; }
 
         public IFlowTaskQueueRegistry Queues { get; private set; }
+
+        public IFlowContinuationDispatcher Continuations { get; private set; }
+
+        public string FlowRunId { get; private set; }
 
         public object GetInputValue(string inputName)
         {
@@ -241,5 +320,20 @@ namespace Vision.Flow.Core
         Task StopAsync(CancellationToken cancellationToken = default(CancellationToken));
 
         Task TriggerAsync(string entryName, FlowToken token, CancellationToken cancellationToken = default(CancellationToken));
+    }
+
+    internal sealed class NullFlowContinuationDispatcher : IFlowContinuationDispatcher
+    {
+        public static readonly NullFlowContinuationDispatcher Instance = new NullFlowContinuationDispatcher();
+
+        private NullFlowContinuationDispatcher()
+        {
+        }
+
+        public Task DispatchAsync(FlowContinuation continuation, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(0);
+        }
     }
 }

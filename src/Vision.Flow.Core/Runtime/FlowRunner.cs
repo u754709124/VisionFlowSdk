@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,6 +13,7 @@ namespace Vision.Flow.Core
         private readonly IDeviceRegistry _devices;
         private readonly ICameraFrameRouter _cameraFrames;
         private readonly IFlowTaskQueueRegistry _queues;
+        private readonly FlowExecutionOptions _options;
 
         public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink = null)
             : this(nodeRegistry, eventSink, null, null)
@@ -39,6 +41,17 @@ namespace Vision.Flow.Core
             IDeviceRegistry devices,
             ICameraFrameRouter cameraFrames,
             IFlowTaskQueueRegistry queues)
+            : this(nodeRegistry, eventSink, devices, cameraFrames, queues, null)
+        {
+        }
+
+        public FlowEngine(
+            NodeRegistry nodeRegistry,
+            IFlowEventSink eventSink,
+            IDeviceRegistry devices,
+            ICameraFrameRouter cameraFrames,
+            IFlowTaskQueueRegistry queues,
+            FlowExecutionOptions options)
         {
             if (nodeRegistry == null)
             {
@@ -50,6 +63,7 @@ namespace Vision.Flow.Core
             _devices = devices ?? EmptyDeviceRegistry.Instance;
             _cameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
             _queues = queues ?? new FlowTaskQueueRegistry(_eventSink);
+            _options = CloneOptions(options);
         }
 
         public IFlowRunner CreateRunner(RuntimeFlowDefinition definition)
@@ -59,11 +73,24 @@ namespace Vision.Flow.Core
                 throw new ArgumentNullException("definition");
             }
 
-            return new FlowRunner(definition, _nodeRegistry, _eventSink, _devices, _cameraFrames, _queues);
+            return new FlowRunner(definition, _nodeRegistry, _eventSink, _devices, _cameraFrames, _queues, _options);
+        }
+
+        private static FlowExecutionOptions CloneOptions(FlowExecutionOptions options)
+        {
+            var source = options ?? new FlowExecutionOptions();
+            return new FlowExecutionOptions
+            {
+                FanOutMode = source.FanOutMode,
+                MaxDegreeOfParallelism = source.MaxDegreeOfParallelism <= 0 ? 1 : source.MaxDegreeOfParallelism,
+                BranchTokenMode = source.BranchTokenMode,
+                ContinueOnBranchFailure = source.ContinueOnBranchFailure,
+                DefaultNodeTimeoutMs = source.DefaultNodeTimeoutMs
+            };
         }
     }
 
-    public sealed class FlowRunner : IFlowRunner
+    public sealed class FlowRunner : IFlowRunner, IFlowContinuationDispatcher
     {
         private readonly object _gate = new object();
         private readonly RuntimeFlowDefinition _definition;
@@ -73,6 +100,7 @@ namespace Vision.Flow.Core
         private readonly IDeviceRegistry _devices;
         private readonly ICameraFrameRouter _cameraFrames;
         private readonly IFlowTaskQueueRegistry _queues;
+        private readonly FlowExecutionOptions _options;
         private readonly Dictionary<string, IFlowNode> _nodeInstances;
         private CancellationTokenSource _runnerCancellation;
 
@@ -103,6 +131,18 @@ namespace Vision.Flow.Core
             IDeviceRegistry devices,
             ICameraFrameRouter cameraFrames,
             IFlowTaskQueueRegistry queues)
+            : this(definition, nodeRegistry, eventSink, devices, cameraFrames, queues, null)
+        {
+        }
+
+        public FlowRunner(
+            RuntimeFlowDefinition definition,
+            NodeRegistry nodeRegistry,
+            IFlowEventSink eventSink,
+            IDeviceRegistry devices,
+            ICameraFrameRouter cameraFrames,
+            IFlowTaskQueueRegistry queues,
+            FlowExecutionOptions options)
         {
             if (definition == null)
             {
@@ -121,6 +161,7 @@ namespace Vision.Flow.Core
             _devices = devices ?? EmptyDeviceRegistry.Instance;
             _cameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
             _queues = queues ?? new FlowTaskQueueRegistry(_eventSink);
+            _options = CloneOptions(options);
             _nodeInstances = new Dictionary<string, IFlowNode>(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -130,6 +171,11 @@ namespace Vision.Flow.Core
         }
 
         public bool IsRunning { get; private set; }
+
+        public FlowExecutionOptions Options
+        {
+            get { return _options; }
+        }
 
         public Task StartAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
@@ -201,9 +247,9 @@ namespace Vision.Flow.Core
             using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, runnerToken))
             {
                 var linkedToken = linkedCancellation.Token;
+                var flowRunId = Guid.NewGuid().ToString("N");
                 var variables = new VariablePool();
-                await PublishAsync(
-                    FlowRuntimeEvent.Create(FlowRuntimeEventType.TokenCreated, _definition, token),
+                await PublishAsync(CreateRuntimeEvent(FlowRuntimeEventType.TokenCreated, token, null, NodeRuntimeState.Waiting, null, null, flowRunId, 0),
                     linkedToken).ConfigureAwait(false);
 
                 await ExecuteGraphAsync(
@@ -211,7 +257,78 @@ namespace Vision.Flow.Core
                     token,
                     variables,
                     linkedToken,
-                    new HashSet<string>(StringComparer.OrdinalIgnoreCase)).ConfigureAwait(false);
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                    flowRunId).ConfigureAwait(false);
+            }
+        }
+
+        public async Task DispatchAsync(FlowContinuation continuation, CancellationToken cancellationToken)
+        {
+            if (continuation == null)
+            {
+                throw new ArgumentNullException("continuation");
+            }
+
+            if (string.IsNullOrWhiteSpace(continuation.SourceNodeId))
+            {
+                throw new ArgumentException("Continuation source node is required.", "continuation");
+            }
+
+            var token = continuation.Token ?? new FlowToken();
+            var variables = continuation.Variables ?? new VariablePool();
+            CancellationToken runnerToken;
+            lock (_gate)
+            {
+                if (!IsRunning || _runnerCancellation == null)
+                {
+                    return;
+                }
+
+                runnerToken = _runnerCancellation.Token;
+            }
+
+            using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, runnerToken))
+            {
+                var linkedToken = linkedCancellation.Token;
+                var sourceNode = FindNode(continuation.SourceNodeId);
+                var outputPort = string.IsNullOrWhiteSpace(continuation.OutputPort) ? "Next" : continuation.OutputPort;
+                var result = NodeExecutionResult.Success(outputPort, continuation.Outputs);
+                var flowRunId = string.IsNullOrWhiteSpace(continuation.FlowRunId)
+                    ? Guid.NewGuid().ToString("N")
+                    : continuation.FlowRunId;
+
+                await WriteOutputsAsync(sourceNode, token, result, variables, linkedToken, flowRunId).ConfigureAwait(false);
+                await PublishAsync(
+                    CreateRuntimeEvent(
+                        FlowRuntimeEventType.NodeCompleted,
+                        token,
+                        sourceNode,
+                        NodeRuntimeState.Completed,
+                        null,
+                        outputPort,
+                        flowRunId,
+                        0),
+                    linkedToken).ConfigureAwait(false);
+
+                if (result.Outputs != null && result.Outputs.ContainsKey("Image"))
+                {
+                    await PublishAsync(
+                        CreateRuntimeEvent(
+                            FlowRuntimeEventType.ImageProduced,
+                            token,
+                            sourceNode,
+                            NodeRuntimeState.Completed,
+                            null,
+                            outputPort,
+                            flowRunId,
+                            0),
+                        linkedToken).ConfigureAwait(false);
+                }
+
+                var path = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                path.Add(sourceNode.Id);
+                await ExecuteOutgoingEdgesAsync(sourceNode, outputPort, token, variables, linkedToken, path, flowRunId)
+                    .ConfigureAwait(false);
             }
         }
 
@@ -220,7 +337,8 @@ namespace Vision.Flow.Core
             FlowToken token,
             IVariablePool variables,
             CancellationToken cancellationToken,
-            HashSet<string> currentPath)
+            HashSet<string> currentPath,
+            string flowRunId)
         {
             if (string.IsNullOrWhiteSpace(nodeId))
             {
@@ -236,9 +354,34 @@ namespace Vision.Flow.Core
             try
             {
                 var node = FindNode(nodeId);
-                var result = await ExecuteNodeAsync(node, token, variables, cancellationToken).ConfigureAwait(false);
+                var result = await ExecuteNodeAsync(node, token, variables, cancellationToken, flowRunId).ConfigureAwait(false);
                 var outputPort = string.IsNullOrWhiteSpace(result.OutputPort) ? "Next" : result.OutputPort;
-                var outgoingEdges = _plan.GetOutgoingEdges(node.Id, outputPort);
+                await ExecuteOutgoingEdgesAsync(node, outputPort, token, variables, cancellationToken, currentPath, flowRunId)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                currentPath.Remove(nodeId);
+            }
+        }
+
+        private async Task ExecuteOutgoingEdgesAsync(
+            NodeDefinition node,
+            string outputPort,
+            FlowToken token,
+            IVariablePool variables,
+            CancellationToken cancellationToken,
+            HashSet<string> currentPath,
+            string flowRunId)
+        {
+            var outgoingEdges = _plan.GetOutgoingEdges(node.Id, outputPort);
+            if (outgoingEdges.Count == 0)
+            {
+                return;
+            }
+
+            if (_options.FanOutMode != FlowFanOutMode.Parallel || outgoingEdges.Count == 1)
+            {
                 for (var index = 0; index < outgoingEdges.Count; index++)
                 {
                     var edge = outgoingEdges[index];
@@ -247,13 +390,77 @@ namespace Vision.Flow.Core
                         continue;
                     }
 
-                    await ExecuteGraphAsync(edge.ToNodeId, token, variables, cancellationToken, currentPath)
+                    await ExecuteGraphAsync(edge.ToNodeId, token, variables, cancellationToken, currentPath, flowRunId)
                         .ConfigureAwait(false);
                 }
+
+                return;
             }
-            finally
+
+            await ExecuteOutgoingEdgesInParallelAsync(outgoingEdges, token, variables, cancellationToken, currentPath, flowRunId)
+                .ConfigureAwait(false);
+        }
+
+        private async Task ExecuteOutgoingEdgesInParallelAsync(
+            IList<EdgeDefinition> outgoingEdges,
+            FlowToken token,
+            IVariablePool variables,
+            CancellationToken cancellationToken,
+            HashSet<string> currentPath,
+            string flowRunId)
+        {
+            var maxDegree = _options.MaxDegreeOfParallelism <= 0 ? outgoingEdges.Count : _options.MaxDegreeOfParallelism;
+            if (maxDegree <= 0)
             {
-                currentPath.Remove(nodeId);
+                maxDegree = 1;
+            }
+
+            using (var throttle = new SemaphoreSlim(maxDegree, maxDegree))
+            {
+                var tasks = new List<Task>();
+                for (var index = 0; index < outgoingEdges.Count; index++)
+                {
+                    var edge = outgoingEdges[index];
+                    if (edge == null)
+                    {
+                        continue;
+                    }
+
+                    await throttle.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    var branchPath = new HashSet<string>(currentPath, StringComparer.OrdinalIgnoreCase);
+                    tasks.Add(Task.Run(
+                        async delegate
+                        {
+                            try
+                            {
+                                await ExecuteGraphAsync(edge.ToNodeId, token, variables, cancellationToken, branchPath, flowRunId)
+                                    .ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                throttle.Release();
+                            }
+                        },
+                        cancellationToken));
+                }
+
+                if (_options.ContinueOnBranchFailure)
+                {
+                    for (var index = 0; index < tasks.Count; index++)
+                    {
+                        try
+                        {
+                            await tasks[index].ConfigureAwait(false);
+                        }
+                        catch
+                        {
+                        }
+                    }
+                }
+                else
+                {
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
+                }
             }
         }
 
@@ -261,17 +468,18 @@ namespace Vision.Flow.Core
             NodeDefinition node,
             FlowToken token,
             IVariablePool variables,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string flowRunId)
         {
-            await PublishAsync(
-                FlowRuntimeEvent.Create(FlowRuntimeEventType.NodeStarted, _definition, token, node, NodeRuntimeState.Running),
+            await PublishAsync(CreateRuntimeEvent(FlowRuntimeEventType.NodeStarted, token, node, NodeRuntimeState.Running, null, null, flowRunId, 0),
                 cancellationToken).ConfigureAwait(false);
 
             NodeExecutionResult result;
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 var flowNode = GetOrCreateNode(node);
-                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices, _cameraFrames, _queues);
+                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices, _cameraFrames, _queues, this, flowRunId);
                 result = await flowNode.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
                 if (result == null)
                 {
@@ -289,44 +497,50 @@ namespace Vision.Flow.Core
 
             if (result.IsTimeout)
             {
+                stopwatch.Stop();
                 await PublishAsync(
-                    FlowRuntimeEvent.Create(
+                    CreateRuntimeEvent(
                         FlowRuntimeEventType.NodeTimeout,
-                        _definition,
                         token,
                         node,
                         NodeRuntimeState.Timeout,
                         result.ErrorMessage,
-                        string.IsNullOrWhiteSpace(result.OutputPort) ? "Error" : result.OutputPort),
+                        string.IsNullOrWhiteSpace(result.OutputPort) ? "Error" : result.OutputPort,
+                        flowRunId,
+                        stopwatch.ElapsedMilliseconds),
                     cancellationToken).ConfigureAwait(false);
                 return result;
             }
 
             if (!result.IsSuccess)
             {
+                stopwatch.Stop();
                 await PublishAsync(
-                    FlowRuntimeEvent.Create(
+                    CreateRuntimeEvent(
                         FlowRuntimeEventType.NodeFailed,
-                        _definition,
                         token,
                         node,
                         NodeRuntimeState.Failed,
                         result.ErrorMessage,
-                        string.IsNullOrWhiteSpace(result.OutputPort) ? "Error" : result.OutputPort),
+                        string.IsNullOrWhiteSpace(result.OutputPort) ? "Error" : result.OutputPort,
+                        flowRunId,
+                        stopwatch.ElapsedMilliseconds),
                     cancellationToken).ConfigureAwait(false);
                 return result;
             }
 
-            await WriteOutputsAsync(node, token, result, variables, cancellationToken).ConfigureAwait(false);
+            stopwatch.Stop();
+            await WriteOutputsAsync(node, token, result, variables, cancellationToken, flowRunId).ConfigureAwait(false);
             await PublishAsync(
-                FlowRuntimeEvent.Create(
+                CreateRuntimeEvent(
                     FlowRuntimeEventType.NodeCompleted,
-                    _definition,
                     token,
                     node,
                     NodeRuntimeState.Completed,
                     null,
-                    string.IsNullOrWhiteSpace(result.OutputPort) ? "Next" : result.OutputPort),
+                    string.IsNullOrWhiteSpace(result.OutputPort) ? "Next" : result.OutputPort,
+                    flowRunId,
+                    stopwatch.ElapsedMilliseconds),
                 cancellationToken).ConfigureAwait(false);
             return result;
         }
@@ -336,7 +550,8 @@ namespace Vision.Flow.Core
             FlowToken token,
             NodeExecutionResult result,
             IVariablePool variables,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string flowRunId)
         {
             if (result.Outputs == null)
             {
@@ -348,14 +563,15 @@ namespace Vision.Flow.Core
                 var variableName = node.Id + "." + output.Key;
                 variables.Set(variableName, output.Value);
 
-                var runtimeEvent = FlowRuntimeEvent.Create(
+                var runtimeEvent = CreateRuntimeEvent(
                     FlowRuntimeEventType.OutputProduced,
-                    _definition,
                     token,
                     node,
                     NodeRuntimeState.Completed,
                     null,
-                    result.OutputPort);
+                    result.OutputPort,
+                    flowRunId,
+                    0);
                 runtimeEvent.Data["VariableName"] = variableName;
                 runtimeEvent.Data["Value"] = output.Value;
                 await PublishAsync(runtimeEvent, cancellationToken).ConfigureAwait(false);
@@ -409,6 +625,47 @@ namespace Vision.Flow.Core
         private Task PublishAsync(FlowRuntimeEvent runtimeEvent, CancellationToken cancellationToken)
         {
             return _eventSink.PublishAsync(runtimeEvent, cancellationToken);
+        }
+
+        private FlowRuntimeEvent CreateRuntimeEvent(
+            FlowRuntimeEventType eventType,
+            FlowToken token,
+            NodeDefinition node,
+            NodeRuntimeState state,
+            string message,
+            string outputPort,
+            string flowRunId,
+            long elapsedMs)
+        {
+            var runtimeEvent = FlowRuntimeEvent.Create(
+                eventType,
+                _definition,
+                token,
+                node,
+                state,
+                message,
+                outputPort);
+            runtimeEvent.FlowRunId = flowRunId;
+            runtimeEvent.ElapsedMs = elapsedMs;
+            if (elapsedMs > 0)
+            {
+                runtimeEvent.Data["ElapsedMs"] = elapsedMs;
+            }
+
+            return runtimeEvent;
+        }
+
+        private static FlowExecutionOptions CloneOptions(FlowExecutionOptions options)
+        {
+            var source = options ?? new FlowExecutionOptions();
+            return new FlowExecutionOptions
+            {
+                FanOutMode = source.FanOutMode,
+                MaxDegreeOfParallelism = source.MaxDegreeOfParallelism <= 0 ? 1 : source.MaxDegreeOfParallelism,
+                BranchTokenMode = source.BranchTokenMode,
+                ContinueOnBranchFailure = source.ContinueOnBranchFailure,
+                DefaultNodeTimeoutMs = source.DefaultNodeTimeoutMs
+            };
         }
     }
 }

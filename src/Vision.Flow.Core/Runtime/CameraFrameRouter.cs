@@ -13,7 +13,7 @@ namespace Vision.Flow.Core
         public const string ScanGroupId = "ScanGroupId";
     }
 
-    public interface ICameraFrameRouter
+    public interface ICameraFrameRouter : IDisposable
     {
         void EnsureCamera(ICameraAdapter camera, string cameraId);
 
@@ -26,6 +26,12 @@ namespace Vision.Flow.Core
         CameraFrameStreamSubscription Subscribe(
             ICameraAdapter camera,
             CameraFrameWaitTicket ticket);
+
+        bool UnregisterCamera(string cameraId);
+
+        void ClearExpiredFrames();
+
+        void CancelWaiters(string cameraId, string reason);
     }
 
     public sealed class CameraFrameWaitTicket
@@ -137,6 +143,7 @@ namespace Vision.Flow.Core
         private readonly CameraFrameBuffer _buffer;
         private readonly object _gate = new object();
         private bool _isDisposed;
+        private int _deliveredCount;
 
         internal CameraFrameStreamSubscription(CameraFrameBuffer buffer, CameraFrameWaitTicket ticket)
         {
@@ -153,6 +160,12 @@ namespace Vision.Flow.Core
 
         public CameraFrameWaitTicket Ticket { get; private set; }
 
+        public string QueueName { get; set; }
+
+        public int MaxFrameCount { get; set; }
+
+        public string ScanGroupId { get; set; }
+
         internal bool IsDisposed
         {
             get
@@ -168,6 +181,26 @@ namespace Vision.Flow.Core
         {
             ThrowIfDisposed();
             return _buffer.WaitForFrameAsync(Ticket, timeoutMs, cancellationToken);
+        }
+
+        public Task DispatchAsync(
+            CameraFrameData frame,
+            Func<CameraFrameData, CancellationToken, Task> dispatcher,
+            CancellationToken cancellationToken)
+        {
+            ThrowIfDisposed();
+            if (dispatcher == null)
+            {
+                throw new ArgumentNullException("dispatcher");
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.Run(
+                delegate
+                {
+                    return dispatcher(frame, cancellationToken);
+                },
+                cancellationToken);
         }
 
         public void Dispose()
@@ -190,15 +223,33 @@ namespace Vision.Flow.Core
 
         internal void Notify(CameraFrameData frame)
         {
-            if (IsDisposed)
+            EventHandler<CameraFrameArrivedEventArgs> handler;
+            var shouldDisposeAfterDelivery = false;
+            lock (_gate)
             {
-                return;
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                if (MaxFrameCount > 0 && _deliveredCount >= MaxFrameCount)
+                {
+                    return;
+                }
+
+                _deliveredCount++;
+                shouldDisposeAfterDelivery = MaxFrameCount > 0 && _deliveredCount >= MaxFrameCount;
+                handler = FrameArrived;
             }
 
-            var handler = FrameArrived;
             if (handler != null)
             {
                 handler(this, new CameraFrameArrivedEventArgs(frame));
+            }
+
+            if (shouldDisposeAfterDelivery)
+            {
+                Dispose();
             }
         }
 
@@ -215,6 +266,7 @@ namespace Vision.Flow.Core
     {
         private readonly object _gate = new object();
         private readonly Dictionary<string, CameraFrameBuffer> _buffers;
+        private bool _isDisposed;
 
         public DefaultCameraFrameRouter()
         {
@@ -250,6 +302,92 @@ namespace Vision.Flow.Core
             return buffer.Subscribe(normalizedTicket);
         }
 
+        public bool UnregisterCamera(string cameraId)
+        {
+            if (string.IsNullOrWhiteSpace(cameraId))
+            {
+                return false;
+            }
+
+            CameraFrameBuffer buffer = null;
+            lock (_gate)
+            {
+                if (_isDisposed)
+                {
+                    return false;
+                }
+
+                if (!_buffers.TryGetValue(cameraId, out buffer))
+                {
+                    return false;
+                }
+
+                _buffers.Remove(cameraId);
+            }
+
+            buffer.Dispose("Camera unregistered: " + cameraId);
+            return true;
+        }
+
+        public void ClearExpiredFrames()
+        {
+            List<CameraFrameBuffer> buffers;
+            lock (_gate)
+            {
+                buffers = new List<CameraFrameBuffer>(_buffers.Values);
+            }
+
+            for (var index = 0; index < buffers.Count; index++)
+            {
+                buffers[index].ClearExpiredFrames();
+            }
+        }
+
+        public void CancelWaiters(string cameraId, string reason)
+        {
+            List<CameraFrameBuffer> buffers;
+            lock (_gate)
+            {
+                if (string.IsNullOrWhiteSpace(cameraId))
+                {
+                    buffers = new List<CameraFrameBuffer>(_buffers.Values);
+                }
+                else
+                {
+                    CameraFrameBuffer buffer;
+                    buffers = _buffers.TryGetValue(cameraId, out buffer)
+                        ? new List<CameraFrameBuffer> { buffer }
+                        : new List<CameraFrameBuffer>();
+                }
+            }
+
+            for (var index = 0; index < buffers.Count; index++)
+            {
+                buffers[index].CancelWaiters(reason);
+            }
+        }
+
+        public void Dispose()
+        {
+            List<CameraFrameBuffer> buffers;
+            lock (_gate)
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                _isDisposed = true;
+                buffers = new List<CameraFrameBuffer>(_buffers.Values);
+                _buffers.Clear();
+            }
+
+            for (var index = 0; index < buffers.Count; index++)
+            {
+                buffers[index].Dispose("Camera frame router disposed.");
+            }
+        }
+
         private CameraFrameBuffer GetBuffer(ICameraAdapter camera, string cameraId)
         {
             if (camera == null)
@@ -260,6 +398,11 @@ namespace Vision.Flow.Core
             var normalizedCameraId = NormalizeCameraId(camera, cameraId);
             lock (_gate)
             {
+                if (_isDisposed)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
+
                 CameraFrameBuffer buffer;
                 if (_buffers.TryGetValue(normalizedCameraId, out buffer))
                 {
@@ -334,6 +477,7 @@ namespace Vision.Flow.Core
         private readonly List<CameraFrameStreamSubscription> _subscriptions;
         private readonly int _maxBufferedFrames;
         private readonly TimeSpan _bufferedFrameTtl;
+        private bool _isDisposed;
 
         public CameraFrameBuffer(
             string cameraId,
@@ -379,6 +523,7 @@ namespace Vision.Flow.Core
             var request = new CameraFrameWaitRequest(ticket);
             lock (_gate)
             {
+                ThrowIfDisposed();
                 PruneExpiredFrames(DateTime.UtcNow);
 
                 CameraFrameData bufferedFrame;
@@ -413,6 +558,7 @@ namespace Vision.Flow.Core
             var subscription = new CameraFrameStreamSubscription(this, ticket);
             lock (_gate)
             {
+                ThrowIfDisposed();
                 _subscriptions.Add(subscription);
             }
 
@@ -432,6 +578,65 @@ namespace Vision.Flow.Core
             }
         }
 
+        public void ClearExpiredFrames()
+        {
+            lock (_gate)
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                PruneExpiredFrames(DateTime.UtcNow);
+            }
+        }
+
+        public void CancelWaiters(string reason)
+        {
+            List<CameraFrameWaitRequest> waiters;
+            lock (_gate)
+            {
+                waiters = new List<CameraFrameWaitRequest>(_waiters);
+                _waiters.Clear();
+            }
+
+            for (var index = 0; index < waiters.Count; index++)
+            {
+                waiters[index].TrySetCanceled(reason);
+            }
+        }
+
+        public void Dispose(string reason)
+        {
+            List<CameraFrameWaitRequest> waiters;
+            List<CameraFrameStreamSubscription> subscriptions;
+            lock (_gate)
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                _isDisposed = true;
+                Camera.FrameArrived -= OnFrameArrived;
+                waiters = new List<CameraFrameWaitRequest>(_waiters);
+                subscriptions = new List<CameraFrameStreamSubscription>(_subscriptions);
+                _waiters.Clear();
+                _subscriptions.Clear();
+                _frames.Clear();
+            }
+
+            for (var index = 0; index < waiters.Count; index++)
+            {
+                waiters[index].TrySetCanceled(reason);
+            }
+
+            for (var index = 0; index < subscriptions.Count; index++)
+            {
+                subscriptions[index].Dispose();
+            }
+        }
+
         private void OnFrameArrived(object sender, CameraFrameArrivedEventArgs args)
         {
             if (args == null || args.Frame == null)
@@ -443,6 +648,11 @@ namespace Vision.Flow.Core
             var matchingSubscriptions = new List<CameraFrameStreamSubscription>();
             lock (_gate)
             {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
                 PruneExpiredFrames(DateTime.UtcNow);
                 RemoveDisposedSubscriptions();
 
@@ -531,6 +741,14 @@ namespace Vision.Flow.Core
                 }
             }
         }
+
+        private void ThrowIfDisposed()
+        {
+            if (_isDisposed)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
+        }
     }
 
     internal sealed class CameraFrameWaitRequest
@@ -557,6 +775,12 @@ namespace Vision.Flow.Core
         public void TrySetResult(CameraFrameData frame)
         {
             _completion.TrySetResult(frame);
+        }
+
+        public void TrySetCanceled(string reason)
+        {
+            _completion.TrySetException(new OperationCanceledException(
+                string.IsNullOrWhiteSpace(reason) ? "Camera frame wait was canceled." : reason));
         }
     }
 
