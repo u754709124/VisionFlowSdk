@@ -43,7 +43,12 @@ namespace Vision.Flow.Tests
                 new TestCase("Sample flow files deserialize and validate", SampleFlowTests.SampleFlowFilesDeserializeAndValidate),
                 new TestCase("Sample runtime file excludes designer view state", SampleFlowTests.SampleRuntimeExcludesViewState),
                 new TestCase("FlowRunner executes A -> B -> C and writes output variables", FlowRunnerTests.LinearOrderAndVariables),
+                new TestCase("FlowRunner executes all fan-out edges from one output port", FlowRunnerTests.FanOutExecutesAllOutgoingEdges),
+                new TestCase("FlowRunner executes branched fan-out graph", FlowRunnerTests.BranchedFanOutGraphExecutesAllBranches),
+                new TestCase("FlowRunner allows reconverging branches without global visited blocking", FlowRunnerTests.ReconvergingBranchesCanReachSameNode),
                 new TestCase("FlowRunner publishes NodeFailed and follows Error route", FlowRunnerTests.NodeFailedAndErrorRoute),
+                new TestCase("FlowRunner publishes NodeTimeout and follows Timeout route", FlowRunnerTests.NodeTimeoutAndTimeoutRoute),
+                new TestCase("FlowRunner detects cycles on the current execution path", FlowRunnerTests.CycleRouteThrows),
                 new TestCase("FlowRunner reports a clear missing entry exception", FlowRunnerTests.MissingEntryThrows),
                 new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
                 new TestCase("DefaultDeviceRegistry resolves a fake camera", AdapterTests.RegistryGetsFakeCamera),
@@ -1586,6 +1591,48 @@ namespace Vision.Flow.Tests
             AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data["VariableName"]) == "B.Value"), "B.Value output should be written.");
         }
 
+        public static async Task FanOutExecutesAllOutgoingEdges()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateFanOutFlow(), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-fanout" }).ConfigureAwait(false);
+
+            AssertEx.SequenceEqual(new[] { "A", "B", "C" }, executionLog, "All edges from A.Next should execute in definition order.");
+            AssertEx.True(
+                sink.Events.Any(x => x.EventType == FlowRuntimeEventType.NodeCompleted && string.Equals(x.NodeId, "B", StringComparison.OrdinalIgnoreCase)),
+                "Fan-out branch B should complete.");
+            AssertEx.True(
+                sink.Events.Any(x => x.EventType == FlowRuntimeEventType.NodeCompleted && string.Equals(x.NodeId, "C", StringComparison.OrdinalIgnoreCase)),
+                "Fan-out branch C should complete.");
+        }
+
+        public static async Task BranchedFanOutGraphExecutesAllBranches()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateBranchedFanOutFlow(), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-branched-fanout" }).ConfigureAwait(false);
+
+            AssertEx.SequenceEqual(new[] { "A", "B", "D", "C", "E" }, executionLog, "Both fan-out branches should execute their downstream chains.");
+        }
+
+        public static async Task ReconvergingBranchesCanReachSameNode()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateReconvergingFlow(), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-reconverge" }).ConfigureAwait(false);
+
+            AssertEx.SequenceEqual(new[] { "A", "B", "D", "C", "D" }, executionLog, "Path-level cycle detection should not block a valid reconverging node.");
+        }
+
         public static async Task NodeFailedAndErrorRoute()
         {
             var executionLog = new List<string>();
@@ -1600,6 +1647,33 @@ namespace Vision.Flow.Tests
             AssertEx.NotNull(failedEvent, "NodeFailed event should be published.");
             AssertEx.Equal("A", failedEvent.NodeId, "NodeFailed should identify the failing node.");
             AssertEx.Equal("Error", failedEvent.OutputPort, "NodeFailed should use the Error output port.");
+        }
+
+        public static async Task NodeTimeoutAndTimeoutRoute()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateTimeoutFlow(), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-timeout-route" }).ConfigureAwait(false);
+
+            AssertEx.SequenceEqual(new[] { "A", "TimeoutHandler" }, executionLog, "Timeout should follow the Timeout route.");
+            var timeoutEvent = sink.Events.FirstOrDefault(x => x.EventType == FlowRuntimeEventType.NodeTimeout);
+            AssertEx.NotNull(timeoutEvent, "NodeTimeout event should be published.");
+            AssertEx.Equal("A", timeoutEvent.NodeId, "NodeTimeout should identify the timed out node.");
+            AssertEx.Equal("Timeout", timeoutEvent.OutputPort, "NodeTimeout should use the configured Timeout output port.");
+        }
+
+        public static async Task CycleRouteThrows()
+        {
+            var runner = CreateRunner(CreateCycleFlow(), new List<string>(), new InMemoryFlowEventSink());
+            await runner.StartAsync().ConfigureAwait(false);
+
+            var exception = await AssertEx.ThrowsAsync<InvalidOperationException>(
+                () => runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-cycle" })).ConfigureAwait(false);
+
+            AssertEx.True(exception.Message.IndexOf("Cycle detected", StringComparison.OrdinalIgnoreCase) >= 0, "Cycle detection should report a clear error.");
         }
 
         public static async Task MissingEntryThrows()
@@ -1660,6 +1734,67 @@ namespace Vision.Flow.Tests
             return flow;
         }
 
+        private static RuntimeFlowDefinition CreateFanOutFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "fanout",
+                FlowName = "Fan Out",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(CreateNode("A", null, null));
+            flow.Nodes.Add(CreateNode("B", null, null));
+            flow.Nodes.Add(CreateNode("C", null, null));
+            flow.Edges.Add(CreateEdge("A", "Next", "B"));
+            flow.Edges.Add(CreateEdge("A", "Next", "C"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateBranchedFanOutFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "branched-fanout",
+                FlowName = "Branched Fan Out",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(CreateNode("A", null, null));
+            flow.Nodes.Add(CreateNode("B", null, null));
+            flow.Nodes.Add(CreateNode("C", null, null));
+            flow.Nodes.Add(CreateNode("D", null, null));
+            flow.Nodes.Add(CreateNode("E", null, null));
+            flow.Edges.Add(CreateEdge("A", "Next", "B"));
+            flow.Edges.Add(CreateEdge("A", "Next", "C"));
+            flow.Edges.Add(CreateEdge("B", "Next", "D"));
+            flow.Edges.Add(CreateEdge("C", "Next", "E"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateReconvergingFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "reconverging",
+                FlowName = "Reconverging",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(CreateNode("A", null, null));
+            flow.Nodes.Add(CreateNode("B", null, null));
+            flow.Nodes.Add(CreateNode("C", null, null));
+            flow.Nodes.Add(CreateNode("D", null, null));
+            flow.Edges.Add(CreateEdge("A", "Next", "B"));
+            flow.Edges.Add(CreateEdge("A", "Next", "C"));
+            flow.Edges.Add(CreateEdge("B", "Next", "D"));
+            flow.Edges.Add(CreateEdge("C", "Next", "D"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
         private static RuntimeFlowDefinition CreateFailureFlow()
         {
             var flow = new RuntimeFlowDefinition
@@ -1674,6 +1809,42 @@ namespace Vision.Flow.Tests
             flow.Nodes.Add(failing);
             flow.Nodes.Add(CreateNode("ErrorHandler", null, null));
             flow.Edges.Add(CreateEdge("A", "Error", "ErrorHandler"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateTimeoutFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "timeout",
+                FlowName = "Timeout",
+                Version = "1.0.0"
+            };
+
+            var timedOut = CreateNode("A", null, null);
+            timedOut.Settings["Mode"] = "Timeout";
+            timedOut.Settings["TimeoutOutputPort"] = "Timeout";
+            flow.Nodes.Add(timedOut);
+            flow.Nodes.Add(CreateNode("TimeoutHandler", null, null));
+            flow.Edges.Add(CreateEdge("A", "Timeout", "TimeoutHandler"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateCycleFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "cycle",
+                FlowName = "Cycle",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(CreateNode("A", null, null));
+            flow.Nodes.Add(CreateNode("B", null, null));
+            flow.Edges.Add(CreateEdge("A", "Next", "B"));
+            flow.Edges.Add(CreateEdge("B", "Next", "A"));
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
             return flow;
         }
@@ -1786,7 +1957,8 @@ namespace Vision.Flow.Tests
 
             if (string.Equals(mode, "Timeout", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult(NodeExecutionResult.Timeout("Requested timeout."));
+                var timeoutOutputPort = GetSetting("TimeoutOutputPort");
+                return Task.FromResult(NodeExecutionResult.Timeout("Requested timeout.", timeoutOutputPort));
             }
 
             var requiredVariable = GetSetting("RequiredVariable");

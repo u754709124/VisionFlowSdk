@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -49,6 +48,7 @@ namespace Vision.Flow.Core
     {
         private readonly object _gate = new object();
         private readonly RuntimeFlowDefinition _definition;
+        private readonly RuntimeFlowPlan _plan;
         private readonly NodeRegistry _nodeRegistry;
         private readonly IFlowEventSink _eventSink;
         private readonly IDeviceRegistry _devices;
@@ -73,6 +73,7 @@ namespace Vision.Flow.Core
             }
 
             _definition = definition;
+            _plan = new RuntimeFlowPlan(definition);
             _nodeRegistry = nodeRegistry;
             _eventSink = eventSink ?? new InMemoryFlowEventSink();
             _devices = devices ?? EmptyDeviceRegistry.Instance;
@@ -161,21 +162,54 @@ namespace Vision.Flow.Core
                     FlowRuntimeEvent.Create(FlowRuntimeEventType.TokenCreated, _definition, token),
                     linkedToken).ConfigureAwait(false);
 
-                var currentNodeId = entry.TargetNodeId;
-                var visitedNodeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                await ExecuteGraphAsync(
+                    entry.TargetNodeId,
+                    token,
+                    variables,
+                    linkedToken,
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase)).ConfigureAwait(false);
+            }
+        }
 
-                while (!string.IsNullOrWhiteSpace(currentNodeId))
+        private async Task ExecuteGraphAsync(
+            string nodeId,
+            FlowToken token,
+            IVariablePool variables,
+            CancellationToken cancellationToken,
+            HashSet<string> currentPath)
+        {
+            if (string.IsNullOrWhiteSpace(nodeId))
+            {
+                return;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!currentPath.Add(nodeId))
+            {
+                throw new InvalidOperationException("Cycle detected while executing node: " + nodeId);
+            }
+
+            try
+            {
+                var node = FindNode(nodeId);
+                var result = await ExecuteNodeAsync(node, token, variables, cancellationToken).ConfigureAwait(false);
+                var outputPort = string.IsNullOrWhiteSpace(result.OutputPort) ? "Next" : result.OutputPort;
+                var outgoingEdges = _plan.GetOutgoingEdges(node.Id, outputPort);
+                for (var index = 0; index < outgoingEdges.Count; index++)
                 {
-                    linkedToken.ThrowIfCancellationRequested();
-                    if (!visitedNodeIds.Add(currentNodeId))
+                    var edge = outgoingEdges[index];
+                    if (edge == null)
                     {
-                        throw new InvalidOperationException("Cycle detected while executing node: " + currentNodeId);
+                        continue;
                     }
 
-                    var node = FindNode(currentNodeId);
-                    var result = await ExecuteNodeAsync(node, token, variables, linkedToken).ConfigureAwait(false);
-                    currentNodeId = FindNextNodeId(node.Id, string.IsNullOrWhiteSpace(result.OutputPort) ? "Next" : result.OutputPort);
+                    await ExecuteGraphAsync(edge.ToNodeId, token, variables, cancellationToken, currentPath)
+                        .ConfigureAwait(false);
                 }
+            }
+            finally
+            {
+                currentPath.Remove(nodeId);
             }
         }
 
@@ -286,8 +320,8 @@ namespace Vision.Flow.Core
 
         private FlowEntryDefinition FindEntry(string entryName)
         {
-            var entries = _definition.Entries ?? new List<FlowEntryDefinition>();
-            var entry = entries.FirstOrDefault(x => string.Equals(x.EntryName, entryName, StringComparison.OrdinalIgnoreCase));
+            FlowEntryDefinition entry;
+            _plan.EntriesByName.TryGetValue(entryName, out entry);
             if (entry == null)
             {
                 throw new ArgumentException("Flow entry was not found: " + entryName, "entryName");
@@ -303,24 +337,14 @@ namespace Vision.Flow.Core
 
         private NodeDefinition FindNode(string nodeId)
         {
-            var nodes = _definition.Nodes ?? new List<NodeDefinition>();
-            var node = nodes.FirstOrDefault(x => string.Equals(x.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+            NodeDefinition node;
+            _plan.NodesById.TryGetValue(nodeId, out node);
             if (node == null)
             {
                 throw new InvalidOperationException("Flow node was not found: " + nodeId);
             }
 
             return node;
-        }
-
-        private string FindNextNodeId(string nodeId, string outputPort)
-        {
-            var edges = _definition.Edges ?? new List<EdgeDefinition>();
-            var edge = edges.FirstOrDefault(x =>
-                string.Equals(x.FromNodeId, nodeId, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(x.FromPort, outputPort, StringComparison.OrdinalIgnoreCase));
-
-            return edge == null ? null : edge.ToNodeId;
         }
 
         private IFlowNode GetOrCreateNode(NodeDefinition node)
