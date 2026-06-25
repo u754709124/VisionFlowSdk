@@ -257,11 +257,36 @@ namespace Vision.Flow.Nodes
         }
     }
 
+    public sealed class AdapterNodeQueueConfig
+    {
+        public AdapterNodeQueueConfig()
+        {
+            QueueName = "default";
+            QueueCapacity = 16;
+            QueueMaxDegreeOfParallelism = 1;
+            QueueFullMode = "Wait";
+        }
+
+        public bool UseQueue { get; set; }
+
+        public string QueueName { get; set; }
+
+        public int QueueCapacity { get; set; }
+
+        public int QueueMaxDegreeOfParallelism { get; set; }
+
+        public string QueueFullMode { get; set; }
+    }
+
     public sealed class RecipeRunNodeConfig
     {
         public RecipeRunNodeConfig()
         {
             TimeoutMs = 5000;
+            Queue = new AdapterNodeQueueConfig
+            {
+                QueueName = "recipe"
+            };
         }
 
         public string RecipeId { get; set; }
@@ -269,6 +294,8 @@ namespace Vision.Flow.Nodes
         public string InputImageBinding { get; set; }
 
         public int TimeoutMs { get; set; }
+
+        public AdapterNodeQueueConfig Queue { get; set; }
     }
 
     public sealed class RecipeRunNodeFactory : BaseNodeFactory<RecipeRunNodeConfig>
@@ -291,7 +318,8 @@ namespace Vision.Flow.Nodes
             {
                 RecipeId = GetStringSetting(definition, "RecipeId", null),
                 InputImageBinding = GetStringSetting(definition, "InputImageBinding", null),
-                TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 5000)
+                TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 5000),
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "recipe")
             };
         }
 
@@ -308,6 +336,10 @@ namespace Vision.Flow.Nodes
         public RecipeRunNode(RecipeRunNodeConfig config)
         {
             _config = config ?? new RecipeRunNodeConfig();
+            if (_config.Queue == null)
+            {
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = "recipe" };
+            }
         }
 
         public async Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
@@ -341,7 +373,16 @@ namespace Vision.Flow.Nodes
             {
                 try
                 {
-                    result = await recipe.RunAsync(request, timeout.Token).ConfigureAwait(false);
+                    result = await AdapterNodeHelpers.ExecuteWithOptionalQueueAsync(
+                        context,
+                        _config.Queue,
+                        "recipe",
+                        "recipe.run",
+                        delegate(CancellationToken token)
+                        {
+                            return recipe.RunAsync(request, token);
+                        },
+                        timeout.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -453,7 +494,12 @@ namespace Vision.Flow.Nodes
                         DefaultValue = 5000,
                         IsRequired = false,
                         Description = "Maximum time for recipe execution. Zero disables the node timeout."
-                    }
+                    },
+                    AdapterNodeDescriptors.QueueUseSetting(),
+                    AdapterNodeDescriptors.QueueNameSetting("recipe"),
+                    AdapterNodeDescriptors.QueueCapacitySetting(),
+                    AdapterNodeDescriptors.QueueMaxDegreeSetting(),
+                    AdapterNodeDescriptors.QueueFullModeSetting()
                 },
                 Outputs =
                 {
@@ -496,6 +542,10 @@ namespace Vision.Flow.Nodes
         {
             SaverId = "ImageSave01";
             FileNameTemplate = "{ImageId}.png";
+            Queue = new AdapterNodeQueueConfig
+            {
+                QueueName = "image-save"
+            };
         }
 
         public string SaverId { get; set; }
@@ -509,6 +559,8 @@ namespace Vision.Flow.Nodes
         public string DirectoryTemplate { get; set; }
 
         public string FileNameTemplate { get; set; }
+
+        public AdapterNodeQueueConfig Queue { get; set; }
     }
 
     public sealed class ImageSaveNodeFactory : BaseNodeFactory<ImageSaveNodeConfig>
@@ -540,7 +592,8 @@ namespace Vision.Flow.Nodes
                 ResultImageBinding = GetStringSetting(definition, "ResultImageBinding", null),
                 RootDirectory = GetStringSetting(definition, "RootDirectory", null),
                 DirectoryTemplate = GetStringSetting(definition, "DirectoryTemplate", null),
-                FileNameTemplate = GetStringSetting(definition, "FileNameTemplate", "{ImageId}.png")
+                FileNameTemplate = GetStringSetting(definition, "FileNameTemplate", "{ImageId}.png"),
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "image-save")
             };
         }
 
@@ -557,6 +610,10 @@ namespace Vision.Flow.Nodes
         public ImageSaveNode(ImageSaveNodeConfig config)
         {
             _config = config ?? new ImageSaveNodeConfig();
+            if (_config.Queue == null)
+            {
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = "image-save" };
+            }
         }
 
         public async Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
@@ -647,7 +704,16 @@ namespace Vision.Flow.Nodes
             request.Metadata["NodeId"] = context.Node.Id;
             request.Metadata["Role"] = role;
 
-            var result = await saver.SaveAsync(request, cancellationToken).ConfigureAwait(false);
+            var result = await AdapterNodeHelpers.ExecuteWithOptionalQueueAsync(
+                context,
+                _config.Queue,
+                "image-save",
+                "image.save." + role,
+                delegate(CancellationToken token)
+                {
+                    return saver.SaveAsync(request, token);
+                },
+                cancellationToken).ConfigureAwait(false);
             if (result == null)
             {
                 throw new InvalidOperationException("Image saver returned a null result.");
@@ -739,7 +805,12 @@ namespace Vision.Flow.Nodes
                         DefaultValue = "{ImageId}.png",
                         IsRequired = false,
                         Description = "File name template for saved images."
-                    }
+                    },
+                    AdapterNodeDescriptors.QueueUseSetting(),
+                    AdapterNodeDescriptors.QueueNameSetting("image-save"),
+                    AdapterNodeDescriptors.QueueCapacitySetting(),
+                    AdapterNodeDescriptors.QueueMaxDegreeSetting(),
+                    AdapterNodeDescriptors.QueueFullModeSetting()
                 },
                 Outputs =
                 {
@@ -778,6 +849,10 @@ namespace Vision.Flow.Nodes
         public DatabaseSaveNodeConfig()
         {
             FieldMappings = new List<DatabaseFieldMappingConfig>();
+            Queue = new AdapterNodeQueueConfig
+            {
+                QueueName = "database-save"
+            };
         }
 
         public string DatabaseId { get; set; }
@@ -785,6 +860,8 @@ namespace Vision.Flow.Nodes
         public string TableName { get; set; }
 
         public IList<DatabaseFieldMappingConfig> FieldMappings { get; set; }
+
+        public AdapterNodeQueueConfig Queue { get; set; }
     }
 
     public sealed class DatabaseSaveNodeFactory : BaseNodeFactory<DatabaseSaveNodeConfig>
@@ -806,7 +883,8 @@ namespace Vision.Flow.Nodes
             var config = new DatabaseSaveNodeConfig
             {
                 DatabaseId = GetStringSetting(definition, "DatabaseId", null),
-                TableName = GetStringSetting(definition, "TableName", null)
+                TableName = GetStringSetting(definition, "TableName", null),
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "database-save")
             };
             AdapterNodeHelpers.AddFieldMappings(config.FieldMappings, GetSetting(definition, "FieldMappings", null));
             return config;
@@ -828,6 +906,11 @@ namespace Vision.Flow.Nodes
             if (_config.FieldMappings == null)
             {
                 _config.FieldMappings = new List<DatabaseFieldMappingConfig>();
+            }
+
+            if (_config.Queue == null)
+            {
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = "database-save" };
             }
         }
 
@@ -858,7 +941,16 @@ namespace Vision.Flow.Nodes
             AdapterNodeHelpers.AddTokenMetadata(context.Token, request.Metadata);
             request.Metadata["NodeId"] = context.Node.Id;
 
-            await database.SaveAsync(request, cancellationToken).ConfigureAwait(false);
+            await AdapterNodeHelpers.ExecuteWithOptionalQueueAsync(
+                context,
+                _config.Queue,
+                "database-save",
+                "database.save",
+                delegate(CancellationToken token)
+                {
+                    return database.SaveAsync(request, token);
+                },
+                cancellationToken).ConfigureAwait(false);
 
             return NodeExecutionResult.Success(
                 "Next",
@@ -946,7 +1038,12 @@ namespace Vision.Flow.Nodes
                         DefaultValue = null,
                         IsRequired = false,
                         Description = "Field mappings with FieldName and Value, ValueBinding, or InputName."
-                    }
+                    },
+                    AdapterNodeDescriptors.QueueUseSetting(),
+                    AdapterNodeDescriptors.QueueNameSetting("database-save"),
+                    AdapterNodeDescriptors.QueueCapacitySetting(),
+                    AdapterNodeDescriptors.QueueMaxDegreeSetting(),
+                    AdapterNodeDescriptors.QueueFullModeSetting()
                 },
                 Outputs =
                 {
@@ -1012,6 +1109,71 @@ namespace Vision.Flow.Nodes
                 Description = description
             };
         }
+
+        public static NodeSettingDescriptor QueueUseSetting()
+        {
+            return new NodeSettingDescriptor
+            {
+                Name = "UseQueue",
+                DisplayName = "Use Queue",
+                DataType = "Boolean",
+                DefaultValue = false,
+                IsRequired = false,
+                Description = "When true, runs adapter work through a bounded runtime queue."
+            };
+        }
+
+        public static NodeSettingDescriptor QueueNameSetting(string defaultValue)
+        {
+            return new NodeSettingDescriptor
+            {
+                Name = "QueueName",
+                DisplayName = "Queue Name",
+                DataType = "String",
+                DefaultValue = defaultValue,
+                IsRequired = false,
+                Description = "Runtime queue name used when UseQueue is enabled."
+            };
+        }
+
+        public static NodeSettingDescriptor QueueCapacitySetting()
+        {
+            return new NodeSettingDescriptor
+            {
+                Name = "QueueCapacity",
+                DisplayName = "Queue Capacity",
+                DataType = "Int32",
+                DefaultValue = 16,
+                IsRequired = false,
+                Description = "Maximum number of running and waiting items in the queue."
+            };
+        }
+
+        public static NodeSettingDescriptor QueueMaxDegreeSetting()
+        {
+            return new NodeSettingDescriptor
+            {
+                Name = "QueueMaxDegreeOfParallelism",
+                DisplayName = "Queue Parallelism",
+                DataType = "Int32",
+                DefaultValue = 1,
+                IsRequired = false,
+                Description = "Maximum concurrent adapter calls for this queue."
+            };
+        }
+
+        public static NodeSettingDescriptor QueueFullModeSetting()
+        {
+            return new NodeSettingDescriptor
+            {
+                Name = "QueueFullMode",
+                DisplayName = "Queue Full Mode",
+                DataType = "String",
+                DefaultValue = "Wait",
+                IsRequired = false,
+                Description = "Queue behavior when full. Supported values: Wait, Reject."
+            };
+        }
     }
 
     internal static class AdapterNodeHelpers
@@ -1033,6 +1195,213 @@ namespace Vision.Flow.Nodes
             }
 
             return Convert.ToInt32(value, CultureInfo.InvariantCulture);
+        }
+
+        public static bool ResolveBoolean(FlowExecutionContext context, string name, bool defaultValue)
+        {
+            var value = context.GetInputValue(name);
+            if (value == null)
+            {
+                return defaultValue;
+            }
+
+            return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
+        }
+
+        public static AdapterNodeQueueConfig CreateQueueConfig(NodeDefinition definition, string defaultQueueName)
+        {
+            return new AdapterNodeQueueConfig
+            {
+                UseQueue = GetDefinitionBoolean(definition, "UseQueue", false),
+                QueueName = GetDefinitionString(definition, "QueueName", defaultQueueName),
+                QueueCapacity = GetDefinitionInt32(definition, "QueueCapacity", 16),
+                QueueMaxDegreeOfParallelism = GetDefinitionInt32(definition, "QueueMaxDegreeOfParallelism", 1),
+                QueueFullMode = GetDefinitionString(definition, "QueueFullMode", "Wait")
+            };
+        }
+
+        public static Task<T> ExecuteWithOptionalQueueAsync<T>(
+            FlowExecutionContext context,
+            AdapterNodeQueueConfig config,
+            string defaultQueueName,
+            string operationName,
+            Func<CancellationToken, Task<T>> work,
+            CancellationToken cancellationToken)
+        {
+            var resolved = ResolveQueueConfig(context, config, defaultQueueName);
+            if (!resolved.UseQueue)
+            {
+                return work(cancellationToken);
+            }
+
+            return ExecuteQueuedCoreAsync(
+                context,
+                resolved,
+                operationName,
+                work,
+                cancellationToken);
+        }
+
+        public static async Task ExecuteWithOptionalQueueAsync(
+            FlowExecutionContext context,
+            AdapterNodeQueueConfig config,
+            string defaultQueueName,
+            string operationName,
+            Func<CancellationToken, Task> work,
+            CancellationToken cancellationToken)
+        {
+            await ExecuteWithOptionalQueueAsync<object>(
+                context,
+                config,
+                defaultQueueName,
+                operationName,
+                async delegate(CancellationToken token)
+                {
+                    await work(token).ConfigureAwait(false);
+                    return null;
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private static async Task<T> ExecuteQueuedCoreAsync<T>(
+            FlowExecutionContext context,
+            AdapterNodeQueueConfig config,
+            string operationName,
+            Func<CancellationToken, Task<T>> work,
+            CancellationToken cancellationToken)
+        {
+            var queue = context.Queues.GetOrCreate(config.QueueName, CreateQueueOptions(config));
+            var result = await queue.EnqueueAsync(
+                work,
+                CreateQueueItemContext(context, operationName),
+                cancellationToken).ConfigureAwait(false);
+
+            if (result.IsRejected)
+            {
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? "Queue rejected adapter work."
+                    : result.ErrorMessage);
+            }
+
+            if (!result.IsSuccess)
+            {
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? "Queued adapter work failed."
+                    : result.ErrorMessage);
+            }
+
+            return result.Value;
+        }
+
+        private static AdapterNodeQueueConfig ResolveQueueConfig(FlowExecutionContext context, AdapterNodeQueueConfig config, string defaultQueueName)
+        {
+            config = config ?? new AdapterNodeQueueConfig { QueueName = defaultQueueName };
+            var resolved = new AdapterNodeQueueConfig
+            {
+                UseQueue = ResolveBoolean(context, "UseQueue", config.UseQueue),
+                QueueName = ResolveString(context, "QueueName", string.IsNullOrWhiteSpace(config.QueueName) ? defaultQueueName : config.QueueName),
+                QueueCapacity = ResolveInt32(context, "QueueCapacity", config.QueueCapacity <= 0 ? 16 : config.QueueCapacity),
+                QueueMaxDegreeOfParallelism = ResolveInt32(context, "QueueMaxDegreeOfParallelism", config.QueueMaxDegreeOfParallelism <= 0 ? 1 : config.QueueMaxDegreeOfParallelism),
+                QueueFullMode = ResolveString(context, "QueueFullMode", string.IsNullOrWhiteSpace(config.QueueFullMode) ? "Wait" : config.QueueFullMode)
+            };
+
+            if (string.IsNullOrWhiteSpace(resolved.QueueName))
+            {
+                resolved.QueueName = string.IsNullOrWhiteSpace(defaultQueueName) ? "default" : defaultQueueName;
+            }
+
+            if (resolved.QueueCapacity <= 0)
+            {
+                resolved.QueueCapacity = 1;
+            }
+
+            if (resolved.QueueMaxDegreeOfParallelism <= 0)
+            {
+                resolved.QueueMaxDegreeOfParallelism = 1;
+            }
+
+            return resolved;
+        }
+
+        private static FlowTaskQueueOptions CreateQueueOptions(AdapterNodeQueueConfig config)
+        {
+            return new FlowTaskQueueOptions
+            {
+                QueueName = config.QueueName,
+                Capacity = config.QueueCapacity,
+                MaxDegreeOfParallelism = config.QueueMaxDegreeOfParallelism,
+                FullMode = ParseQueueFullMode(config.QueueFullMode)
+            };
+        }
+
+        private static FlowTaskQueueFullMode ParseQueueFullMode(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return FlowTaskQueueFullMode.Wait;
+            }
+
+            FlowTaskQueueFullMode mode;
+            if (Enum.TryParse(value, true, out mode))
+            {
+                return mode;
+            }
+
+            throw new InvalidOperationException("QueueFullMode must be Wait or Reject.");
+        }
+
+        private static FlowTaskQueueItemContext CreateQueueItemContext(FlowExecutionContext context, string operationName)
+        {
+            var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            data["NodeType"] = context.Node.Type;
+            return new FlowTaskQueueItemContext
+            {
+                FlowId = context.Flow.FlowId,
+                TokenId = context.Token.TokenId,
+                NodeId = context.Node.Id,
+                NodeName = context.Node.Name,
+                OperationName = operationName,
+                Data = data
+            };
+        }
+
+        private static string GetDefinitionString(NodeDefinition definition, string name, string defaultValue)
+        {
+            var value = GetDefinitionSetting(definition, name, defaultValue);
+            return value == null ? null : Convert.ToString(value, CultureInfo.InvariantCulture);
+        }
+
+        private static int GetDefinitionInt32(NodeDefinition definition, string name, int defaultValue)
+        {
+            var value = GetDefinitionSetting(definition, name, defaultValue);
+            if (value == null)
+            {
+                return defaultValue;
+            }
+
+            return Convert.ToInt32(value, CultureInfo.InvariantCulture);
+        }
+
+        private static bool GetDefinitionBoolean(NodeDefinition definition, string name, bool defaultValue)
+        {
+            var value = GetDefinitionSetting(definition, name, defaultValue);
+            if (value == null)
+            {
+                return defaultValue;
+            }
+
+            return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
+        }
+
+        private static object GetDefinitionSetting(NodeDefinition definition, string name, object defaultValue)
+        {
+            object value;
+            if (definition != null && definition.Settings != null && definition.Settings.TryGetValue(name, out value))
+            {
+                return value;
+            }
+
+            return defaultValue;
         }
 
         public static object ResolveConfiguredInput(FlowExecutionContext context, string inputName, string bindingExpression)

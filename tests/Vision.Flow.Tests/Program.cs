@@ -79,6 +79,7 @@ namespace Vision.Flow.Tests
                 new TestCase("CameraImageCallbackNode can match any next frame", CameraNodeTests.ImageCallbackAnyMatchMode),
                 new TestCase("CameraImageCallbackNode stream mode collects frames", CameraNodeTests.ImageCallbackStreamFrames),
                 new TestCase("Stage 07 nodes run callback recipe save and database chain", Stage07NodeTests.CallbackRecipeSaveDatabaseFlow),
+                new TestCase("Stage 07 recipe save and database nodes can run through queues", Stage07NodeTests.QueuedRecipeSaveDatabaseFlow),
                 new TestCase("Stage 08 FrameGroupJoin completes, sorts frames, and stitches", Stage08NodeTests.FrameGroupJoinSortsAndStitches),
                 new TestCase("Stage 08 FrameGroupJoin detects duplicate ShotIndex", Stage08NodeTests.FrameGroupJoinDetectsDuplicateShotIndex),
                 new TestCase("Stage 08 ScanGroupJoin sorts preprocess results and fusion outputs images", Stage08NodeTests.ScanGroupJoinSortsAndFusionOutputsImages)
@@ -1134,6 +1135,53 @@ namespace Vision.Flow.Tests
             AssertEx.True(Convert.ToBoolean(savedRows[0].Values["IsOk"]), "DatabaseSaveNode should save the bound IsOk value.");
         }
 
+        public static async Task QueuedRecipeSaveDatabaseFlow()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            var light = new FakeLightAdapter("Light01");
+            var recipe = new FakeRecipeAdapter("Recipe01");
+            recipe.DefaultOutputs["ResultImage"] = new FakeVisionImage("result-image-queued", 640, 480, "RGB24", null);
+            recipe.DefaultOutputs["IsOk"] = true;
+
+            var saver = new FakeImageSaveAdapter("ImageSave01");
+            var database = new FakeDatabaseAdapter("VisionDb");
+            var devices = new DefaultDeviceRegistry();
+            devices.RegisterCamera(camera);
+            devices.RegisterLight(light);
+            devices.RegisterRecipe(recipe);
+            devices.RegisterImageSaver(saver);
+            devices.RegisterDatabase(database);
+
+            var sink = new InMemoryFlowEventSink();
+            var registry = new NodeRegistry();
+            CommonNodeRegistration.RegisterAll(registry);
+            var runner = new FlowEngine(registry, sink, devices).CreateRunner(CreateQueuedStage07Flow());
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync(
+                "ManualStart",
+                new FlowToken
+                {
+                    TokenId = "token-stage07-queued",
+                    ProductId = "P-007",
+                    WorkpieceId = "W-007"
+                }).ConfigureAwait(false);
+
+            AssertQueueCompleted(sink, "recipe1", "recipe", "recipe.run", 1);
+            AssertQueueCompleted(sink, "save1", "image-save", "image.save.Image", 1);
+            AssertQueueCompleted(sink, "save1", "image-save", "image.save.ResultImage", 1);
+            AssertQueueCompleted(sink, "db1", "database-save", "database.save", 1);
+
+            AssertEx.NotNull(FindOutput(sink, "recipe1", "Result"), "Queued RecipeRunNode should still output Result.");
+            AssertEx.NotNull(FindOutput(sink, "save1", "ImagePath"), "Queued ImageSaveNode should still output ImagePath.");
+            AssertEx.True(Convert.ToBoolean(FindOutput(sink, "db1", "Saved")), "Queued DatabaseSaveNode should still output Saved=true.");
+            AssertEx.Equal(2, saver.SnapshotSavedRequests().Count, "Queued ImageSaveNode should save raw and result images.");
+            AssertEx.Equal(1, database.SnapshotSavedRequests().Count, "Queued DatabaseSaveNode should save one row.");
+        }
+
         private static RuntimeFlowDefinition CreateStage07Flow()
         {
             var flow = new RuntimeFlowDefinition
@@ -1283,6 +1331,41 @@ namespace Vision.Flow.Tests
             flow.Edges.Add(CreateEdge("save1", "Next", "db1"));
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "light1" });
             return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateQueuedStage07Flow()
+        {
+            var flow = CreateStage07Flow();
+            EnableQueue(flow, "recipe1", "recipe");
+            EnableQueue(flow, "save1", "image-save");
+            EnableQueue(flow, "db1", "database-save");
+            return flow;
+        }
+
+        private static void EnableQueue(RuntimeFlowDefinition flow, string nodeId, string queueName)
+        {
+            var node = flow.Nodes.First(x => string.Equals(x.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+            node.Settings["UseQueue"] = true;
+            node.Settings["QueueName"] = queueName;
+            node.Settings["QueueCapacity"] = 8;
+            node.Settings["QueueMaxDegreeOfParallelism"] = 1;
+            node.Settings["QueueFullMode"] = "Reject";
+        }
+
+        private static void AssertQueueCompleted(
+            InMemoryFlowEventSink sink,
+            string nodeId,
+            string queueName,
+            string operationName,
+            int expectedCount)
+        {
+            var count = sink.Events.Count(x =>
+                x.EventType == FlowRuntimeEventType.QueueCompleted &&
+                string.Equals(x.NodeId, nodeId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(Convert.ToString(x.Data["QueueName"], CultureInfo.InvariantCulture), queueName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(Convert.ToString(x.Data["OperationName"], CultureInfo.InvariantCulture), operationName, StringComparison.OrdinalIgnoreCase));
+
+            AssertEx.Equal(expectedCount, count, "QueueCompleted event count should match for " + nodeId + " / " + operationName + ".");
         }
 
         private static EdgeDefinition CreateEdge(string fromNodeId, string fromPort, string toNodeId)
