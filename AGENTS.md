@@ -478,3 +478,11 @@ WPF 设计器应提供现代节点编辑体验：
 - 序列化兼容性。
 - 测试覆盖。
 - 生产运行是否仍可无 WPF 执行。
+## 2026-06 Current Implementation Notes
+
+- Runtime supports output-port ordered fan-out scheduling through `RuntimeFlowPlan` and execution-path cycle detection.
+- Common nodes include condition, AND join, motion, camera, queue-enabled recipe/save/database, frame group, scan group, stitching, and final fusion nodes.
+- Camera callbacks are routed through `ICameraFrameRouter`; image lifetime is explicit through disposable `IVisionImage` references.
+- Save-like nodes can use bounded queues; queue behavior must be covered by runtime and node tests when changed.
+- WPF Designer supports injected registries/devices/options and variable selection for input bindings and binding settings.
+- Production WinForms hosts must continue to load `.flowruntime` and must not reference Designer UI assemblies.

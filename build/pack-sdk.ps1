@@ -128,6 +128,13 @@ await runner.TriggerAsync("ManualStart", token, CancellationToken.None);
 ```
 
 The WPF designer may compile a `.flowdesign` to `.flowruntime` for debugging or publishing, but the production process should deploy and load only `.flowruntime`.
+
+## Runtime Services Added in 2026-06
+
+- `FlowRunner` supports output-port fan-out graph scheduling through the published runtime edges.
+- Camera callback nodes can use `ICameraFrameRouter` / `DefaultCameraFrameRouter` for trigger, scan group, or stream matching.
+- Queue-enabled nodes can use a shared bounded `IFlowTaskQueueRegistry` for recipe, image-save, and database work.
+- `IVisionImage` references are disposable and should be cloned before queued or delayed downstream work.
 '@ | Set-Content -Path (Join-Path $sdkArtifacts "README-INTEGRATION.md") -Encoding UTF8
 
 Write-Host "SDK packaged to $sdkArtifacts" -ForegroundColor Green

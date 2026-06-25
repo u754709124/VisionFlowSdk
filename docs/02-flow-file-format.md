@@ -117,3 +117,13 @@
 - FlowVersion
 - NodeType
 - NodeVersion
+## 2026-06 Runtime Fields
+
+The published `.flowruntime` format remains UI-free. New runtime-only settings are allowed in node `settings` or `inputBindings`:
+
+- `camera.image_callback`: `CallbackMode`, `MatchMode`, `StreamCount`, `StreamTimeoutMs`, and matching bindings such as `TriggerIdBinding` or `ScanGroupIdBinding`.
+- queue-enabled nodes: `UseQueue`, `QueueName`, `QueueCapacity`, `QueueMaxDegreeOfParallelism`, and `QueueFullMode`.
+- group/scan nodes: `DuplicatePolicy`, `RequireContinuousShotIndex`, `RequireContinuousFrameIndex`, `FirstShotIndex`, and `FirstFrameIndex`.
+- binding settings such as `FrameBinding`, `ImageBinding`, `CaptureGroupIdBinding`, `ScanGroupIdBinding`, `FrameGroupBinding`, and `ScanGroupResultBinding`.
+
+`FlowValidator` rejects invalid StreamFrames settings, invalid queue settings, invalid duplicate policies, and missing binding sources. `.flowruntime` must still exclude WPF view state, canvas coordinates, zoom, styles, and designer-only debug state.

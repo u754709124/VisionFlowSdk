@@ -108,3 +108,11 @@ Runtime 应发布：
 - FrameGroup。
 - ScanGroup。
 - 断点和单步调试。
+## 2026-06 Runtime Model
+
+- `RuntimeFlowPlan` is the execution index for `FlowRunner`. It preserves output-port edge order and enables one node output to fan out to multiple downstream nodes.
+- `FlowRunner` keeps existing runtime events and variable-pool behavior, but cycle detection now follows the active execution path instead of a global visited set.
+- `DefaultCameraFrameRouter` subscribes to registered cameras, buffers lightweight frame notifications, and supports `WaitNextFrame`, `Any`, `TriggerId`, `ScanGroupId`, and basic stream collection modes.
+- `FlowTaskQueue` provides bounded queue execution with capacity, max degree of parallelism, wait/reject full modes, and queue runtime events.
+- `FlowExecutionContext` carries optional `Devices`, `CameraFrames`, and `Queues` services so nodes remain UI-independent and adapter-driven.
+- `IVisionImage` references should be cloned when work crosses async boundaries or queues; queued save nodes snapshot image references before background execution.

@@ -113,3 +113,15 @@ Cancel
 - 错误路径。
 - 输出变量。
 - RuntimeEvent。
+## 2026-06 Common Nodes
+
+New or enhanced node types:
+
+- `condition.if`: evaluates a boolean expression or binding and routes `True` / `False`.
+- `join.and`: waits for all configured inputs sharing the same join key.
+- `motion.notify`, `motion.move_to`, `motion.wait_in_position`: access motion devices only through `IMotionAdapter`.
+- `camera.image_callback`: supports next-frame matching and basic stream collection through `ICameraFrameRouter`.
+- `recipe.run`, `image.save`, `database.save`: can optionally execute adapter work through named bounded queues.
+- `group.frame_join`, `image.stitch`, `scan.group_join`, `fusion.final_3d_2d`: support binding-driven inputs, duplicate policies, and continuous index validation.
+
+Node descriptors must expose every user-editable setting, including queue settings and binding settings, so Designer and Validator can stay descriptor-driven.

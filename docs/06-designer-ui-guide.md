@@ -98,3 +98,10 @@ InputImage = {{ camera_callback_1.Image }}
 WPF Designer 通过 `FlowRuntimeEvent` 更新 UI。
 
 Designer 不直接执行节点逻辑。
+## 2026-06 Designer Notes
+
+- `FlowDesignerControl` supports injected `NodeRegistry`, debug `IDeviceRegistry`, and `FlowDesignerOptions`. This allows Demo, tests, and future hosts to compose the Designer without editing the control internals.
+- The property panel still renders from `NodeSettingDescriptor`, but binding-like settings such as `FrameBinding`, `ImageBinding`, `ResultBinding`, and group bindings now use the variable selector.
+- The variable selector lists common `token.*` expressions and outputs from other nodes in the current design. It skips the selected node's own outputs to reduce accidental self-binding.
+- New combo values are available for `CallbackMode`, `MatchMode`, `DuplicatePolicy`, `QueueFullMode`, and common queue names.
+- Designer debug run continues to compile the current design and execute it through `FlowRunner`; production runtime must still use `.flowruntime` without Designer UI.

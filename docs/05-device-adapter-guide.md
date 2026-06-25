@@ -69,3 +69,10 @@ public interface ICameraAdapter
     event EventHandler<CameraFrameArrivedEventArgs> FrameArrived;
 }
 ```
+## 2026-06 Adapter Notes
+
+- `IMotionAdapter` now carries richer `MotionMessage` and `MotionEventArgs` data for position, capture group, scan group, payload, and timeout-aware motion operations.
+- Fake motion updates position state and emits events so motion nodes can be tested without production hardware.
+- Fake camera callback delivery is asynchronous and cancellation-aware. It no longer relies on unsafe fire-and-forget callback behavior for tests and demos.
+- Camera frame routing is a runtime service. Production hosts can use the default router or provide their own `ICameraFrameRouter` when existing acquisition pipelines already buffer frames.
+- `IVisionImage` implementations must honor `Dispose`, `CloneReference`, and `TryGetBytes`. Native SDK image handles should be wrapped behind `NativeImage` or an adapter-owned image implementation instead of leaking SDK types into nodes.

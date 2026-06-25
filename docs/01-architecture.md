@@ -139,3 +139,10 @@ WPF Designer
     -> 监听 RuntimeEvent
     -> 高亮节点、显示图像、显示耗时
 ```
+## 2026-06 Upgrade Notes
+
+- Runtime now builds a `RuntimeFlowPlan` before execution. The plan indexes entries, nodes, incoming edges, and outgoing edges by output port so `FlowRunner` can fan out to every downstream edge in output-port order.
+- Cycle detection is execution-path scoped. A reconverging graph can run both legal branches, while a real cycle on the current path still fails clearly.
+- Runtime services now include `ICameraFrameRouter` for camera callback matching and `IFlowTaskQueueRegistry` for bounded background work queues.
+- `IVisionImage` models image lifetime explicitly through `IDisposable`, `CloneReference`, `TryGetBytes`, and optional native-image wrapping.
+- WPF Designer can be hosted with injected `NodeRegistry`, debug `IDeviceRegistry`, and `FlowDesignerOptions`; production WinForms runtime remains independent from Designer assemblies.

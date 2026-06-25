@@ -88,3 +88,12 @@ single-shot.flowruntime
 two-position-stitch.flowdesign
 continuous-scan.flowdesign
 ```
+## 2026-06 Integration Notes
+
+Production hosts that use camera callback nodes should create or reuse a camera frame router and pass it to the runner options used by the application. The default router subscribes to registered camera adapters and buffers lightweight frame metadata for `camera.image_callback`.
+
+Queue-enabled nodes (`recipe.run`, `image.save`, and `database.save`) can use named bounded queues. Configure queue names and capacity in the flow file, then provide a shared queue registry so repeated node executions reuse the same queue.
+
+When image data crosses async or queued boundaries, use `IVisionImage.CloneReference()` or an adapter-owned image reference to keep native handles alive until the downstream save or algorithm work completes. Dispose image references when the host owns their lifetime.
+
+The WinForms demo accepts an optional `.flowruntime` path as the first command-line argument. This is only a demo convenience; production stations should load runtime files from their own recipe/configuration system.
