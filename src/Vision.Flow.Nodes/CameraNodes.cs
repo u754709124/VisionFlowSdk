@@ -661,6 +661,9 @@ namespace Vision.Flow.Nodes
             ExpectedFrameCount = 1;
             CallbackMode = "WaitNextFrame";
             MatchMode = "TriggerId";
+            StreamOutputMode = "Batch";
+            AutoStopAfterExpectedFrameCount = true;
+            FrameIndexSource = "Increment";
         }
 
         public string CameraId { get; set; }
@@ -671,6 +674,8 @@ namespace Vision.Flow.Nodes
 
         public string MatchMode { get; set; }
 
+        public string StreamOutputMode { get; set; }
+
         public string ScanGroupIdBinding { get; set; }
 
         public int TimeoutMs { get; set; }
@@ -678,6 +683,12 @@ namespace Vision.Flow.Nodes
         public int ExpectedFrameCount { get; set; }
 
         public int FrameTimeoutMs { get; set; }
+
+        public bool AutoStopAfterExpectedFrameCount { get; set; }
+
+        public string FrameIndexSource { get; set; }
+
+        public int StartFrameIndex { get; set; }
     }
 
     public sealed class CameraImageCallbackNodeFactory : BaseNodeFactory<CameraImageCallbackNodeConfig>
@@ -702,10 +713,14 @@ namespace Vision.Flow.Nodes
                 TriggerId = GetStringSetting(definition, "TriggerId", null),
                 CallbackMode = GetStringSetting(definition, "CallbackMode", "WaitNextFrame"),
                 MatchMode = GetStringSetting(definition, "MatchMode", "TriggerId"),
+                StreamOutputMode = GetStringSetting(definition, "StreamOutputMode", "Batch"),
                 ScanGroupIdBinding = GetStringSetting(definition, "ScanGroupIdBinding", null),
                 TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 1000),
                 ExpectedFrameCount = GetInt32Setting(definition, "ExpectedFrameCount", 1),
-                FrameTimeoutMs = GetInt32Setting(definition, "FrameTimeoutMs", 1000)
+                FrameTimeoutMs = GetInt32Setting(definition, "FrameTimeoutMs", 1000),
+                AutoStopAfterExpectedFrameCount = Convert.ToBoolean(GetSetting(definition, "AutoStopAfterExpectedFrameCount", true), CultureInfo.InvariantCulture),
+                FrameIndexSource = GetStringSetting(definition, "FrameIndexSource", "Increment"),
+                StartFrameIndex = GetInt32Setting(definition, "StartFrameIndex", 0)
             };
         }
 
@@ -763,7 +778,13 @@ namespace Vision.Flow.Nodes
 
             if (string.Equals(callbackMode, "StreamFrames", StringComparison.OrdinalIgnoreCase))
             {
-                return await ExecuteStreamFramesAsync(context, camera, ticket, timeoutMs, cancellationToken).ConfigureAwait(false);
+                var streamOutputMode = CameraNodeHelpers.ResolveString(context, "StreamOutputMode", _config.StreamOutputMode);
+                if (string.Equals(streamOutputMode, "PerFrame", StringComparison.OrdinalIgnoreCase))
+                {
+                    return await ExecuteStreamFramesPerFrameAsync(context, camera, ticket, timeoutMs, cancellationToken).ConfigureAwait(false);
+                }
+
+                return await ExecuteStreamFramesBatchAsync(context, camera, ticket, timeoutMs, cancellationToken).ConfigureAwait(false);
             }
 
             if (!string.Equals(callbackMode, "WaitNextFrame", StringComparison.OrdinalIgnoreCase))
@@ -795,7 +816,7 @@ namespace Vision.Flow.Nodes
             return CreateFrameResult(context, frame, null);
         }
 
-        private async Task<NodeExecutionResult> ExecuteStreamFramesAsync(
+        private async Task<NodeExecutionResult> ExecuteStreamFramesBatchAsync(
             FlowExecutionContext context,
             ICameraAdapter camera,
             CameraFrameWaitTicket ticket,
@@ -837,6 +858,94 @@ namespace Vision.Flow.Nodes
             }
 
             return CreateFrameResult(context, frames[frames.Count - 1], frames);
+        }
+
+        private async Task<NodeExecutionResult> ExecuteStreamFramesPerFrameAsync(
+            FlowExecutionContext context,
+            ICameraAdapter camera,
+            CameraFrameWaitTicket ticket,
+            int timeoutMs,
+            CancellationToken cancellationToken)
+        {
+            var expectedFrameCount = CameraNodeHelpers.ResolveInt32(context, "ExpectedFrameCount", _config.ExpectedFrameCount);
+            if (expectedFrameCount < 0)
+            {
+                return NodeExecutionResult.Failure("ExpectedFrameCount must be greater than or equal to zero.");
+            }
+
+            var frameTimeoutMs = CameraNodeHelpers.ResolveInt32(context, "FrameTimeoutMs", _config.FrameTimeoutMs);
+            if (frameTimeoutMs < 0)
+            {
+                return NodeExecutionResult.Failure("FrameTimeoutMs must be greater than or equal to zero.");
+            }
+
+            if (frameTimeoutMs == 0)
+            {
+                frameTimeoutMs = timeoutMs;
+            }
+
+            var autoStop = CameraNodeHelpers.ResolveBoolean(context, "AutoStopAfterExpectedFrameCount", _config.AutoStopAfterExpectedFrameCount);
+            var startFrameIndex = CameraNodeHelpers.ResolveInt32(context, "StartFrameIndex", _config.StartFrameIndex);
+            var frameIndexSource = CameraNodeHelpers.ResolveString(context, "FrameIndexSource", _config.FrameIndexSource);
+            var scanGroupId = ResolveScanGroupId(context);
+            var frames = new List<CameraFrameData>();
+            var dispatchedCount = 0;
+
+            using (var subscription = context.CameraFrames.Subscribe(camera, ticket))
+            {
+                subscription.MaxFrameCount = autoStop ? expectedFrameCount : 0;
+                subscription.ScanGroupId = scanGroupId;
+
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    if (autoStop && expectedFrameCount > 0 && dispatchedCount >= expectedFrameCount)
+                    {
+                        break;
+                    }
+
+                    var frame = await subscription.WaitForNextFrameAsync(frameTimeoutMs, cancellationToken).ConfigureAwait(false);
+                    if (frame == null)
+                    {
+                        return NodeExecutionResult.Timeout(
+                            "Timed out waiting for camera stream frame. CameraId=" + ticket.CameraId + ", " + ticket.Describe(),
+                            "Timeout");
+                    }
+
+                    var frameIndex = ResolveFrameIndex(frame, frameIndexSource, startFrameIndex + dispatchedCount);
+                    ApplyFrameMetadata(frame, scanGroupId, frameIndex);
+                    var frameToken = CreateFrameToken(context.Token, frame, scanGroupId, frameIndex, dispatchedCount);
+                    var outputs = CreateFrameOutputs(frame, null);
+                    outputs["FrameIndex"] = frameIndex;
+                    outputs["ScanGroupId"] = scanGroupId;
+                    frames.Add(frame);
+                    dispatchedCount++;
+
+                    await context.Continuations.DispatchAsync(
+                        new FlowContinuation
+                        {
+                            SourceNodeId = context.Node.Id,
+                            OutputPort = "Frame",
+                            Token = frameToken,
+                            Variables = context.Variables,
+                            Outputs = outputs,
+                            FlowRunId = context.FlowRunId
+                        },
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (!autoStop && expectedFrameCount == 0)
+                    {
+                        continue;
+                    }
+                }
+            }
+
+            var completedOutputs = new Dictionary<string, object>
+            {
+                { "FrameCount", dispatchedCount },
+                { "Frames", frames },
+                { "ScanGroupId", scanGroupId }
+            };
+            return NodeExecutionResult.Success("Completed", completedOutputs);
         }
 
         private CameraFrameWaitTicket CreateWaitTicket(FlowExecutionContext context, string cameraId, string matchMode)
@@ -882,6 +991,16 @@ namespace Vision.Flow.Nodes
                 };
             }
 
+            if (string.Equals(matchMode, CameraFrameMatchModes.TimeWindow, StringComparison.OrdinalIgnoreCase))
+            {
+                return new CameraFrameWaitTicket
+                {
+                    CameraId = cameraId,
+                    MatchMode = CameraFrameMatchModes.TimeWindow,
+                    NotBeforeUtc = DateTime.UtcNow
+                };
+            }
+
             return null;
         }
 
@@ -896,8 +1015,21 @@ namespace Vision.Flow.Nodes
                 context.Token.Set("FrameId", frame.FrameId);
             }
 
+            var outputs = CreateFrameOutputs(frame, frames);
+
+            if (frames != null)
+            {
+                outputs["Frames"] = frames;
+                outputs["FrameCount"] = frames.Count;
+            }
+
+            return NodeExecutionResult.Success("Next", outputs);
+        }
+
+        private static Dictionary<string, object> CreateFrameOutputs(CameraFrameData frame, IList<CameraFrameData> frames)
+        {
             var metadata = frame.Metadata ?? new Dictionary<string, object>();
-            var outputs = new Dictionary<string, object>
+            return new Dictionary<string, object>
             {
                 { "Image", frame.Image },
                 { "Frame", frame },
@@ -907,14 +1039,99 @@ namespace Vision.Flow.Nodes
                 { "CameraId", frame.CameraId },
                 { "TriggerId", frame.TriggerId }
             };
+        }
 
-            if (frames != null)
+        private static void ApplyFrameMetadata(CameraFrameData frame, string scanGroupId, int frameIndex)
+        {
+            if (frame == null)
             {
-                outputs["Frames"] = frames;
-                outputs["FrameCount"] = frames.Count;
+                return;
             }
 
-            return NodeExecutionResult.Success("Next", outputs);
+            if (frame.Metadata == null)
+            {
+                frame.Metadata = new Dictionary<string, object>();
+            }
+
+            frame.Metadata["FrameIndex"] = frameIndex;
+            if (!string.IsNullOrWhiteSpace(scanGroupId))
+            {
+                frame.Metadata["ScanGroupId"] = scanGroupId;
+            }
+
+            if (frame.Image != null && frame.Image.Metadata != null)
+            {
+                frame.Image.Metadata["FrameIndex"] = frameIndex;
+                if (!string.IsNullOrWhiteSpace(scanGroupId))
+                {
+                    frame.Image.Metadata["ScanGroupId"] = scanGroupId;
+                }
+            }
+        }
+
+        private static int ResolveFrameIndex(CameraFrameData frame, string frameIndexSource, int fallback)
+        {
+            if (frame != null &&
+                frame.Metadata != null &&
+                !string.Equals(frameIndexSource, "Increment", StringComparison.OrdinalIgnoreCase))
+            {
+                object value;
+                if (frame.Metadata.TryGetValue("FrameIndex", out value) ||
+                    frame.Metadata.TryGetValue("TriggerIndex", out value) ||
+                    frame.Metadata.TryGetValue("Encoder", out value))
+                {
+                    return Convert.ToInt32(value, CultureInfo.InvariantCulture);
+                }
+            }
+
+            return fallback;
+        }
+
+        private static FlowToken CreateFrameToken(
+            FlowToken source,
+            CameraFrameData frame,
+            string scanGroupId,
+            int frameIndex,
+            int dispatchedIndex)
+        {
+            var token = new FlowToken
+            {
+                TokenId = source == null || string.IsNullOrWhiteSpace(source.TokenId)
+                    ? Guid.NewGuid().ToString("N")
+                    : source.TokenId + "-frame-" + frameIndex.ToString(CultureInfo.InvariantCulture),
+                ProductId = source == null ? null : source.ProductId,
+                WorkpieceId = source == null ? null : source.WorkpieceId,
+                PositionId = source == null ? null : source.PositionId,
+                CaptureGroupId = source == null ? null : source.CaptureGroupId,
+                ScanGroupId = string.IsNullOrWhiteSpace(scanGroupId) ? (source == null ? null : source.ScanGroupId) : scanGroupId,
+                FrameId = frame == null ? null : frame.FrameId
+            };
+
+            if (source != null && source.Metadata != null)
+            {
+                foreach (var item in source.Metadata)
+                {
+                    token.Metadata[item.Key] = item.Value;
+                }
+            }
+
+            if (source != null && source.Values != null)
+            {
+                foreach (var item in source.Values)
+                {
+                    token.Values[item.Key] = item.Value;
+                }
+            }
+
+            token.Set("CameraId", frame == null ? null : frame.CameraId);
+            token.Set("Frame", frame);
+            token.Set("Image", frame == null ? null : frame.Image);
+            token.Set("FrameId", frame == null ? null : frame.FrameId);
+            token.Set("FrameIndex", frameIndex);
+            token.Set("FrameSequence", dispatchedIndex);
+            token.Set("TriggerId", frame == null ? null : frame.TriggerId);
+            token.Set("ScanGroupId", token.ScanGroupId);
+            return token;
         }
 
         private string ResolveScanGroupId(FlowExecutionContext context)
@@ -989,6 +1206,22 @@ namespace Vision.Flow.Nodes
                     },
                     new NodePortDescriptor
                     {
+                        Name = "Frame",
+                        DisplayName = "Frame",
+                        Direction = "Output",
+                        DataType = "Control",
+                        Description = "Routes each frame when StreamFrames uses PerFrame output."
+                    },
+                    new NodePortDescriptor
+                    {
+                        Name = "Completed",
+                        DisplayName = "Completed",
+                        Direction = "Output",
+                        DataType = "Control",
+                        Description = "Routes when StreamFrames PerFrame finishes the expected frame count."
+                    },
+                    new NodePortDescriptor
+                    {
                         Name = "Timeout",
                         DisplayName = "Timeout",
                         Direction = "Output",
@@ -1023,6 +1256,15 @@ namespace Vision.Flow.Nodes
                         DefaultValue = "WaitNextFrame",
                         IsRequired = false,
                         Description = "WaitNextFrame waits for one frame. StreamFrames subscribes and collects one or more frames."
+                    },
+                    new NodeSettingDescriptor
+                    {
+                        Name = "StreamOutputMode",
+                        DisplayName = "Stream Output",
+                        DataType = "String",
+                        DefaultValue = "Batch",
+                        IsRequired = false,
+                        Description = "Batch outputs Frames once. PerFrame dispatches each frame through the Frame output port."
                     },
                     new NodeSettingDescriptor
                     {
@@ -1077,6 +1319,33 @@ namespace Vision.Flow.Nodes
                         DefaultValue = 1000,
                         IsRequired = false,
                         Description = "Per-frame timeout when CallbackMode is StreamFrames. Zero uses TimeoutMs."
+                    },
+                    new NodeSettingDescriptor
+                    {
+                        Name = "AutoStopAfterExpectedFrameCount",
+                        DisplayName = "Auto Stop",
+                        DataType = "Boolean",
+                        DefaultValue = true,
+                        IsRequired = false,
+                        Description = "When true, StreamFrames PerFrame completes after ExpectedFrameCount frames."
+                    },
+                    new NodeSettingDescriptor
+                    {
+                        Name = "FrameIndexSource",
+                        DisplayName = "Frame Index Source",
+                        DataType = "String",
+                        DefaultValue = "Increment",
+                        IsRequired = false,
+                        Description = "Increment or Metadata."
+                    },
+                    new NodeSettingDescriptor
+                    {
+                        Name = "StartFrameIndex",
+                        DisplayName = "Start Frame Index",
+                        DataType = "Int32",
+                        DefaultValue = 0,
+                        IsRequired = false,
+                        Description = "First frame index when FrameIndexSource is Increment."
                     }
                 },
                 Outputs =
@@ -1143,6 +1412,20 @@ namespace Vision.Flow.Nodes
                         DisplayName = "Frame Count",
                         DataType = "Int32",
                         Description = "Number of collected frames when CallbackMode is StreamFrames."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "FrameIndex",
+                        DisplayName = "Frame Index",
+                        DataType = "Int32",
+                        Description = "Per-frame index when StreamOutputMode is PerFrame."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "ScanGroupId",
+                        DisplayName = "Scan Group",
+                        DataType = "String",
+                        Description = "Resolved scan group id for stream frames."
                     }
                 }
             };
@@ -1166,6 +1449,17 @@ namespace Vision.Flow.Nodes
             }
 
             return Convert.ToInt32(value, CultureInfo.InvariantCulture);
+        }
+
+        public static bool ResolveBoolean(FlowExecutionContext context, string name, bool defaultValue)
+        {
+            var value = context.GetInputValue(name);
+            if (value == null)
+            {
+                return defaultValue;
+            }
+
+            return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
         }
     }
 
