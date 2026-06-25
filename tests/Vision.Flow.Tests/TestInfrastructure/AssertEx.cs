@@ -1,0 +1,77 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Vision.DeviceAdapters;
+using Vision.Flow.Core;
+using Vision.Flow.Nodes;
+
+namespace Vision.Flow.Tests
+{
+    // Minimal assertions keep the console test harness dependency-free.
+    internal static class AssertEx
+    {
+        public static void True(bool condition, string message)
+        {
+            if (!condition)
+            {
+                throw new InvalidOperationException(message);
+            }
+        }
+
+        public static void False(bool condition, string message)
+        {
+            True(!condition, message);
+        }
+
+        public static void NotNull(object value, string message)
+        {
+            True(value != null, message);
+        }
+
+        public static void Equal<T>(T expected, T actual, string message)
+        {
+            if (!object.Equals(expected, actual))
+            {
+                throw new InvalidOperationException(message + " Expected: " + expected + ", Actual: " + actual);
+            }
+        }
+
+        public static void SequenceEqual<T>(IEnumerable<T> expected, IEnumerable<T> actual, string message)
+        {
+            var expectedList = expected.ToList();
+            var actualList = actual.ToList();
+            if (expectedList.Count != actualList.Count)
+            {
+                throw new InvalidOperationException(message + " Expected count: " + expectedList.Count + ", Actual count: " + actualList.Count + ". Actual: " + string.Join(", ", actualList));
+            }
+
+            for (var index = 0; index < expectedList.Count; index++)
+            {
+                if (!object.Equals(expectedList[index], actualList[index]))
+                {
+                    throw new InvalidOperationException(message + " Difference at index " + index + ". Expected: " + expectedList[index] + ", Actual: " + actualList[index]);
+                }
+            }
+        }
+
+        public static async Task<TException> ThrowsAsync<TException>(Func<Task> action)
+            where TException : Exception
+        {
+            try
+            {
+                await action().ConfigureAwait(false);
+            }
+            catch (TException ex)
+            {
+                return ex;
+            }
+
+            throw new InvalidOperationException("Expected exception was not thrown: " + typeof(TException).FullName);
+        }
+    }
+}
