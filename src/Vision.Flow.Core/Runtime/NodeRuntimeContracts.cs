@@ -82,6 +82,18 @@ namespace Vision.Flow.Core
             IVariablePool variables,
             IFlowEventSink events,
             IDeviceRegistry devices)
+            : this(flow, node, token, variables, events, devices, null)
+        {
+        }
+
+        public FlowExecutionContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            IFlowEventSink events,
+            IDeviceRegistry devices,
+            ICameraFrameRouter cameraFrames)
         {
             if (flow == null)
             {
@@ -114,6 +126,7 @@ namespace Vision.Flow.Core
             Variables = variables;
             Events = events;
             Devices = devices ?? EmptyDeviceRegistry.Instance;
+            CameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
         }
 
         public RuntimeFlowDefinition Flow { get; private set; }
@@ -127,6 +140,8 @@ namespace Vision.Flow.Core
         public IFlowEventSink Events { get; private set; }
 
         public IDeviceRegistry Devices { get; private set; }
+
+        public ICameraFrameRouter CameraFrames { get; private set; }
 
         public object GetInputValue(string inputName)
         {

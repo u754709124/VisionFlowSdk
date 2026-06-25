@@ -519,7 +519,7 @@ namespace Vision.Flow.Nodes
             triggerContext.Metadata["TriggerId"] = triggerId;
             triggerContext.Metadata["TriggerTime"] = triggerTime;
 
-            CameraFrameRouter.EnsureSubscribed(camera);
+            context.CameraFrames.EnsureCamera(camera, cameraId);
 
             using (var timeout = CameraNodeTimeout.Create(timeoutMs, cancellationToken))
             {
@@ -657,6 +657,9 @@ namespace Vision.Flow.Nodes
         public CameraImageCallbackNodeConfig()
         {
             TimeoutMs = 1000;
+            FrameTimeoutMs = 1000;
+            ExpectedFrameCount = 1;
+            CallbackMode = "WaitNextFrame";
             MatchMode = "TriggerId";
         }
 
@@ -664,9 +667,17 @@ namespace Vision.Flow.Nodes
 
         public string TriggerId { get; set; }
 
+        public string CallbackMode { get; set; }
+
         public string MatchMode { get; set; }
 
+        public string ScanGroupIdBinding { get; set; }
+
         public int TimeoutMs { get; set; }
+
+        public int ExpectedFrameCount { get; set; }
+
+        public int FrameTimeoutMs { get; set; }
     }
 
     public sealed class CameraImageCallbackNodeFactory : BaseNodeFactory<CameraImageCallbackNodeConfig>
@@ -689,8 +700,12 @@ namespace Vision.Flow.Nodes
             {
                 CameraId = GetStringSetting(definition, "CameraId", null),
                 TriggerId = GetStringSetting(definition, "TriggerId", null),
+                CallbackMode = GetStringSetting(definition, "CallbackMode", "WaitNextFrame"),
                 MatchMode = GetStringSetting(definition, "MatchMode", "TriggerId"),
-                TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 1000)
+                ScanGroupIdBinding = GetStringSetting(definition, "ScanGroupIdBinding", null),
+                TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 1000),
+                ExpectedFrameCount = GetInt32Setting(definition, "ExpectedFrameCount", 1),
+                FrameTimeoutMs = GetInt32Setting(definition, "FrameTimeoutMs", 1000)
             };
         }
 
@@ -725,33 +740,43 @@ namespace Vision.Flow.Nodes
                 return NodeExecutionResult.Failure("TimeoutMs must be greater than or equal to zero.");
             }
 
+            var callbackMode = CameraNodeHelpers.ResolveString(context, "CallbackMode", _config.CallbackMode);
+            if (string.IsNullOrWhiteSpace(callbackMode))
+            {
+                callbackMode = "WaitNextFrame";
+            }
+
             var matchMode = CameraNodeHelpers.ResolveString(context, "MatchMode", _config.MatchMode);
             if (string.IsNullOrWhiteSpace(matchMode))
             {
                 matchMode = "TriggerId";
             }
 
-            if (!string.Equals(matchMode, "TriggerId", StringComparison.OrdinalIgnoreCase))
-            {
-                return NodeExecutionResult.Failure("CameraImageCallbackNode currently supports only TriggerId match mode.");
-            }
-
-            var triggerId = ResolveTriggerId(context);
-            if (string.IsNullOrWhiteSpace(triggerId))
-            {
-                return NodeExecutionResult.Failure("TriggerId is required for camera image callback matching.");
-            }
-
             var camera = context.Devices.GetCamera(cameraId);
-            CameraFrameRouter.EnsureSubscribed(camera);
+            context.CameraFrames.EnsureCamera(camera, cameraId);
+
+            var ticket = CreateWaitTicket(context, cameraId, matchMode);
+            if (ticket == null)
+            {
+                return NodeExecutionResult.Failure("CameraImageCallbackNode supports TriggerId, Any, and ScanGroupId match modes.");
+            }
+
+            if (string.Equals(callbackMode, "StreamFrames", StringComparison.OrdinalIgnoreCase))
+            {
+                return await ExecuteStreamFramesAsync(context, camera, ticket, timeoutMs, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (!string.Equals(callbackMode, "WaitNextFrame", StringComparison.OrdinalIgnoreCase))
+            {
+                return NodeExecutionResult.Failure("Unsupported camera callback mode: " + callbackMode);
+            }
 
             CameraFrameData frame;
             try
             {
-                frame = await CameraFrameRouter.WaitForFrameAsync(
+                frame = await context.CameraFrames.WaitForFrameAsync(
                     camera,
-                    cameraId,
-                    triggerId,
+                    ticket,
                     timeoutMs,
                     cancellationToken).ConfigureAwait(false);
             }
@@ -763,10 +788,108 @@ namespace Vision.Flow.Nodes
             if (frame == null)
             {
                 return NodeExecutionResult.Timeout(
-                    "Timed out waiting for camera frame. CameraId=" + cameraId + ", TriggerId=" + triggerId,
+                    "Timed out waiting for camera frame. CameraId=" + cameraId + ", " + ticket.Describe(),
                     "Timeout");
             }
 
+            return CreateFrameResult(context, frame, null);
+        }
+
+        private async Task<NodeExecutionResult> ExecuteStreamFramesAsync(
+            FlowExecutionContext context,
+            ICameraAdapter camera,
+            CameraFrameWaitTicket ticket,
+            int timeoutMs,
+            CancellationToken cancellationToken)
+        {
+            var expectedFrameCount = CameraNodeHelpers.ResolveInt32(context, "ExpectedFrameCount", _config.ExpectedFrameCount);
+            if (expectedFrameCount <= 0)
+            {
+                return NodeExecutionResult.Failure("ExpectedFrameCount must be greater than zero.");
+            }
+
+            var frameTimeoutMs = CameraNodeHelpers.ResolveInt32(context, "FrameTimeoutMs", _config.FrameTimeoutMs);
+            if (frameTimeoutMs < 0)
+            {
+                return NodeExecutionResult.Failure("FrameTimeoutMs must be greater than or equal to zero.");
+            }
+
+            if (frameTimeoutMs == 0)
+            {
+                frameTimeoutMs = timeoutMs;
+            }
+
+            var frames = new List<CameraFrameData>();
+            using (var subscription = context.CameraFrames.Subscribe(camera, ticket))
+            {
+                for (var index = 0; index < expectedFrameCount; index++)
+                {
+                    var frame = await subscription.WaitForNextFrameAsync(frameTimeoutMs, cancellationToken).ConfigureAwait(false);
+                    if (frame == null)
+                    {
+                        return NodeExecutionResult.Timeout(
+                            "Timed out waiting for camera stream frame. CameraId=" + ticket.CameraId + ", " + ticket.Describe(),
+                            "Timeout");
+                    }
+
+                    frames.Add(frame);
+                }
+            }
+
+            return CreateFrameResult(context, frames[frames.Count - 1], frames);
+        }
+
+        private CameraFrameWaitTicket CreateWaitTicket(FlowExecutionContext context, string cameraId, string matchMode)
+        {
+            if (string.Equals(matchMode, CameraFrameMatchModes.TriggerId, StringComparison.OrdinalIgnoreCase))
+            {
+                var triggerId = ResolveTriggerId(context);
+                if (string.IsNullOrWhiteSpace(triggerId))
+                {
+                    throw new InvalidOperationException("TriggerId is required for camera image callback matching.");
+                }
+
+                return new CameraFrameWaitTicket
+                {
+                    CameraId = cameraId,
+                    MatchMode = CameraFrameMatchModes.TriggerId,
+                    TriggerId = triggerId
+                };
+            }
+
+            if (string.Equals(matchMode, CameraFrameMatchModes.Any, StringComparison.OrdinalIgnoreCase))
+            {
+                return new CameraFrameWaitTicket
+                {
+                    CameraId = cameraId,
+                    MatchMode = CameraFrameMatchModes.Any
+                };
+            }
+
+            if (string.Equals(matchMode, CameraFrameMatchModes.ScanGroupId, StringComparison.OrdinalIgnoreCase))
+            {
+                var scanGroupId = ResolveScanGroupId(context);
+                if (string.IsNullOrWhiteSpace(scanGroupId))
+                {
+                    throw new InvalidOperationException("ScanGroupIdBinding must resolve to a value when MatchMode is ScanGroupId.");
+                }
+
+                return new CameraFrameWaitTicket
+                {
+                    CameraId = cameraId,
+                    MatchMode = CameraFrameMatchModes.ScanGroupId,
+                    ScanGroupId = scanGroupId
+                };
+            }
+
+            return null;
+        }
+
+        private NodeExecutionResult CreateFrameResult(
+            FlowExecutionContext context,
+            CameraFrameData frame,
+            IList<CameraFrameData> frames)
+        {
             if (!string.IsNullOrWhiteSpace(frame.FrameId))
             {
                 context.Token.FrameId = frame.FrameId;
@@ -774,18 +897,42 @@ namespace Vision.Flow.Nodes
             }
 
             var metadata = frame.Metadata ?? new Dictionary<string, object>();
-            return NodeExecutionResult.Success(
-                "Next",
-                new Dictionary<string, object>
-                {
-                    { "Image", frame.Image },
-                    { "Frame", frame },
-                    { "FrameId", frame.FrameId },
-                    { "GrabTime", frame.GrabTime },
-                    { "Metadata", metadata },
-                    { "CameraId", frame.CameraId },
-                    { "TriggerId", frame.TriggerId }
-                });
+            var outputs = new Dictionary<string, object>
+            {
+                { "Image", frame.Image },
+                { "Frame", frame },
+                { "FrameId", frame.FrameId },
+                { "GrabTime", frame.GrabTime },
+                { "Metadata", metadata },
+                { "CameraId", frame.CameraId },
+                { "TriggerId", frame.TriggerId }
+            };
+
+            if (frames != null)
+            {
+                outputs["Frames"] = frames;
+                outputs["FrameCount"] = frames.Count;
+            }
+
+            return NodeExecutionResult.Success("Next", outputs);
+        }
+
+        private string ResolveScanGroupId(FlowExecutionContext context)
+        {
+            var binding = CameraNodeHelpers.ResolveString(context, "ScanGroupIdBinding", _config.ScanGroupIdBinding);
+            if (!string.IsNullOrWhiteSpace(binding))
+            {
+                var value = ControlFlowNodeHelpers.ResolveBindingExpression(context, binding);
+                return value == null ? null : Convert.ToString(value, CultureInfo.InvariantCulture);
+            }
+
+            var inputValue = context.GetInputValue("ScanGroupId");
+            if (inputValue != null)
+            {
+                return Convert.ToString(inputValue, CultureInfo.InvariantCulture);
+            }
+
+            return string.IsNullOrWhiteSpace(context.Token.ScanGroupId) ? null : context.Token.ScanGroupId;
         }
 
         private string ResolveTriggerId(FlowExecutionContext context)
@@ -870,6 +1017,15 @@ namespace Vision.Flow.Nodes
                     },
                     new NodeSettingDescriptor
                     {
+                        Name = "CallbackMode",
+                        DisplayName = "Callback Mode",
+                        DataType = "String",
+                        DefaultValue = "WaitNextFrame",
+                        IsRequired = false,
+                        Description = "WaitNextFrame waits for one frame. StreamFrames subscribes and collects one or more frames."
+                    },
+                    new NodeSettingDescriptor
+                    {
                         Name = "TriggerId",
                         DisplayName = "Trigger Id",
                         DataType = "String",
@@ -884,7 +1040,16 @@ namespace Vision.Flow.Nodes
                         DataType = "String",
                         DefaultValue = "TriggerId",
                         IsRequired = true,
-                        Description = "Frame matching mode. The first version supports TriggerId."
+                        Description = "Frame matching mode: TriggerId, Any, or ScanGroupId."
+                    },
+                    new NodeSettingDescriptor
+                    {
+                        Name = "ScanGroupIdBinding",
+                        DisplayName = "Scan Group Binding",
+                        DataType = "String",
+                        DefaultValue = null,
+                        IsRequired = false,
+                        Description = "Expression used when MatchMode is ScanGroupId, for example {{ token.ScanGroupId }}."
                     },
                     new NodeSettingDescriptor
                     {
@@ -894,6 +1059,24 @@ namespace Vision.Flow.Nodes
                         DefaultValue = 1000,
                         IsRequired = true,
                         Description = "Maximum time to wait for the frame. Zero disables the node timeout."
+                    },
+                    new NodeSettingDescriptor
+                    {
+                        Name = "ExpectedFrameCount",
+                        DisplayName = "Expected Frames",
+                        DataType = "Int32",
+                        DefaultValue = 1,
+                        IsRequired = false,
+                        Description = "Number of frames to collect when CallbackMode is StreamFrames."
+                    },
+                    new NodeSettingDescriptor
+                    {
+                        Name = "FrameTimeoutMs",
+                        DisplayName = "Frame Timeout (ms)",
+                        DataType = "Int32",
+                        DefaultValue = 1000,
+                        IsRequired = false,
+                        Description = "Per-frame timeout when CallbackMode is StreamFrames. Zero uses TimeoutMs."
                     }
                 },
                 Outputs =
@@ -946,6 +1129,20 @@ namespace Vision.Flow.Nodes
                         DisplayName = "Trigger Id",
                         DataType = "String",
                         Description = "Frame trigger id."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "Frames",
+                        DisplayName = "Frames",
+                        DataType = "Object",
+                        Description = "Collected frames when CallbackMode is StreamFrames."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "FrameCount",
+                        DisplayName = "Frame Count",
+                        DataType = "Int32",
+                        Description = "Number of collected frames when CallbackMode is StreamFrames."
                     }
                 }
             };
@@ -1003,191 +1200,4 @@ namespace Vision.Flow.Nodes
         }
     }
 
-    internal static class CameraFrameRouter
-    {
-        private static readonly object Gate = new object();
-        private static readonly Dictionary<ICameraAdapter, CameraFrameBuffer> Buffers = new Dictionary<ICameraAdapter, CameraFrameBuffer>();
-
-        public static void EnsureSubscribed(ICameraAdapter camera)
-        {
-            GetBuffer(camera);
-        }
-
-        public static Task<CameraFrameData> WaitForFrameAsync(
-            ICameraAdapter camera,
-            string cameraId,
-            string triggerId,
-            int timeoutMs,
-            CancellationToken cancellationToken)
-        {
-            return GetBuffer(camera).WaitForFrameAsync(cameraId, triggerId, timeoutMs, cancellationToken);
-        }
-
-        private static CameraFrameBuffer GetBuffer(ICameraAdapter camera)
-        {
-            if (camera == null)
-            {
-                throw new ArgumentNullException("camera");
-            }
-
-            lock (Gate)
-            {
-                CameraFrameBuffer buffer;
-                if (!Buffers.TryGetValue(camera, out buffer))
-                {
-                    buffer = new CameraFrameBuffer(camera);
-                    Buffers[camera] = buffer;
-                }
-
-                return buffer;
-            }
-        }
-    }
-
-    internal sealed class CameraFrameBuffer
-    {
-        private const int MaxBufferedFrames = 64;
-
-        private readonly object _gate = new object();
-        private readonly List<CameraFrameData> _frames = new List<CameraFrameData>();
-        private readonly List<CameraFrameWaitRequest> _waiters = new List<CameraFrameWaitRequest>();
-
-        public CameraFrameBuffer(ICameraAdapter camera)
-        {
-            camera.FrameArrived += OnFrameArrived;
-        }
-
-        public async Task<CameraFrameData> WaitForFrameAsync(
-            string cameraId,
-            string triggerId,
-            int timeoutMs,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var request = new CameraFrameWaitRequest(cameraId, triggerId);
-            lock (_gate)
-            {
-                CameraFrameData bufferedFrame;
-                if (TryTakeBufferedFrame(request, out bufferedFrame))
-                {
-                    return bufferedFrame;
-                }
-
-                _waiters.Add(request);
-            }
-
-            var timeoutTask = Task.Delay(timeoutMs > 0 ? timeoutMs : Timeout.Infinite, cancellationToken);
-            await Task.WhenAny(request.Task, timeoutTask).ConfigureAwait(false);
-
-            if (request.Task.IsCompleted)
-            {
-                return await request.Task.ConfigureAwait(false);
-            }
-
-            RemoveWaiter(request);
-            cancellationToken.ThrowIfCancellationRequested();
-            return null;
-        }
-
-        private void OnFrameArrived(object sender, CameraFrameArrivedEventArgs args)
-        {
-            if (args == null || args.Frame == null)
-            {
-                return;
-            }
-
-            CameraFrameWaitRequest completedRequest = null;
-            lock (_gate)
-            {
-                for (var index = 0; index < _waiters.Count; index++)
-                {
-                    if (_waiters[index].Matches(args.Frame))
-                    {
-                        completedRequest = _waiters[index];
-                        _waiters.RemoveAt(index);
-                        break;
-                    }
-                }
-
-                if (completedRequest == null)
-                {
-                    _frames.Add(args.Frame);
-                    while (_frames.Count > MaxBufferedFrames)
-                    {
-                        _frames.RemoveAt(0);
-                    }
-                }
-            }
-
-            if (completedRequest != null)
-            {
-                completedRequest.TrySetResult(args.Frame);
-            }
-        }
-
-        private bool TryTakeBufferedFrame(CameraFrameWaitRequest request, out CameraFrameData frame)
-        {
-            for (var index = 0; index < _frames.Count; index++)
-            {
-                if (request.Matches(_frames[index]))
-                {
-                    frame = _frames[index];
-                    _frames.RemoveAt(index);
-                    return true;
-                }
-            }
-
-            frame = null;
-            return false;
-        }
-
-        private void RemoveWaiter(CameraFrameWaitRequest request)
-        {
-            lock (_gate)
-            {
-                _waiters.Remove(request);
-            }
-        }
-    }
-
-    internal sealed class CameraFrameWaitRequest
-    {
-        private readonly string _cameraId;
-        private readonly string _triggerId;
-        private readonly TaskCompletionSource<CameraFrameData> _completion;
-
-        public CameraFrameWaitRequest(string cameraId, string triggerId)
-        {
-            _cameraId = cameraId;
-            _triggerId = triggerId;
-            _completion = new TaskCompletionSource<CameraFrameData>(TaskCreationOptions.RunContinuationsAsynchronously);
-        }
-
-        public Task<CameraFrameData> Task
-        {
-            get { return _completion.Task; }
-        }
-
-        public bool Matches(CameraFrameData frame)
-        {
-            if (frame == null)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(_cameraId) &&
-                !string.Equals(frame.CameraId, _cameraId, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            return string.Equals(frame.TriggerId, _triggerId, StringComparison.OrdinalIgnoreCase);
-        }
-
-        public void TrySetResult(CameraFrameData frame)
-        {
-            _completion.TrySetResult(frame);
-        }
-    }
 }

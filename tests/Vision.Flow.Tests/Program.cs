@@ -53,6 +53,8 @@ namespace Vision.Flow.Tests
                 new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
                 new TestCase("DefaultDeviceRegistry resolves a fake camera", AdapterTests.RegistryGetsFakeCamera),
                 new TestCase("FakeCameraAdapter soft trigger raises FrameArrived", AdapterTests.SoftTriggerReceivesFrame),
+                new TestCase("FakeCameraAdapter cancellation prevents frame creation", AdapterTests.SoftTriggerCancellationPreventsFrame),
+                new TestCase("FakeCameraAdapter can return before frame arrives", AdapterTests.SoftTriggerCanReturnBeforeFrameArrived),
                 new TestCase("FakeRecipeAdapter returns OK", AdapterTests.FakeRecipeReturnsOk),
                 new TestCase("FakeImageSaveAdapter returns a simulated path", AdapterTests.FakeImageSaveReturnsPath),
                 new TestCase("CommonNodeRegistration resolves common factories", CommonNodeTests.RegisterAllResolvesFactories),
@@ -69,6 +71,8 @@ namespace Vision.Flow.Tests
                 new TestCase("Motion node missing MotionId routes to Error", MotionNodeTests.MissingMotionIdRoutesError),
                 new TestCase("Camera nodes set parameters, trigger, and receive a matching frame", CameraNodeTests.SetTriggerCallbackFlow),
                 new TestCase("CameraImageCallbackNode times out on mismatched TriggerId", CameraNodeTests.ImageCallbackTimeoutWhenTriggerIdDoesNotMatch),
+                new TestCase("CameraImageCallbackNode can match any next frame", CameraNodeTests.ImageCallbackAnyMatchMode),
+                new TestCase("CameraImageCallbackNode stream mode collects frames", CameraNodeTests.ImageCallbackStreamFrames),
                 new TestCase("Stage 07 nodes run callback recipe save and database chain", Stage07NodeTests.CallbackRecipeSaveDatabaseFlow),
                 new TestCase("Stage 08 FrameGroupJoin completes, sorts frames, and stitches", Stage08NodeTests.FrameGroupJoinSortsAndStitches),
                 new TestCase("Stage 08 FrameGroupJoin detects duplicate ShotIndex", Stage08NodeTests.FrameGroupJoinDetectsDuplicateShotIndex),
@@ -756,6 +760,66 @@ namespace Vision.Flow.Tests
                 "Timed out callback should not publish image outputs.");
         }
 
+        public static async Task ImageCallbackAnyMatchMode()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            var devices = new DefaultDeviceRegistry();
+            devices.RegisterCamera(camera);
+
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateCameraRunner(CreateAnyMatchFlow(), sink, devices, null);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-camera-any" }).ConfigureAwait(false);
+
+            var triggerId = Convert.ToString(FindOutput(sink, "trigger1", "TriggerId"));
+            var frame = FindOutput(sink, "callback1", "Frame") as CameraFrameData;
+
+            AssertEx.NotNull(frame, "Any match mode should output the first available frame.");
+            AssertEx.Equal("Camera01", frame.CameraId, "Any match frame camera id should match.");
+            AssertEx.Equal(triggerId, frame.TriggerId, "Any match should consume the soft trigger frame.");
+        }
+
+        public static async Task ImageCallbackStreamFrames()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            var devices = new DefaultDeviceRegistry();
+            devices.RegisterCamera(camera);
+
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateCameraRunner(CreateStreamFramesFlow(), sink, devices, null);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            var triggerTask = runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-camera-stream" });
+
+            await Task.Delay(20).ConfigureAwait(false);
+            await camera.SoftTriggerAsync(
+                new CameraTriggerContext { CameraId = "Camera01", TriggerId = "stream-001" },
+                CancellationToken.None).ConfigureAwait(false);
+            await camera.SoftTriggerAsync(
+                new CameraTriggerContext { CameraId = "Camera01", TriggerId = "stream-002" },
+                CancellationToken.None).ConfigureAwait(false);
+
+            await triggerTask.ConfigureAwait(false);
+
+            var frames = FindOutput(sink, "callback1", "Frames") as IList<CameraFrameData>;
+            var frameCount = Convert.ToInt32(FindOutput(sink, "callback1", "FrameCount"), CultureInfo.InvariantCulture);
+            var lastTriggerId = Convert.ToString(FindOutput(sink, "callback1", "TriggerId"));
+
+            AssertEx.NotNull(frames, "StreamFrames should output the collected frame list.");
+            AssertEx.Equal(2, frames.Count, "StreamFrames should collect the configured frame count.");
+            AssertEx.Equal(2, frameCount, "FrameCount output should match the collected frame count.");
+            AssertEx.Equal("stream-001", frames[0].TriggerId, "First stream frame should preserve trigger id.");
+            AssertEx.Equal("stream-002", frames[1].TriggerId, "Second stream frame should preserve trigger id.");
+            AssertEx.Equal("stream-002", lastTriggerId, "Node scalar outputs should describe the last collected frame.");
+        }
+
         private static IFlowRunner CreateCameraRunner(
             RuntimeFlowDefinition flow,
             InMemoryFlowEventSink sink,
@@ -836,6 +900,78 @@ namespace Vision.Flow.Tests
             flow.Edges.Add(CreateEdge("set1", "Next", "trigger1"));
             flow.Edges.Add(CreateEdge("trigger1", "Next", "callback1"));
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "set1" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateAnyMatchFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "camera-any",
+                FlowName = "Camera Any Match",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "trigger1",
+                Type = CameraSoftTriggerNodeFactory.TypeName,
+                Name = "Soft Trigger",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "CameraId", "Camera01" },
+                    { "TimeoutMs", 500 }
+                }
+            });
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "callback1",
+                Type = CameraImageCallbackNodeFactory.TypeName,
+                Name = "Image Callback",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "CameraId", "Camera01" },
+                    { "CallbackMode", "WaitNextFrame" },
+                    { "MatchMode", "Any" },
+                    { "TimeoutMs", 1000 }
+                }
+            });
+
+            flow.Edges.Add(CreateEdge("trigger1", "Next", "callback1"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "trigger1" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateStreamFramesFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "camera-stream",
+                FlowName = "Camera Stream",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "callback1",
+                Type = CameraImageCallbackNodeFactory.TypeName,
+                Name = "Image Callback",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "CameraId", "Camera01" },
+                    { "CallbackMode", "StreamFrames" },
+                    { "MatchMode", "Any" },
+                    { "ExpectedFrameCount", 2 },
+                    { "FrameTimeoutMs", 1000 },
+                    { "TimeoutMs", 1000 }
+                }
+            });
+
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "callback1" });
             return flow;
         }
 
@@ -1472,6 +1608,7 @@ namespace Vision.Flow.Tests
                 },
                 CancellationToken.None).ConfigureAwait(false);
 
+            AssertEx.True(frameSource.Task.IsCompleted, "Default fake soft trigger should complete after FrameArrived is raised.");
             var completed = await Task.WhenAny(frameSource.Task, Task.Delay(1000)).ConfigureAwait(false);
             AssertEx.True(object.ReferenceEquals(frameSource.Task, completed), "Soft trigger should raise FrameArrived within the timeout.");
 
@@ -1484,6 +1621,72 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("trigger-001", Convert.ToString(frame.Metadata["TriggerId"]), "Frame metadata should include TriggerId.");
             AssertEx.True(frame.Metadata.ContainsKey("FrameId"), "Frame metadata should include FrameId.");
             AssertEx.True(frame.Metadata.ContainsKey("GrabTime"), "Frame metadata should include GrabTime.");
+        }
+
+        public static async Task SoftTriggerCancellationPreventsFrame()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 200
+            };
+            var frameRaised = false;
+            camera.FrameArrived += delegate
+            {
+                frameRaised = true;
+            };
+
+            using (var cancellation = new CancellationTokenSource())
+            {
+                var triggerTask = camera.SoftTriggerAsync(
+                    new CameraTriggerContext
+                    {
+                        CameraId = "Camera01",
+                        TriggerId = "trigger-cancel"
+                    },
+                    cancellation.Token);
+                cancellation.CancelAfter(10);
+
+                await AssertEx.ThrowsAsync<OperationCanceledException>(
+                    async delegate
+                    {
+                        await triggerTask.ConfigureAwait(false);
+                    }).ConfigureAwait(false);
+            }
+
+            await Task.Delay(250).ConfigureAwait(false);
+            AssertEx.False(frameRaised, "Canceled fake soft trigger must not create a frame.");
+        }
+
+        public static async Task SoftTriggerCanReturnBeforeFrameArrived()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 50,
+                ReturnBeforeFrameArrived = true
+            };
+            var frameSource = new TaskCompletionSource<CameraFrameData>();
+
+            camera.FrameArrived += delegate(object sender, CameraFrameArrivedEventArgs args)
+            {
+                frameSource.TrySetResult(args.Frame);
+            };
+
+            await camera.SoftTriggerAsync(
+                new CameraTriggerContext
+                {
+                    CameraId = "Camera01",
+                    TriggerId = "trigger-background"
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            AssertEx.False(frameSource.Task.IsCompleted, "ReturnBeforeFrameArrived should preserve async frame delivery behavior.");
+
+            var completed = await Task.WhenAny(frameSource.Task, Task.Delay(1000)).ConfigureAwait(false);
+            AssertEx.True(object.ReferenceEquals(frameSource.Task, completed), "Background fake frame should still arrive.");
+            AssertEx.True(camera.LastError == null, "Background fake frame should not report adapter error.");
+
+            var frame = await frameSource.Task.ConfigureAwait(false);
+            AssertEx.Equal("trigger-background", frame.TriggerId, "Background fake frame should preserve trigger id.");
         }
 
         public static async Task FakeRecipeReturnsOk()

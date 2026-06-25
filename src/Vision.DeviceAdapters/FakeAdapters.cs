@@ -7,6 +7,16 @@ using Vision.Flow.Core;
 
 namespace Vision.DeviceAdapters
 {
+    public sealed class FakeAdapterErrorEventArgs : EventArgs
+    {
+        public FakeAdapterErrorEventArgs(Exception exception)
+        {
+            Exception = exception ?? throw new ArgumentNullException("exception");
+        }
+
+        public Exception Exception { get; private set; }
+    }
+
     public sealed class FakeVisionImage : IVisionImage
     {
         public FakeVisionImage()
@@ -76,7 +86,15 @@ namespace Vision.DeviceAdapters
 
         public string PixelFormat { get; set; }
 
+        public bool ReturnBeforeFrameArrived { get; set; }
+
+        public Exception LastError { get; private set; }
+
+        public Task LastBackgroundFrameTask { get; private set; }
+
         public event EventHandler<CameraFrameArrivedEventArgs> FrameArrived;
+
+        public event EventHandler<FakeAdapterErrorEventArgs> AdapterError;
 
         public IReadOnlyList<CameraParameterDescriptor> GetParameterDescriptors()
         {
@@ -150,18 +168,60 @@ namespace Vision.DeviceAdapters
 
             var triggerId = context.TriggerId;
             var triggerMetadata = CopyDictionary(context.Metadata);
-            Task.Run(async delegate
+            if (ReturnBeforeFrameArrived)
             {
-                if (FrameDelayMs > 0)
+                LastBackgroundFrameTask = ProduceFrameInBackgroundAsync(triggerId, triggerMetadata, cancellationToken);
+                return Task.FromResult(0);
+            }
+
+            return ProduceFrameAsync(triggerId, triggerMetadata, cancellationToken);
+        }
+
+        private async Task ProduceFrameInBackgroundAsync(
+            string triggerId,
+            IDictionary<string, object> triggerMetadata,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await ProduceFrameAsync(triggerId, triggerMetadata, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                if (!cancellationToken.IsCancellationRequested)
                 {
-                    await Task.Delay(FrameDelayMs).ConfigureAwait(false);
+                    ReportAdapterError(new TimeoutException("Fake camera frame production was canceled."));
                 }
+            }
+            catch (Exception ex)
+            {
+                ReportAdapterError(ex);
+            }
+        }
 
-                var frame = CreateFrame(triggerId, triggerMetadata);
-                RaiseFrameArrived(frame);
-            });
+        private async Task ProduceFrameAsync(
+            string triggerId,
+            IDictionary<string, object> triggerMetadata,
+            CancellationToken cancellationToken)
+        {
+            if (FrameDelayMs > 0)
+            {
+                await Task.Delay(FrameDelayMs, cancellationToken).ConfigureAwait(false);
+            }
 
-            return Task.FromResult(0);
+            cancellationToken.ThrowIfCancellationRequested();
+            var frame = CreateFrame(triggerId, triggerMetadata);
+            RaiseFrameArrived(frame);
+        }
+
+        private void ReportAdapterError(Exception exception)
+        {
+            LastError = exception;
+            var handler = AdapterError;
+            if (handler != null)
+            {
+                handler(this, new FakeAdapterErrorEventArgs(exception));
+            }
         }
 
         private void AddParameterDescriptor(

@@ -10,18 +10,24 @@ namespace Vision.Flow.Core
         private readonly NodeRegistry _nodeRegistry;
         private readonly IFlowEventSink _eventSink;
         private readonly IDeviceRegistry _devices;
+        private readonly ICameraFrameRouter _cameraFrames;
 
         public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink = null)
-            : this(nodeRegistry, eventSink, null)
+            : this(nodeRegistry, eventSink, null, null)
         {
         }
 
         public FlowEngine(NodeRegistry nodeRegistry, IDeviceRegistry devices)
-            : this(nodeRegistry, null, devices)
+            : this(nodeRegistry, null, devices, null)
         {
         }
 
         public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink, IDeviceRegistry devices)
+            : this(nodeRegistry, eventSink, devices, null)
+        {
+        }
+
+        public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink, IDeviceRegistry devices, ICameraFrameRouter cameraFrames)
         {
             if (nodeRegistry == null)
             {
@@ -31,6 +37,7 @@ namespace Vision.Flow.Core
             _nodeRegistry = nodeRegistry;
             _eventSink = eventSink ?? new InMemoryFlowEventSink();
             _devices = devices ?? EmptyDeviceRegistry.Instance;
+            _cameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
         }
 
         public IFlowRunner CreateRunner(RuntimeFlowDefinition definition)
@@ -40,7 +47,7 @@ namespace Vision.Flow.Core
                 throw new ArgumentNullException("definition");
             }
 
-            return new FlowRunner(definition, _nodeRegistry, _eventSink, _devices);
+            return new FlowRunner(definition, _nodeRegistry, _eventSink, _devices, _cameraFrames);
         }
     }
 
@@ -52,6 +59,7 @@ namespace Vision.Flow.Core
         private readonly NodeRegistry _nodeRegistry;
         private readonly IFlowEventSink _eventSink;
         private readonly IDeviceRegistry _devices;
+        private readonly ICameraFrameRouter _cameraFrames;
         private readonly Dictionary<string, IFlowNode> _nodeInstances;
         private CancellationTokenSource _runnerCancellation;
 
@@ -61,6 +69,16 @@ namespace Vision.Flow.Core
         }
 
         public FlowRunner(RuntimeFlowDefinition definition, NodeRegistry nodeRegistry, IFlowEventSink eventSink, IDeviceRegistry devices)
+            : this(definition, nodeRegistry, eventSink, devices, null)
+        {
+        }
+
+        public FlowRunner(
+            RuntimeFlowDefinition definition,
+            NodeRegistry nodeRegistry,
+            IFlowEventSink eventSink,
+            IDeviceRegistry devices,
+            ICameraFrameRouter cameraFrames)
         {
             if (definition == null)
             {
@@ -77,6 +95,7 @@ namespace Vision.Flow.Core
             _nodeRegistry = nodeRegistry;
             _eventSink = eventSink ?? new InMemoryFlowEventSink();
             _devices = devices ?? EmptyDeviceRegistry.Instance;
+            _cameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
             _nodeInstances = new Dictionary<string, IFlowNode>(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -227,7 +246,7 @@ namespace Vision.Flow.Core
             try
             {
                 var flowNode = GetOrCreateNode(node);
-                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices);
+                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices, _cameraFrames);
                 result = await flowNode.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
                 if (result == null)
                 {
