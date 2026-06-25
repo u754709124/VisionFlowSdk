@@ -1184,6 +1184,7 @@ namespace Vision.Flow.Designer.Wpf
             _properties.ShowNode(
                 _selectedNode,
                 _selectedNode == null ? null : GetDescriptor(_selectedNode.Type),
+                CreateVariableSuggestions(_selectedNode),
                 delegate
                 {
                     var card = _selectedNode == null || !_nodeCards.ContainsKey(_selectedNode.Id)
@@ -1196,6 +1197,73 @@ namespace Vision.Flow.Designer.Wpf
 
                     RenderCanvas();
                 });
+        }
+
+        private IList<string> CreateVariableSuggestions(NodeDefinition currentNode)
+        {
+            var items = new List<string>();
+            AddTokenVariableSuggestions(items);
+
+            if (_document == null || _document.Runtime == null || _document.Runtime.Nodes == null)
+            {
+                return items;
+            }
+
+            foreach (var node in _document.Runtime.Nodes)
+            {
+                if (node == null ||
+                    string.IsNullOrWhiteSpace(node.Id) ||
+                    (currentNode != null && StringEquals(node.Id, currentNode.Id)))
+                {
+                    continue;
+                }
+
+                var descriptor = GetDescriptor(node.Type);
+                if (descriptor == null || descriptor.Outputs == null)
+                {
+                    continue;
+                }
+
+                foreach (var output in descriptor.Outputs)
+                {
+                    if (!string.IsNullOrWhiteSpace(output.Name))
+                    {
+                        AddVariableSuggestion(items, node.Id, output.Name);
+                    }
+                }
+            }
+
+            return items
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x.StartsWith("{{ token.", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .ThenBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static void AddTokenVariableSuggestions(ICollection<string> items)
+        {
+            AddVariableSuggestion(items, "token", "TokenId");
+            AddVariableSuggestion(items, "token", "ProductId");
+            AddVariableSuggestion(items, "token", "WorkpieceId");
+            AddVariableSuggestion(items, "token", "PositionId");
+            AddVariableSuggestion(items, "token", "CaptureGroupId");
+            AddVariableSuggestion(items, "token", "ScanGroupId");
+            AddVariableSuggestion(items, "token", "TriggerId");
+            AddVariableSuggestion(items, "token", "FrameId");
+            AddVariableSuggestion(items, "token", "ShotIndex");
+            AddVariableSuggestion(items, "token", "FrameIndex");
+            AddVariableSuggestion(items, "token", "Image");
+            AddVariableSuggestion(items, "token", "Frame");
+        }
+
+        private static void AddVariableSuggestion(ICollection<string> items, string scope, string name)
+        {
+            if (items == null || string.IsNullOrWhiteSpace(scope) || string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
+            items.Add("{{ " + scope + "." + name + " }}");
         }
 
         private void SelectNode(NodeDefinition node)
@@ -3030,6 +3098,7 @@ namespace Vision.Flow.Designer.Wpf
         private readonly StackPanel _rows;
         private NodeDefinition _node;
         private Action _changed;
+        private IList<string> _variableExpressions;
 
         public PropertyPanelControl()
         {
@@ -3040,6 +3109,7 @@ namespace Vision.Flow.Designer.Wpf
             CornerRadius = new CornerRadius(6);
 
             _rows = new StackPanel();
+            _variableExpressions = new List<string>();
             Child = new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -3049,8 +3119,19 @@ namespace Vision.Flow.Designer.Wpf
 
         public void ShowNode(NodeDefinition node, NodeDescriptor descriptor, Action changed)
         {
+            ShowNode(node, descriptor, null, changed);
+        }
+
+        public void ShowNode(NodeDefinition node, NodeDescriptor descriptor, IEnumerable<string> variableExpressions, Action changed)
+        {
             _node = node;
             _changed = changed;
+            _variableExpressions = variableExpressions == null
+                ? new List<string>()
+                : variableExpressions
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
             _rows.Children.Clear();
 
             _rows.Children.Add(CreateTitle("Properties"));
@@ -3131,6 +3212,15 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
+            if (IsBindingSetting(setting))
+            {
+                AddBindingField(label, ToEditorText(setting, value), delegate(string text)
+                {
+                    ApplySetting(setter, ConvertFromEditorText(setting, text));
+                });
+                return;
+            }
+
             var selectorItems = GetSelectorItems(setting);
             if (selectorItems.Count > 0)
             {
@@ -3167,7 +3257,7 @@ namespace Vision.Flow.Designer.Wpf
             {
                 Margin = new Thickness(0, 0, 0, 4)
             };
-            var selector = new VariableSelectorControl();
+            var selector = new VariableSelectorControl(_variableExpressions);
             DockPanel.SetDock(selector, Dock.Right);
             dock.Children.Add(selector);
 
@@ -3191,6 +3281,22 @@ namespace Vision.Flow.Designer.Wpf
             };
             dock.Children.Add(textBox);
             _rows.Children.Add(dock);
+        }
+
+        private static bool IsBindingSetting(NodeSettingDescriptor setting)
+        {
+            if (setting == null || string.IsNullOrWhiteSpace(setting.Name))
+            {
+                return false;
+            }
+
+            if (string.Equals(setting.Name, "FieldMappings", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return setting.Name.EndsWith("Binding", StringComparison.OrdinalIgnoreCase) ||
+                setting.Name.EndsWith("Bindings", StringComparison.OrdinalIgnoreCase);
         }
 
         private void AddTextField(string label, string value, bool editable, Action<string> setter)
@@ -3278,6 +3384,30 @@ namespace Vision.Flow.Designer.Wpf
             else if (string.Equals(setting.Name, "MatchMode", StringComparison.OrdinalIgnoreCase))
             {
                 items.Add("TriggerId");
+                items.Add("Any");
+                items.Add("ScanGroupId");
+            }
+            else if (string.Equals(setting.Name, "CallbackMode", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("WaitNextFrame");
+                items.Add("StreamFrames");
+            }
+            else if (string.Equals(setting.Name, "DuplicatePolicy", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("Error");
+                items.Add("Ignore");
+                items.Add("Replace");
+            }
+            else if (string.Equals(setting.Name, "QueueFullMode", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("Wait");
+                items.Add("Reject");
+            }
+            else if (string.Equals(setting.Name, "QueueName", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("recipe");
+                items.Add("image-save");
+                items.Add("database-save");
             }
 
             return items;
@@ -3522,24 +3652,65 @@ namespace Vision.Flow.Designer.Wpf
 
     public sealed class VariableSelectorControl : Button
     {
+        private readonly IList<string> _variables;
+
         public VariableSelectorControl()
+            : this(null)
         {
+        }
+
+        public VariableSelectorControl(IEnumerable<string> variables)
+        {
+            _variables = variables == null
+                ? new List<string>()
+                : variables
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
             Content = "Var";
             MinWidth = 44;
             Height = 28;
             Margin = new Thickness(6, 0, 0, 0);
-            ToolTip = "Insert a variable binding placeholder.";
-            Click += delegate
-            {
-                var handler = VariableSelected;
-                if (handler != null)
-                {
-                    handler("{{ node.Output }}");
-                }
-            };
+            ToolTip = "Insert a variable binding.";
+            Click += OnClick;
         }
 
         public event Action<string> VariableSelected;
+
+        private void OnClick(object sender, RoutedEventArgs e)
+        {
+            if (_variables.Count == 0)
+            {
+                RaiseVariableSelected("{{ node.Output }}");
+                return;
+            }
+
+            var menu = new ContextMenu
+            {
+                PlacementTarget = this
+            };
+            foreach (var variable in _variables)
+            {
+                var item = new MenuItem
+                {
+                    Header = variable
+                };
+                item.Click += delegate { RaiseVariableSelected(variable); };
+                menu.Items.Add(item);
+            }
+
+            ContextMenu = menu;
+            menu.IsOpen = true;
+        }
+
+        private void RaiseVariableSelected(string expression)
+        {
+            var handler = VariableSelected;
+            if (handler != null)
+            {
+                handler(expression);
+            }
+        }
     }
 
     public sealed class RuntimeDebugPanelControl : Border
