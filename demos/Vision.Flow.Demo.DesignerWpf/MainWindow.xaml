@@ -5,5 +5,5 @@
         Title="Vision Flow Designer Demo"
         Width="1200"
         Height="800">
-    <designer:FlowDesignerControl x:Name="Designer" />
+    <Grid x:Name="DesignerHost" />
 </Window>

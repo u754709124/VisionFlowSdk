@@ -17,6 +17,18 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
+    public sealed class FlowDesignerOptions
+    {
+        public FlowDesignerOptions()
+        {
+            LoadSampleOnStartup = true;
+        }
+
+        public bool LoadSampleOnStartup { get; set; }
+
+        public IDeviceRegistry DebugDevices { get; set; }
+    }
+
     public sealed class FlowDesignerControl : UserControl
     {
         private const string DefaultEntryName = "ManualStart";
@@ -31,6 +43,7 @@ namespace Vision.Flow.Designer.Wpf
         private readonly PropertyPanelControl _properties;
         private readonly RuntimeDebugPanelControl _debug;
         private readonly EdgeLayerControl _edges;
+        private readonly FlowDesignerOptions _options;
         private readonly Canvas _nodeLayer;
         private readonly TextBlock _statusText;
         private TextBlock _zoomText;
@@ -56,9 +69,24 @@ namespace Vision.Flow.Designer.Wpf
         private Point _connectionStartPoint;
 
         public FlowDesignerControl()
+            : this(null, null, null)
         {
-            _nodeRegistry = new NodeRegistry();
-            CommonNodeRegistration.RegisterAll(_nodeRegistry);
+        }
+
+        public FlowDesignerControl(NodeRegistry nodeRegistry)
+            : this(nodeRegistry, null, null)
+        {
+        }
+
+        public FlowDesignerControl(NodeRegistry nodeRegistry, IDeviceRegistry debugDevices)
+            : this(nodeRegistry, debugDevices, null)
+        {
+        }
+
+        public FlowDesignerControl(NodeRegistry nodeRegistry, IDeviceRegistry debugDevices, FlowDesignerOptions options)
+        {
+            _options = options ?? new FlowDesignerOptions();
+            _nodeRegistry = nodeRegistry ?? CreateDefaultNodeRegistry();
             _nodeCards = new Dictionary<string, NodeCardControl>(StringComparer.OrdinalIgnoreCase);
             _nodeStartTimes = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
             _palette = new NodePaletteControl();
@@ -80,7 +108,7 @@ namespace Vision.Flow.Designer.Wpf
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            DebugDevices = null;
+            DebugDevices = debugDevices ?? _options.DebugDevices;
             InitializeResources();
             Content = CreateShell();
             _palette.SetDescriptors(_nodeRegistry.Descriptors.OrderBy(x => x.Category).ThenBy(x => x.DisplayName));
@@ -88,10 +116,34 @@ namespace Vision.Flow.Designer.Wpf
             _debug.NodeRequested += SelectNodeById;
             PreviewKeyDown += OnPreviewKeyDown;
             Focusable = true;
-            LoadSingleShotTemplate();
+            if (_options.LoadSampleOnStartup)
+            {
+                LoadSingleShotTemplate();
+            }
+            else
+            {
+                CreateNewDesign();
+            }
         }
 
         public IDeviceRegistry DebugDevices { get; set; }
+
+        public NodeRegistry NodeRegistry
+        {
+            get { return _nodeRegistry; }
+        }
+
+        public FlowDesignerOptions Options
+        {
+            get { return _options; }
+        }
+
+        private static NodeRegistry CreateDefaultNodeRegistry()
+        {
+            var registry = new NodeRegistry();
+            CommonNodeRegistration.RegisterAll(registry);
+            return registry;
+        }
 
         private void InitializeResources()
         {
