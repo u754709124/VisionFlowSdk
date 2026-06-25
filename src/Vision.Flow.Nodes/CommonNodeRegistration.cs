@@ -16,6 +16,8 @@ namespace Vision.Flow.Nodes
             registry.Register(new DelayNodeFactory());
             registry.Register(new SplitNodeFactory());
             registry.Register(new VariableSetNodeFactory());
+            registry.Register(new AndJoinNodeFactory());
+            registry.Register(new ConditionNodeFactory());
             registry.Register(new CameraSetParameterNodeFactory());
             registry.Register(new CameraSoftTriggerNodeFactory());
             registry.Register(new CameraImageCallbackNodeFactory());
