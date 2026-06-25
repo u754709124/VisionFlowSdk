@@ -265,6 +265,7 @@ namespace Vision.Flow.Nodes
             QueueCapacity = 16;
             QueueMaxDegreeOfParallelism = 1;
             QueueFullMode = "Wait";
+            WaitForCompletion = true;
         }
 
         public bool UseQueue { get; set; }
@@ -276,6 +277,21 @@ namespace Vision.Flow.Nodes
         public int QueueMaxDegreeOfParallelism { get; set; }
 
         public string QueueFullMode { get; set; }
+
+        public bool WaitForCompletion { get; set; }
+    }
+
+    internal sealed class AdapterNodeQueueExecutionResult<T>
+    {
+        public bool WaitedForCompletion { get; set; }
+
+        public bool IsQueued { get; set; }
+
+        public bool IsDropped { get; set; }
+
+        public bool IsNotifyOnly { get; set; }
+
+        public T Value { get; set; }
     }
 
     public sealed class RecipeRunNodeConfig
@@ -368,34 +384,51 @@ namespace Vision.Flow.Nodes
             AddRecipeInputs(context, request);
 
             var stopwatch = Stopwatch.StartNew();
-            RecipeRunResult result;
-            using (var timeout = AdapterNodeTimeout.Create(timeoutMs, cancellationToken))
+            AdapterNodeQueueExecutionResult<RecipeRunResult> queueResult;
+            try
             {
-                try
-                {
-                    result = await AdapterNodeHelpers.ExecuteWithOptionalQueueAsync(
-                        context,
-                        _config.Queue,
-                        "recipe",
-                        "recipe.run",
-                        delegate(CancellationToken token)
-                        {
-                            return recipe.RunAsync(request, token);
-                        },
-                        timeout.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    if (cancellationToken.IsCancellationRequested)
+                queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync(
+                    context,
+                    _config.Queue,
+                    "recipe",
+                    "recipe.run",
+                    delegate(CancellationToken token)
                     {
-                        throw;
-                    }
-
-                    return NodeExecutionResult.Timeout("Timed out running recipe: " + recipeId, "Timeout");
+                        return RunRecipeWithTimeoutAsync(recipe, request, timeoutMs, token);
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
+
+                return NodeExecutionResult.Timeout("Timed out running recipe: " + recipeId, "Timeout");
             }
 
             stopwatch.Stop();
+            if (!queueResult.WaitedForCompletion)
+            {
+                context.Token.Set("RecipeId", recipeId);
+                context.Token.Set("RecipeQueued", queueResult.IsQueued);
+                return NodeExecutionResult.Success(
+                    "Next",
+                    new Dictionary<string, object>
+                    {
+                        { "Result", null },
+                        { "ResultImage", null },
+                        { "IsOk", false },
+                        { "ElapsedMs", stopwatch.ElapsedMilliseconds },
+                        { "Queued", queueResult.IsQueued },
+                        { "QueueCompleted", false },
+                        { "QueueDropped", queueResult.IsDropped },
+                        { "QueueNotifyOnly", queueResult.IsNotifyOnly }
+                    });
+            }
+
+            var result = queueResult.Value;
             if (result == null)
             {
                 return NodeExecutionResult.Failure("Recipe adapter returned a null result.");
@@ -415,8 +448,22 @@ namespace Vision.Flow.Nodes
                     { "Result", result },
                     { "ResultImage", resultImage },
                     { "IsOk", isOk },
-                    { "ElapsedMs", stopwatch.ElapsedMilliseconds }
+                    { "ElapsedMs", stopwatch.ElapsedMilliseconds },
+                    { "Queued", false },
+                    { "QueueCompleted", true }
                 });
+        }
+
+        private static async Task<RecipeRunResult> RunRecipeWithTimeoutAsync(
+            IRecipeAdapter recipe,
+            RecipeRunRequest request,
+            int timeoutMs,
+            CancellationToken cancellationToken)
+        {
+            using (var timeout = AdapterNodeTimeout.Create(timeoutMs, cancellationToken))
+            {
+                return await recipe.RunAsync(request, timeout.Token).ConfigureAwait(false);
+            }
         }
 
         private void AddRecipeInputs(FlowExecutionContext context, RecipeRunRequest request)
@@ -499,7 +546,8 @@ namespace Vision.Flow.Nodes
                     AdapterNodeDescriptors.QueueNameSetting("recipe"),
                     AdapterNodeDescriptors.QueueCapacitySetting(),
                     AdapterNodeDescriptors.QueueMaxDegreeSetting(),
-                    AdapterNodeDescriptors.QueueFullModeSetting()
+                    AdapterNodeDescriptors.QueueFullModeSetting(),
+                    AdapterNodeDescriptors.QueueWaitForCompletionSetting()
                 },
                 Outputs =
                 {
@@ -530,6 +578,20 @@ namespace Vision.Flow.Nodes
                         DisplayName = "Elapsed (ms)",
                         DataType = "Int64",
                         Description = "Recipe execution elapsed time."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "Queued",
+                        DisplayName = "Queued",
+                        DataType = "Boolean",
+                        Description = "True when recipe work was accepted by a queue without waiting."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "QueueCompleted",
+                        DisplayName = "Queue Completed",
+                        DataType = "Boolean",
+                        Description = "True when queued recipe work completed before node output."
                     }
                 }
             };
@@ -641,15 +703,19 @@ namespace Vision.Flow.Nodes
             var saver = context.Devices.GetImageSaver(saverId);
             var imagePath = default(string);
             var resultImagePath = default(string);
+            var imageStatus = ImageSaveWorkStatus.NotRequested;
+            var resultImageStatus = ImageSaveWorkStatus.NotRequested;
 
             if (image != null)
             {
-                imagePath = await SaveOneAsync(context, saver, saverId, image, "Image", false, cancellationToken).ConfigureAwait(false);
+                imageStatus = await SaveOneAsync(context, saver, saverId, image, "Image", false, cancellationToken).ConfigureAwait(false);
+                imagePath = imageStatus.Path;
             }
 
             if (resultImage != null)
             {
-                resultImagePath = await SaveOneAsync(context, saver, saverId, resultImage, "ResultImage", image != null, cancellationToken).ConfigureAwait(false);
+                resultImageStatus = await SaveOneAsync(context, saver, saverId, resultImage, "ResultImage", image != null, cancellationToken).ConfigureAwait(false);
+                resultImagePath = resultImageStatus.Path;
             }
 
             context.Token.Set("ImagePath", imagePath);
@@ -660,11 +726,15 @@ namespace Vision.Flow.Nodes
                 new Dictionary<string, object>
                 {
                     { "ImagePath", imagePath },
-                    { "ResultImagePath", resultImagePath }
+                    { "ResultImagePath", resultImagePath },
+                    { "Queued", imageStatus.IsQueued || resultImageStatus.IsQueued },
+                    { "QueueCompleted", imageStatus.IsCompleted && resultImageStatus.IsCompleted },
+                    { "ImageQueued", imageStatus.IsQueued },
+                    { "ResultImageQueued", resultImageStatus.IsQueued }
                 });
         }
 
-        private async Task<string> SaveOneAsync(
+        private async Task<ImageSaveWorkStatus> SaveOneAsync(
             FlowExecutionContext context,
             IImageSaveAdapter saver,
             string saverId,
@@ -704,16 +774,37 @@ namespace Vision.Flow.Nodes
             request.Metadata["NodeId"] = context.Node.Id;
             request.Metadata["Role"] = role;
 
-            var result = await AdapterNodeHelpers.ExecuteWithOptionalQueueAsync(
+            var queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync(
                 context,
                 _config.Queue,
                 "image-save",
                 "image.save." + role,
-                delegate(CancellationToken token)
+                async delegate(CancellationToken token)
                 {
-                    return saver.SaveAsync(request, token);
+                    try
+                    {
+                        return await saver.SaveAsync(request, token).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        if (request.Image != null)
+                        {
+                            request.Image.Dispose();
+                        }
+                    }
                 },
                 cancellationToken).ConfigureAwait(false);
+
+            if (!queueResult.WaitedForCompletion)
+            {
+                return new ImageSaveWorkStatus
+                {
+                    IsQueued = queueResult.IsQueued,
+                    IsCompleted = false
+                };
+            }
+
+            var result = queueResult.Value;
             if (result == null)
             {
                 throw new InvalidOperationException("Image saver returned a null result.");
@@ -726,7 +817,26 @@ namespace Vision.Flow.Nodes
                     : result.Message);
             }
 
-            return result.Path;
+            return new ImageSaveWorkStatus
+            {
+                Path = result.Path,
+                IsQueued = false,
+                IsCompleted = true
+            };
+        }
+
+        private sealed class ImageSaveWorkStatus
+        {
+            public static readonly ImageSaveWorkStatus NotRequested = new ImageSaveWorkStatus
+            {
+                IsCompleted = true
+            };
+
+            public string Path { get; set; }
+
+            public bool IsQueued { get; set; }
+
+            public bool IsCompleted { get; set; }
         }
     }
 
@@ -810,7 +920,8 @@ namespace Vision.Flow.Nodes
                     AdapterNodeDescriptors.QueueNameSetting("image-save"),
                     AdapterNodeDescriptors.QueueCapacitySetting(),
                     AdapterNodeDescriptors.QueueMaxDegreeSetting(),
-                    AdapterNodeDescriptors.QueueFullModeSetting()
+                    AdapterNodeDescriptors.QueueFullModeSetting(),
+                    AdapterNodeDescriptors.QueueWaitForCompletionSetting()
                 },
                 Outputs =
                 {
@@ -827,6 +938,34 @@ namespace Vision.Flow.Nodes
                         DisplayName = "Result Image Path",
                         DataType = "String",
                         Description = "Path returned for the result image."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "Queued",
+                        DisplayName = "Queued",
+                        DataType = "Boolean",
+                        Description = "True when one or more image save operations were accepted by a queue without waiting."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "QueueCompleted",
+                        DisplayName = "Queue Completed",
+                        DataType = "Boolean",
+                        Description = "True when queued image save work completed before node output."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "ImageQueued",
+                        DisplayName = "Image Queued",
+                        DataType = "Boolean",
+                        Description = "True when the raw image save was queued without waiting."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "ResultImageQueued",
+                        DisplayName = "Result Image Queued",
+                        DataType = "Boolean",
+                        Description = "True when the result image save was queued without waiting."
                     }
                 }
             };
@@ -941,14 +1080,15 @@ namespace Vision.Flow.Nodes
             AdapterNodeHelpers.AddTokenMetadata(context.Token, request.Metadata);
             request.Metadata["NodeId"] = context.Node.Id;
 
-            await AdapterNodeHelpers.ExecuteWithOptionalQueueAsync(
+            var queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync<object>(
                 context,
                 _config.Queue,
                 "database-save",
                 "database.save",
-                delegate(CancellationToken token)
+                async delegate(CancellationToken token)
                 {
-                    return database.SaveAsync(request, token);
+                    await database.SaveAsync(request, token).ConfigureAwait(false);
+                    return null;
                 },
                 cancellationToken).ConfigureAwait(false);
 
@@ -956,7 +1096,9 @@ namespace Vision.Flow.Nodes
                 "Next",
                 new Dictionary<string, object>
                 {
-                    { "Saved", true }
+                    { "Saved", queueResult.WaitedForCompletion },
+                    { "Queued", queueResult.IsQueued },
+                    { "QueueCompleted", queueResult.WaitedForCompletion }
                 });
         }
 
@@ -1043,7 +1185,8 @@ namespace Vision.Flow.Nodes
                     AdapterNodeDescriptors.QueueNameSetting("database-save"),
                     AdapterNodeDescriptors.QueueCapacitySetting(),
                     AdapterNodeDescriptors.QueueMaxDegreeSetting(),
-                    AdapterNodeDescriptors.QueueFullModeSetting()
+                    AdapterNodeDescriptors.QueueFullModeSetting(),
+                    AdapterNodeDescriptors.QueueWaitForCompletionSetting()
                 },
                 Outputs =
                 {
@@ -1053,6 +1196,20 @@ namespace Vision.Flow.Nodes
                         DisplayName = "Saved",
                         DataType = "Boolean",
                         Description = "True when the adapter save call completes."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "Queued",
+                        DisplayName = "Queued",
+                        DataType = "Boolean",
+                        Description = "True when database save was accepted by a queue without waiting."
+                    },
+                    new NodeOutputDescriptor
+                    {
+                        Name = "QueueCompleted",
+                        DisplayName = "Queue Completed",
+                        DataType = "Boolean",
+                        Description = "True when queued database save work completed before node output."
                     }
                 }
             };
@@ -1171,7 +1328,20 @@ namespace Vision.Flow.Nodes
                 DataType = "String",
                 DefaultValue = "Wait",
                 IsRequired = false,
-                Description = "Queue behavior when full. Supported values: Wait, Reject."
+                Description = "Queue behavior when full. Supported values: Wait, Reject, Drop, StopFlow, NotifyOnly."
+            };
+        }
+
+        public static NodeSettingDescriptor QueueWaitForCompletionSetting()
+        {
+            return new NodeSettingDescriptor
+            {
+                Name = "WaitForCompletion",
+                DisplayName = "Wait For Completion",
+                DataType = "Boolean",
+                DefaultValue = true,
+                IsRequired = false,
+                Description = "When false, returns after queued work is accepted and lets queue events report background completion."
             };
         }
     }
@@ -1216,7 +1386,8 @@ namespace Vision.Flow.Nodes
                 QueueName = GetDefinitionString(definition, "QueueName", defaultQueueName),
                 QueueCapacity = GetDefinitionInt32(definition, "QueueCapacity", 16),
                 QueueMaxDegreeOfParallelism = GetDefinitionInt32(definition, "QueueMaxDegreeOfParallelism", 1),
-                QueueFullMode = GetDefinitionString(definition, "QueueFullMode", "Wait")
+                QueueFullMode = GetDefinitionString(definition, "QueueFullMode", "Wait"),
+                WaitForCompletion = GetDefinitionBoolean(definition, "WaitForCompletion", true)
             };
         }
 
@@ -1228,18 +1399,68 @@ namespace Vision.Flow.Nodes
             Func<CancellationToken, Task<T>> work,
             CancellationToken cancellationToken)
         {
+            return ExecuteWithOptionalQueueAsync(context, config, defaultQueueName, operationName, work, true, cancellationToken);
+        }
+
+        public static async Task<T> ExecuteWithOptionalQueueAsync<T>(
+            FlowExecutionContext context,
+            AdapterNodeQueueConfig config,
+            string defaultQueueName,
+            string operationName,
+            Func<CancellationToken, Task<T>> work,
+            bool requireCompletion,
+            CancellationToken cancellationToken)
+        {
+            var result = await ExecuteWithOptionalQueueResultAsync(
+                context,
+                config,
+                defaultQueueName,
+                operationName,
+                work,
+                cancellationToken).ConfigureAwait(false);
+
+            if (!result.WaitedForCompletion && requireCompletion)
+            {
+                throw new InvalidOperationException("Queued adapter work was not configured to wait for completion: " + operationName);
+            }
+
+            return result.Value;
+        }
+
+        public static async Task<AdapterNodeQueueExecutionResult<T>> ExecuteWithOptionalQueueResultAsync<T>(
+            FlowExecutionContext context,
+            AdapterNodeQueueConfig config,
+            string defaultQueueName,
+            string operationName,
+            Func<CancellationToken, Task<T>> work,
+            CancellationToken cancellationToken)
+        {
             var resolved = ResolveQueueConfig(context, config, defaultQueueName);
             if (!resolved.UseQueue)
             {
-                return work(cancellationToken);
+                return new AdapterNodeQueueExecutionResult<T>
+                {
+                    WaitedForCompletion = true,
+                    Value = await work(cancellationToken).ConfigureAwait(false)
+                };
             }
 
-            return ExecuteQueuedCoreAsync(
+            if (!resolved.WaitForCompletion)
+            {
+                return await ExecuteQueuedDetachedCoreAsync(
+                    context,
+                    resolved,
+                    operationName,
+                    work,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            return await ExecuteQueuedCoreAsync(
                 context,
                 resolved,
                 operationName,
                 work,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
         }
 
         public static async Task ExecuteWithOptionalQueueAsync(
@@ -1263,7 +1484,7 @@ namespace Vision.Flow.Nodes
                 cancellationToken).ConfigureAwait(false);
         }
 
-        private static async Task<T> ExecuteQueuedCoreAsync<T>(
+        private static async Task<AdapterNodeQueueExecutionResult<T>> ExecuteQueuedCoreAsync<T>(
             FlowExecutionContext context,
             AdapterNodeQueueConfig config,
             string operationName,
@@ -1276,6 +1497,53 @@ namespace Vision.Flow.Nodes
                 CreateQueueItemContext(context, operationName),
                 cancellationToken).ConfigureAwait(false);
 
+            HandleQueueResult(result, true);
+
+            return new AdapterNodeQueueExecutionResult<T>
+            {
+                WaitedForCompletion = true,
+                IsQueued = result.IsAccepted,
+                Value = result.Value
+            };
+        }
+
+        private static async Task<AdapterNodeQueueExecutionResult<T>> ExecuteQueuedDetachedCoreAsync<T>(
+            FlowExecutionContext context,
+            AdapterNodeQueueConfig config,
+            string operationName,
+            Func<CancellationToken, Task<T>> work,
+            CancellationToken cancellationToken)
+        {
+            var queue = context.Queues.GetOrCreate(config.QueueName, CreateQueueOptions(config));
+            var result = await queue.EnqueueDetachedAsync(
+                work,
+                CreateQueueItemContext(context, operationName),
+                cancellationToken).ConfigureAwait(false);
+
+            HandleQueueResult(result, false);
+            return new AdapterNodeQueueExecutionResult<T>
+            {
+                WaitedForCompletion = false,
+                IsQueued = result.IsAccepted,
+                IsDropped = result.IsDropped,
+                IsNotifyOnly = result.IsNotifyOnly
+            };
+        }
+
+        private static void HandleQueueResult(FlowTaskQueueResult result, bool requireSuccess)
+        {
+            if (result == null)
+            {
+                throw new InvalidOperationException("Queue returned a null result.");
+            }
+
+            if (result.ShouldStopFlow)
+            {
+                throw new OperationCanceledException(string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? "Queue requested flow stop."
+                    : result.ErrorMessage);
+            }
+
             if (result.IsRejected)
             {
                 throw new InvalidOperationException(string.IsNullOrWhiteSpace(result.ErrorMessage)
@@ -1283,14 +1551,19 @@ namespace Vision.Flow.Nodes
                     : result.ErrorMessage);
             }
 
-            if (!result.IsSuccess)
+            if ((result.IsDropped || result.IsNotifyOnly) && requireSuccess)
+            {
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? "Queue did not execute adapter work."
+                    : result.ErrorMessage);
+            }
+
+            if (requireSuccess && !result.IsSuccess)
             {
                 throw new InvalidOperationException(string.IsNullOrWhiteSpace(result.ErrorMessage)
                     ? "Queued adapter work failed."
                     : result.ErrorMessage);
             }
-
-            return result.Value;
         }
 
         private static AdapterNodeQueueConfig ResolveQueueConfig(FlowExecutionContext context, AdapterNodeQueueConfig config, string defaultQueueName)
@@ -1302,7 +1575,8 @@ namespace Vision.Flow.Nodes
                 QueueName = ResolveString(context, "QueueName", string.IsNullOrWhiteSpace(config.QueueName) ? defaultQueueName : config.QueueName),
                 QueueCapacity = ResolveInt32(context, "QueueCapacity", config.QueueCapacity <= 0 ? 16 : config.QueueCapacity),
                 QueueMaxDegreeOfParallelism = ResolveInt32(context, "QueueMaxDegreeOfParallelism", config.QueueMaxDegreeOfParallelism <= 0 ? 1 : config.QueueMaxDegreeOfParallelism),
-                QueueFullMode = ResolveString(context, "QueueFullMode", string.IsNullOrWhiteSpace(config.QueueFullMode) ? "Wait" : config.QueueFullMode)
+                QueueFullMode = ResolveString(context, "QueueFullMode", string.IsNullOrWhiteSpace(config.QueueFullMode) ? "Wait" : config.QueueFullMode),
+                WaitForCompletion = ResolveBoolean(context, "WaitForCompletion", config.WaitForCompletion)
             };
 
             if (string.IsNullOrWhiteSpace(resolved.QueueName))
@@ -1347,7 +1621,7 @@ namespace Vision.Flow.Nodes
                 return mode;
             }
 
-            throw new InvalidOperationException("QueueFullMode must be Wait or Reject.");
+            throw new InvalidOperationException("QueueFullMode must be Wait, Reject, Drop, StopFlow, or NotifyOnly.");
         }
 
         private static FlowTaskQueueItemContext CreateQueueItemContext(FlowExecutionContext context, string operationName)

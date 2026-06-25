@@ -12,14 +12,21 @@ namespace Vision.Flow.Nodes
     public sealed class GeneratedVisionImage : IVisionImage
     {
         public GeneratedVisionImage(string imageId, int width, int height, string pixelFormat, byte[] data)
+            : this(imageId, width, height, pixelFormat, data, "Generated")
+        {
+        }
+
+        public GeneratedVisionImage(string imageId, int width, int height, string pixelFormat, byte[] data, string imageKind)
         {
             ImageId = string.IsNullOrWhiteSpace(imageId) ? Guid.NewGuid().ToString("N") : imageId;
             Width = width <= 0 ? 1 : width;
             Height = height <= 0 ? 1 : height;
             PixelFormat = string.IsNullOrWhiteSpace(pixelFormat) ? "Mono8" : pixelFormat;
+            ImageKind = string.IsNullOrWhiteSpace(imageKind) ? "Generated" : imageKind;
             CreatedUtc = DateTime.UtcNow;
             Data = data ?? new byte[0];
             Metadata = new Dictionary<string, object>();
+            Metadata["ImageKind"] = ImageKind;
         }
 
         public string ImageId { get; private set; }
@@ -29,6 +36,8 @@ namespace Vision.Flow.Nodes
         public int Height { get; private set; }
 
         public string PixelFormat { get; private set; }
+
+        public string ImageKind { get; private set; }
 
         public DateTime CreatedUtc { get; private set; }
 
@@ -45,7 +54,7 @@ namespace Vision.Flow.Nodes
 
         public IVisionImage CloneReference()
         {
-            var clone = new GeneratedVisionImage(ImageId, Width, Height, PixelFormat, Data)
+            var clone = new GeneratedVisionImage(ImageId, Width, Height, PixelFormat, Data, ImageKind)
             {
                 CreatedUtc = CreatedUtc
             };
@@ -566,7 +575,7 @@ namespace Vision.Flow.Nodes
             var height = images.Count == 0 ? 1 : images.Max(x => x.Height);
             var pixelFormat = first == null ? "Mono8" : first.PixelFormat;
             var imageId = "stitch-" + SafeId(frameGroup.CaptureGroupId);
-            var image = new GeneratedVisionImage(imageId, width, height, pixelFormat, null);
+            var image = new GeneratedVisionImage(imageId, width, height, pixelFormat, null, "Stitched");
 
             image.Metadata["Algorithm"] = "FakeStitch";
             image.Metadata["CaptureGroupId"] = frameGroup.CaptureGroupId;
@@ -616,6 +625,10 @@ namespace Vision.Flow.Nodes
         public FramePreprocessNodeConfig()
         {
             FrameIndex = -1;
+            Queue = new AdapterNodeQueueConfig
+            {
+                QueueName = "frame-preprocess"
+            };
         }
 
         public string ScanGroupId { get; set; }
@@ -631,6 +644,8 @@ namespace Vision.Flow.Nodes
         public string FrameIdBinding { get; set; }
 
         public int FrameIndex { get; set; }
+
+        public AdapterNodeQueueConfig Queue { get; set; }
     }
 
     public sealed class FramePreprocessNodeFactory : BaseNodeFactory<FramePreprocessNodeConfig>
@@ -657,7 +672,8 @@ namespace Vision.Flow.Nodes
                 FrameBinding = GetStringSetting(definition, "FrameBinding", null),
                 ImageBinding = GetStringSetting(definition, "ImageBinding", null),
                 FrameIdBinding = GetStringSetting(definition, "FrameIdBinding", null),
-                FrameIndex = GetInt32Setting(definition, "FrameIndex", -1)
+                FrameIndex = GetInt32Setting(definition, "FrameIndex", -1),
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "frame-preprocess")
             };
         }
 
@@ -674,16 +690,20 @@ namespace Vision.Flow.Nodes
         public FramePreprocessNode(FramePreprocessNodeConfig config)
         {
             _config = config ?? new FramePreprocessNodeConfig();
+            if (_config.Queue == null)
+            {
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = "frame-preprocess" };
+            }
         }
 
-        public Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
+        public async Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var scanGroupId = ResolveScanGroupId(context, _config.ScanGroupId, _config.ScanGroupIdBinding);
             if (string.IsNullOrWhiteSpace(scanGroupId))
             {
-                return Task.FromResult(NodeExecutionResult.Failure("ScanGroupId is required."));
+                return NodeExecutionResult.Failure("ScanGroupId is required.");
             }
 
             int frameIndex;
@@ -694,18 +714,43 @@ namespace Vision.Flow.Nodes
 
             if (frameIndex < 0)
             {
-                return Task.FromResult(NodeExecutionResult.Failure("FrameIndex must be greater than or equal to zero."));
+                return NodeExecutionResult.Failure("FrameIndex must be greater than or equal to zero.");
             }
 
             var frame = ResolveFrame(context, _config.FrameBinding);
             var sourceImage = frame == null ? ResolveImage(context, _config.ImageBinding) : frame.Image;
             if (sourceImage == null)
             {
-                return Task.FromResult(NodeExecutionResult.Failure("Frame or Image input is required."));
+                return NodeExecutionResult.Failure("Frame or Image input is required.");
             }
 
-            var result = CreatePreprocessResult(context, _config, scanGroupId, frameIndex, frame, sourceImage);
-            return Task.FromResult(NodeExecutionResult.Success(
+            var queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync(
+                context,
+                _config.Queue,
+                "frame-preprocess",
+                "frame.preprocess",
+                delegate(CancellationToken token)
+                {
+                    token.ThrowIfCancellationRequested();
+                    return Task.FromResult(CreatePreprocessResult(context, _config, scanGroupId, frameIndex, frame, sourceImage));
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (!queueResult.WaitedForCompletion)
+            {
+                return NodeExecutionResult.Success(
+                    "Next",
+                    new Dictionary<string, object>
+                    {
+                        { "Queued", queueResult.IsQueued },
+                        { "QueueCompleted", false },
+                        { "ScanGroupId", scanGroupId },
+                        { "FrameIndex", frameIndex }
+                    });
+            }
+
+            var result = queueResult.Value;
+            return NodeExecutionResult.Success(
                 "Next",
                 new Dictionary<string, object>
                 {
@@ -714,8 +759,10 @@ namespace Vision.Flow.Nodes
                     { "PreprocessedImage", result.PreprocessedImage },
                     { "ScanGroupId", scanGroupId },
                     { "FrameIndex", frameIndex },
-                    { "FrameId", result.FrameId }
-                }));
+                    { "FrameId", result.FrameId },
+                    { "Queued", false },
+                    { "QueueCompleted", true }
+                });
         }
 
         private static FramePreprocessResult CreatePreprocessResult(
@@ -739,7 +786,8 @@ namespace Vision.Flow.Nodes
                 sourceImage == null ? 1 : sourceImage.Width,
                 sourceImage == null ? 1 : sourceImage.Height,
                 sourceImage == null ? "Mono8" : sourceImage.PixelFormat,
-                null);
+                null,
+                "Preprocessed");
             preprocessedImage.Metadata["Algorithm"] = "FakeFramePreprocess";
             preprocessedImage.Metadata["ScanGroupId"] = scanGroupId;
             preprocessedImage.Metadata["FrameIndex"] = frameIndex;
@@ -800,7 +848,13 @@ namespace Vision.Flow.Nodes
                     CreateStringSetting("FrameBinding", "Frame Binding", null, false, "Optional binding expression for Frame."),
                     CreateStringSetting("ImageBinding", "Image Binding", null, false, "Optional binding expression for Image."),
                     CreateStringSetting("FrameIdBinding", "Frame Id Binding", null, false, "Optional binding expression for FrameId."),
-                    CreateIntSetting("FrameIndex", "Frame Index", -1, false, "Frame index. Values less than zero require an input or token value.")
+                    CreateIntSetting("FrameIndex", "Frame Index", -1, false, "Frame index. Values less than zero require an input or token value."),
+                    AdapterNodeDescriptors.QueueUseSetting(),
+                    AdapterNodeDescriptors.QueueNameSetting("frame-preprocess"),
+                    AdapterNodeDescriptors.QueueCapacitySetting(),
+                    AdapterNodeDescriptors.QueueMaxDegreeSetting(),
+                    AdapterNodeDescriptors.QueueFullModeSetting(),
+                    AdapterNodeDescriptors.QueueWaitForCompletionSetting()
                 },
                 Outputs =
                 {
@@ -809,7 +863,9 @@ namespace Vision.Flow.Nodes
                     CreateOutput("PreprocessedImage", "Preprocessed Image", "IVisionImage", "Fake preprocessed image."),
                     CreateOutput("ScanGroupId", "Scan Group", "String", "Scan group id."),
                     CreateOutput("FrameIndex", "Frame Index", "Int32", "Frame index."),
-                    CreateOutput("FrameId", "Frame Id", "String", "Source frame id.")
+                    CreateOutput("FrameId", "Frame Id", "String", "Source frame id."),
+                    CreateOutput("Queued", "Queued", "Boolean", "True when preprocessing was queued without waiting."),
+                    CreateOutput("QueueCompleted", "Queue Completed", "Boolean", "True when queued preprocessing completed before node output.")
                 }
             };
         }
@@ -1057,7 +1113,17 @@ namespace Vision.Flow.Nodes
 
     public sealed class Final3D2DFusionNodeConfig
     {
+        public Final3D2DFusionNodeConfig()
+        {
+            Queue = new AdapterNodeQueueConfig
+            {
+                QueueName = "fusion"
+            };
+        }
+
         public string ScanGroupResultBinding { get; set; }
+
+        public AdapterNodeQueueConfig Queue { get; set; }
     }
 
     public sealed class Final3D2DFusionNodeFactory : BaseNodeFactory<Final3D2DFusionNodeConfig>
@@ -1078,7 +1144,8 @@ namespace Vision.Flow.Nodes
         {
             return new Final3D2DFusionNodeConfig
             {
-                ScanGroupResultBinding = GetStringSetting(definition, "ScanGroupResultBinding", null)
+                ScanGroupResultBinding = GetStringSetting(definition, "ScanGroupResultBinding", null),
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "fusion")
             };
         }
 
@@ -1095,36 +1162,60 @@ namespace Vision.Flow.Nodes
         public Final3D2DFusionNode(Final3D2DFusionNodeConfig config)
         {
             _config = config ?? new Final3D2DFusionNodeConfig();
+            if (_config.Queue == null)
+            {
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = "fusion" };
+            }
         }
 
-        public Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
+        public async Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var scanGroup = ResolveScanGroup(context, _config.ScanGroupResultBinding);
             if (scanGroup == null)
             {
-                return Task.FromResult(NodeExecutionResult.Failure("ScanGroupResult input is required."));
+                return NodeExecutionResult.Failure("ScanGroupResult input is required.");
             }
 
             if (scanGroup.Frames == null || scanGroup.Frames.Count == 0)
             {
-                return Task.FromResult(NodeExecutionResult.Failure("ScanGroupResult must contain at least one frame."));
+                return NodeExecutionResult.Failure("ScanGroupResult must contain at least one frame.");
             }
 
-            var final3D = CreateFusionImage(scanGroup, "fusion3d", "FakeFinal3D", "Float32");
-            var final2D = CreateFusionImage(scanGroup, "fusion2d", "FakeFinal2D", null);
-            return Task.FromResult(NodeExecutionResult.Success(
-                "Next",
-                new Dictionary<string, object>
+            var queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync(
+                context,
+                _config.Queue,
+                "fusion",
+                "fusion.final_3d_2d",
+                delegate(CancellationToken token)
                 {
-                    { "Final3DImage", final3D },
-                    { "Final2DImage", final2D },
-                    { "ScanGroup", scanGroup },
-                    { "ScanGroupResult", scanGroup },
-                    { "ScanGroupId", scanGroup.ScanGroupId },
-                    { "SourceFrameCount", scanGroup.Frames.Count }
-                }));
+                    token.ThrowIfCancellationRequested();
+                    return Task.FromResult(CreateFusionOutputs(scanGroup));
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (!queueResult.WaitedForCompletion)
+            {
+                return NodeExecutionResult.Success(
+                    "Next",
+                    new Dictionary<string, object>
+                    {
+                        { "ScanGroup", scanGroup },
+                        { "ScanGroupResult", scanGroup },
+                        { "ScanGroupId", scanGroup.ScanGroupId },
+                        { "SourceFrameCount", scanGroup.Frames.Count },
+                        { "Queued", queueResult.IsQueued },
+                        { "QueueCompleted", false }
+                    });
+            }
+
+            var outputs = queueResult.Value;
+            outputs["Queued"] = false;
+            outputs["QueueCompleted"] = true;
+            return NodeExecutionResult.Success(
+                "Next",
+                outputs);
         }
 
         private static ScanGroupResult ResolveScanGroup(FlowExecutionContext context, string bindingExpression)
@@ -1138,7 +1229,26 @@ namespace Vision.Flow.Nodes
             return value as ScanGroupResult;
         }
 
-        private static IVisionImage CreateFusionImage(ScanGroupResult scanGroup, string prefix, string algorithm, string pixelFormat)
+        private static Dictionary<string, object> CreateFusionOutputs(ScanGroupResult scanGroup)
+        {
+            var heightMap = CreateFusionImage(scanGroup, "heightmap", "FakeHeightMapFusion", "Float32", "HeightMap");
+            var textureImage = CreateFusionImage(scanGroup, "texture", "FakeTextureFusion", null, "TextureImage");
+            var confidenceMap = CreateFusionImage(scanGroup, "confidence", "FakeConfidenceFusion", "Float32", "ConfidenceMap");
+            return new Dictionary<string, object>
+            {
+                { "Final3DImage", heightMap },
+                { "Final2DImage", textureImage },
+                { "HeightMap", heightMap },
+                { "TextureImage", textureImage },
+                { "ConfidenceMap", confidenceMap },
+                { "ScanGroup", scanGroup },
+                { "ScanGroupResult", scanGroup },
+                { "ScanGroupId", scanGroup.ScanGroupId },
+                { "SourceFrameCount", scanGroup.Frames.Count }
+            };
+        }
+
+        private static IVisionImage CreateFusionImage(ScanGroupResult scanGroup, string prefix, string algorithm, string pixelFormat, string imageKind)
         {
             var images = scanGroup.Frames
                 .Where(x => x != null && x.PreprocessedImage != null)
@@ -1152,7 +1262,8 @@ namespace Vision.Flow.Nodes
                 width,
                 height,
                 string.IsNullOrWhiteSpace(pixelFormat) && first != null ? first.PixelFormat : pixelFormat,
-                null);
+                null,
+                imageKind);
 
             image.Metadata["Algorithm"] = algorithm;
             image.Metadata["ScanGroupId"] = scanGroup.ScanGroupId;
@@ -1184,16 +1295,27 @@ namespace Vision.Flow.Nodes
                 },
                 Settings =
                 {
-                    CreateStringSetting("ScanGroupResultBinding", "Scan Group Binding", null, false, "Optional binding expression used when ScanGroupResult is not bound directly.")
+                    CreateStringSetting("ScanGroupResultBinding", "Scan Group Binding", null, false, "Optional binding expression used when ScanGroupResult is not bound directly."),
+                    AdapterNodeDescriptors.QueueUseSetting(),
+                    AdapterNodeDescriptors.QueueNameSetting("fusion"),
+                    AdapterNodeDescriptors.QueueCapacitySetting(),
+                    AdapterNodeDescriptors.QueueMaxDegreeSetting(),
+                    AdapterNodeDescriptors.QueueFullModeSetting(),
+                    AdapterNodeDescriptors.QueueWaitForCompletionSetting()
                 },
                 Outputs =
                 {
                     CreateOutput("Final3DImage", "Final 3D Image", "IVisionImage", "Fake final 3D image."),
                     CreateOutput("Final2DImage", "Final 2D Image", "IVisionImage", "Fake final 2D image."),
+                    CreateOutput("HeightMap", "Height Map", "IVisionImage", "Final height map image."),
+                    CreateOutput("TextureImage", "Texture Image", "IVisionImage", "Final texture image."),
+                    CreateOutput("ConfidenceMap", "Confidence Map", "IVisionImage", "Final confidence map image."),
                     CreateOutput("ScanGroup", "Scan Group", "ScanGroupResult", "Input scan group."),
                     CreateOutput("ScanGroupResult", "Scan Group Result", "ScanGroupResult", "Alias for ScanGroup."),
                     CreateOutput("ScanGroupId", "Scan Group", "String", "Scan group id."),
-                    CreateOutput("SourceFrameCount", "Source Frames", "Int32", "Number of fused source frames.")
+                    CreateOutput("SourceFrameCount", "Source Frames", "Int32", "Number of fused source frames."),
+                    CreateOutput("Queued", "Queued", "Boolean", "True when fusion was queued without waiting."),
+                    CreateOutput("QueueCompleted", "Queue Completed", "Boolean", "True when queued fusion completed before node output.")
                 }
             };
         }

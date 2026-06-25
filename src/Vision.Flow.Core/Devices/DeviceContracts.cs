@@ -100,6 +100,8 @@ namespace Vision.Flow.Core
 
         string PixelFormat { get; }
 
+        string ImageKind { get; }
+
         DateTime CreatedUtc { get; }
 
         byte[] Data { get; }

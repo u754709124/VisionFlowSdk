@@ -8,7 +8,10 @@ namespace Vision.Flow.Core
     public enum FlowTaskQueueFullMode
     {
         Wait = 0,
-        Reject = 1
+        Reject = 1,
+        Drop = 2,
+        StopFlow = 3,
+        NotifyOnly = 4
     }
 
     public sealed class FlowTaskQueueOptions
@@ -50,6 +53,12 @@ namespace Vision.Flow.Core
         public bool IsAccepted { get; set; }
 
         public bool IsRejected { get; set; }
+
+        public bool IsDropped { get; set; }
+
+        public bool IsNotifyOnly { get; set; }
+
+        public bool ShouldStopFlow { get; set; }
 
         public bool IsSuccess { get; set; }
 
@@ -199,6 +208,9 @@ namespace Vision.Flow.Core
             {
                 IsAccepted = result.IsAccepted,
                 IsRejected = result.IsRejected,
+                IsDropped = result.IsDropped,
+                IsNotifyOnly = result.IsNotifyOnly,
+                ShouldStopFlow = result.ShouldStopFlow,
                 IsSuccess = result.IsSuccess,
                 ErrorMessage = result.ErrorMessage
             };
@@ -215,15 +227,10 @@ namespace Vision.Flow.Core
             }
 
             context = NormalizeContext(context);
-            if (!await TryAcquireCapacityAsync(context, cancellationToken).ConfigureAwait(false))
+            var capacity = await TryAcquireCapacityAsync(context, cancellationToken).ConfigureAwait(false);
+            if (capacity != QueueCapacityDecision.Acquired)
             {
-                return new FlowTaskQueueResult<T>
-                {
-                    IsAccepted = false,
-                    IsRejected = true,
-                    IsSuccess = false,
-                    ErrorMessage = "Queue is full: " + QueueName
-                };
+                return CreateCapacityResult<T>(capacity);
             }
 
             try
@@ -270,23 +277,173 @@ namespace Vision.Flow.Core
             }
         }
 
-        private async Task<bool> TryAcquireCapacityAsync(FlowTaskQueueItemContext context, CancellationToken cancellationToken)
+        public async Task<FlowTaskQueueResult> EnqueueDetachedAsync(
+            Func<CancellationToken, Task> work,
+            FlowTaskQueueItemContext context,
+            CancellationToken cancellationToken)
         {
-            if (FullMode == FlowTaskQueueFullMode.Reject)
+            if (work == null)
             {
-                if (!_capacity.Wait(0))
+                throw new ArgumentNullException("work");
+            }
+
+            var result = await EnqueueDetachedAsync<object>(
+                async delegate(CancellationToken token)
                 {
-                    await PublishAsync(FlowRuntimeEventType.QueueRejected, context, "Queue is full: " + QueueName, cancellationToken).ConfigureAwait(false);
-                    return false;
+                    await work(token).ConfigureAwait(false);
+                    return null;
+                },
+                context,
+                cancellationToken).ConfigureAwait(false);
+
+            return new FlowTaskQueueResult
+            {
+                IsAccepted = result.IsAccepted,
+                IsRejected = result.IsRejected,
+                IsDropped = result.IsDropped,
+                IsNotifyOnly = result.IsNotifyOnly,
+                ShouldStopFlow = result.ShouldStopFlow,
+                IsSuccess = result.IsSuccess,
+                ErrorMessage = result.ErrorMessage
+            };
+        }
+
+        public async Task<FlowTaskQueueResult<T>> EnqueueDetachedAsync<T>(
+            Func<CancellationToken, Task<T>> work,
+            FlowTaskQueueItemContext context,
+            CancellationToken cancellationToken)
+        {
+            if (work == null)
+            {
+                throw new ArgumentNullException("work");
+            }
+
+            context = NormalizeContext(context);
+            var capacity = await TryAcquireCapacityAsync(context, cancellationToken).ConfigureAwait(false);
+            if (capacity != QueueCapacityDecision.Acquired)
+            {
+                return CreateCapacityResult<T>(capacity);
+            }
+
+            try
+            {
+                await PublishAsync(FlowRuntimeEventType.QueueEnqueued, context, null, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                Interlocked.Decrement(ref _depth);
+                _capacity.Release();
+                throw;
+            }
+
+            _ = Task.Run(delegate
+            {
+                return ExecuteDetachedWorkAsync(work, context);
+            });
+
+            return new FlowTaskQueueResult<T>
+            {
+                IsAccepted = true,
+                IsRejected = false,
+                IsSuccess = false
+            };
+        }
+
+        private async Task ExecuteDetachedWorkAsync<T>(
+            Func<CancellationToken, Task<T>> work,
+            FlowTaskQueueItemContext context)
+        {
+            try
+            {
+                await _workers.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                try
+                {
+                    await PublishAsync(FlowRuntimeEventType.QueueStarted, context, null, CancellationToken.None).ConfigureAwait(false);
+                    await work(CancellationToken.None).ConfigureAwait(false);
+                    await PublishAsync(FlowRuntimeEventType.QueueCompleted, context, null, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException ex)
+                {
+                    await PublishAsync(FlowRuntimeEventType.QueueFailed, context, ex.Message, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    await PublishAsync(FlowRuntimeEventType.QueueFailed, context, ex.Message, CancellationToken.None).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _workers.Release();
+                }
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _depth);
+                _capacity.Release();
+            }
+        }
+
+        private async Task<QueueCapacityDecision> TryAcquireCapacityAsync(FlowTaskQueueItemContext context, CancellationToken cancellationToken)
+        {
+            if (FullMode != FlowTaskQueueFullMode.Wait)
+            {
+                if (_capacity.Wait(0))
+                {
+                    Interlocked.Increment(ref _depth);
+                    return QueueCapacityDecision.Acquired;
                 }
 
-                Interlocked.Increment(ref _depth);
-                return true;
+                return await PublishFullQueueDecisionAsync(context, cancellationToken).ConfigureAwait(false);
             }
 
             await _capacity.WaitAsync(cancellationToken).ConfigureAwait(false);
             Interlocked.Increment(ref _depth);
-            return true;
+            return QueueCapacityDecision.Acquired;
+        }
+
+        private async Task<QueueCapacityDecision> PublishFullQueueDecisionAsync(FlowTaskQueueItemContext context, CancellationToken cancellationToken)
+        {
+            var message = "Queue is full: " + QueueName;
+            switch (FullMode)
+            {
+                case FlowTaskQueueFullMode.Drop:
+                    await PublishAsync(FlowRuntimeEventType.QueueWarning, context, "Queue item dropped. " + message, cancellationToken).ConfigureAwait(false);
+                    return QueueCapacityDecision.Dropped;
+                case FlowTaskQueueFullMode.StopFlow:
+                    await PublishAsync(FlowRuntimeEventType.QueueRejected, context, "Queue requested flow stop. " + message, cancellationToken).ConfigureAwait(false);
+                    return QueueCapacityDecision.StopFlow;
+                case FlowTaskQueueFullMode.NotifyOnly:
+                    await PublishAsync(FlowRuntimeEventType.QueueWarning, context, "Queue full notification only. " + message, cancellationToken).ConfigureAwait(false);
+                    return QueueCapacityDecision.NotifyOnly;
+                default:
+                    await PublishAsync(FlowRuntimeEventType.QueueRejected, context, message, cancellationToken).ConfigureAwait(false);
+                    return QueueCapacityDecision.Rejected;
+            }
+        }
+
+        private FlowTaskQueueResult<T> CreateCapacityResult<T>(QueueCapacityDecision capacity)
+        {
+            var result = new FlowTaskQueueResult<T>
+            {
+                IsAccepted = false,
+                IsSuccess = false,
+                ErrorMessage = "Queue is full: " + QueueName
+            };
+
+            if (capacity == QueueCapacityDecision.Dropped)
+            {
+                result.IsDropped = true;
+                return result;
+            }
+
+            if (capacity == QueueCapacityDecision.NotifyOnly)
+            {
+                result.IsNotifyOnly = true;
+                return result;
+            }
+
+            result.IsRejected = true;
+            result.ShouldStopFlow = capacity == QueueCapacityDecision.StopFlow;
+            return result;
         }
 
         private FlowTaskQueueItemContext NormalizeContext(FlowTaskQueueItemContext context)
@@ -321,6 +478,7 @@ namespace Vision.Flow.Core
             runtimeEvent.Data["Depth"] = CurrentDepth;
             runtimeEvent.Data["Capacity"] = Capacity;
             runtimeEvent.Data["MaxDegreeOfParallelism"] = MaxDegreeOfParallelism;
+            runtimeEvent.Data["FullMode"] = FullMode.ToString();
 
             foreach (var item in context.Data)
             {
@@ -328,6 +486,15 @@ namespace Vision.Flow.Core
             }
 
             return _eventSink.PublishAsync(runtimeEvent, cancellationToken);
+        }
+
+        private enum QueueCapacityDecision
+        {
+            Acquired = 0,
+            Rejected = 1,
+            Dropped = 2,
+            StopFlow = 3,
+            NotifyOnly = 4
         }
     }
 }

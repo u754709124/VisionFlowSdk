@@ -25,11 +25,25 @@ namespace Vision.Flow.Core
             byte[] data,
             object nativeImage,
             bool ownsNativeImage)
+            : this(imageId, width, height, pixelFormat, data, nativeImage, ownsNativeImage, "Raw")
+        {
+        }
+
+        public VisionImageReference(
+            string imageId,
+            int width,
+            int height,
+            string pixelFormat,
+            byte[] data,
+            object nativeImage,
+            bool ownsNativeImage,
+            string imageKind)
         {
             ImageId = string.IsNullOrWhiteSpace(imageId) ? Guid.NewGuid().ToString("N") : imageId;
             Width = width <= 0 ? 1 : width;
             Height = height <= 0 ? 1 : height;
             PixelFormat = string.IsNullOrWhiteSpace(pixelFormat) ? "Mono8" : pixelFormat;
+            ImageKind = string.IsNullOrWhiteSpace(imageKind) ? "Raw" : imageKind;
             CreatedUtc = DateTime.UtcNow;
             Data = data ?? new byte[0];
             NativeImage = nativeImage;
@@ -45,6 +59,8 @@ namespace Vision.Flow.Core
 
         public string PixelFormat { get; private set; }
 
+        public string ImageKind { get; private set; }
+
         public DateTime CreatedUtc { get; private set; }
 
         public byte[] Data { get; private set; }
@@ -57,7 +73,7 @@ namespace Vision.Flow.Core
 
         public IVisionImage CloneReference()
         {
-            var clone = new VisionImageReference(ImageId, Width, Height, PixelFormat, Data, NativeImage, false)
+            var clone = new VisionImageReference(ImageId, Width, Height, PixelFormat, Data, NativeImage, false, ImageKind)
             {
                 CreatedUtc = CreatedUtc
             };

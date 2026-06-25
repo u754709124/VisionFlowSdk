@@ -44,11 +44,25 @@ namespace Vision.DeviceAdapters
             byte[] data,
             object nativeImage,
             bool ownsNativeImage)
+            : this(imageId, width, height, pixelFormat, data, nativeImage, ownsNativeImage, "Raw")
+        {
+        }
+
+        public FakeVisionImage(
+            string imageId,
+            int width,
+            int height,
+            string pixelFormat,
+            byte[] data,
+            object nativeImage,
+            bool ownsNativeImage,
+            string imageKind)
         {
             ImageId = string.IsNullOrWhiteSpace(imageId) ? Guid.NewGuid().ToString("N") : imageId;
             Width = width <= 0 ? 1 : width;
             Height = height <= 0 ? 1 : height;
             PixelFormat = string.IsNullOrWhiteSpace(pixelFormat) ? "Mono8" : pixelFormat;
+            ImageKind = string.IsNullOrWhiteSpace(imageKind) ? "Raw" : imageKind;
             CreatedUtc = DateTime.UtcNow;
             Data = data ?? new byte[0];
             NativeImage = nativeImage;
@@ -64,6 +78,8 @@ namespace Vision.DeviceAdapters
 
         public string PixelFormat { get; private set; }
 
+        public string ImageKind { get; private set; }
+
         public DateTime CreatedUtc { get; private set; }
 
         public byte[] Data { get; private set; }
@@ -76,7 +92,7 @@ namespace Vision.DeviceAdapters
 
         public IVisionImage CloneReference()
         {
-            var clone = new FakeVisionImage(ImageId, Width, Height, PixelFormat, Data, NativeImage, false)
+            var clone = new FakeVisionImage(ImageId, Width, Height, PixelFormat, Data, NativeImage, false, ImageKind)
             {
                 CreatedUtc = CreatedUtc
             };
@@ -339,6 +355,7 @@ namespace Vision.DeviceAdapters
             var grabTime = DateTime.UtcNow;
             var frameId = CameraId + "-" + frameNumber.ToString(CultureInfo.InvariantCulture);
             var image = new FakeVisionImage(frameId, ImageWidth, ImageHeight, PixelFormat, null);
+            image.Metadata["ImageKind"] = image.ImageKind;
 
             var frame = new CameraFrameData
             {
@@ -661,18 +678,25 @@ namespace Vision.DeviceAdapters
 
             RecipeId = recipeId;
             _defaultOutputs = new Dictionary<string, object>();
+            DelayMs = 0;
         }
 
         public string RecipeId { get; private set; }
+
+        public int DelayMs { get; set; }
 
         public IDictionary<string, object> DefaultOutputs
         {
             get { return _defaultOutputs; }
         }
 
-        public Task<RecipeRunResult> RunAsync(RecipeRunRequest request, CancellationToken cancellationToken)
+        public async Task<RecipeRunResult> RunAsync(RecipeRunRequest request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (DelayMs > 0)
+            {
+                await Task.Delay(DelayMs, cancellationToken).ConfigureAwait(false);
+            }
 
             var result = new RecipeRunResult
             {
@@ -700,7 +724,7 @@ namespace Vision.DeviceAdapters
                 }
             }
 
-            return Task.FromResult(result);
+            return result;
         }
     }
 
@@ -718,6 +742,7 @@ namespace Vision.DeviceAdapters
 
             SaverId = saverId;
             BasePath = "fake://images";
+            DelayMs = 0;
             _savedRequests = new List<ImageSaveRequest>();
         }
 
@@ -725,9 +750,16 @@ namespace Vision.DeviceAdapters
 
         public string BasePath { get; set; }
 
-        public Task<ImageSaveResult> SaveAsync(ImageSaveRequest request, CancellationToken cancellationToken)
+        public int DelayMs { get; set; }
+
+        public async Task<ImageSaveResult> SaveAsync(ImageSaveRequest request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (DelayMs > 0)
+            {
+                await Task.Delay(DelayMs, cancellationToken).ConfigureAwait(false);
+            }
+
             if (request == null)
             {
                 throw new ArgumentNullException("request");
@@ -764,13 +796,14 @@ namespace Vision.DeviceAdapters
             result.Metadata["ByteLength"] = hasBytes && imageBytes != null ? imageBytes.Length : 0;
             result.Metadata["HasNativeImage"] = request.Image.NativeImage != null;
             result.Metadata["PixelFormat"] = request.Image.PixelFormat;
+            result.Metadata["ImageKind"] = request.Image.ImageKind;
 
             lock (_gate)
             {
                 _savedRequests.Add(CloneRequest(request));
             }
 
-            return Task.FromResult(result);
+            return result;
         }
 
         public IList<ImageSaveRequest> SnapshotSavedRequests()
@@ -838,14 +871,22 @@ namespace Vision.DeviceAdapters
             }
 
             DatabaseId = databaseId;
+            DelayMs = 0;
             _savedRequests = new List<DatabaseSaveRequest>();
         }
 
         public string DatabaseId { get; private set; }
 
-        public Task SaveAsync(DatabaseSaveRequest request, CancellationToken cancellationToken)
+        public int DelayMs { get; set; }
+
+        public async Task SaveAsync(DatabaseSaveRequest request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (DelayMs > 0)
+            {
+                await Task.Delay(DelayMs, cancellationToken).ConfigureAwait(false);
+            }
+
             if (request == null)
             {
                 throw new ArgumentNullException("request");
@@ -855,8 +896,6 @@ namespace Vision.DeviceAdapters
             {
                 _savedRequests.Add(CloneRequest(request));
             }
-
-            return Task.FromResult(0);
         }
 
         public IList<DatabaseSaveRequest> SnapshotSavedRequests()
