@@ -172,7 +172,9 @@ namespace Vision.Flow.Core
             {
                 Zoom = GetDouble(dictionary, "Zoom", 1.0),
                 OffsetX = GetDouble(dictionary, "OffsetX", 0),
-                OffsetY = GetDouble(dictionary, "OffsetY", 0)
+                OffsetY = GetDouble(dictionary, "OffsetY", 0),
+                CanvasWidth = GetDouble(dictionary, "CanvasWidth", FlowViewState.DefaultCanvasWidth),
+                CanvasHeight = GetDouble(dictionary, "CanvasHeight", FlowViewState.DefaultCanvasHeight)
             };
 
             object nodesValue;

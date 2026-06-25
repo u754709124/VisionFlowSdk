@@ -33,9 +33,11 @@ namespace Vision.Flow.Designer.Wpf
     public sealed partial class FlowDesignerControl : UserControl
     {
         private const string DefaultEntryName = "ManualStart";
-        private const double CanvasWidth = 1800;
-        private const double CanvasHeight = 1100;
         private const double GridSize = 32;
+        private const double CanvasExpansionMargin = 160;
+        private const double CanvasExpansionStep = 512;
+        private const double NodeBoundsFallbackWidth = 220;
+        private const double NodeBoundsFallbackHeight = 150;
 
         private readonly NodeRegistry _nodeRegistry;
         private readonly Dictionary<string, NodeCardControl> _nodeCards;
@@ -48,6 +50,7 @@ namespace Vision.Flow.Designer.Wpf
         private readonly Canvas _nodeLayer;
         private readonly TextBlock _statusText;
         private TextBlock _zoomText;
+        private Rectangle _gridLayer;
 
         private FlowDesignDocument _document;
         private NodeDefinition _selectedNode;
@@ -56,6 +59,8 @@ namespace Vision.Flow.Designer.Wpf
         private Grid _surface;
         private ScrollViewer _canvasScroll;
         private ScaleTransform _canvasScale;
+        private double _canvasWidth;
+        private double _canvasHeight;
         private Point _dragOffset;
         private NodeCardControl _dragCard;
         private bool _isPanning;
@@ -96,10 +101,12 @@ namespace Vision.Flow.Designer.Wpf
             _edges = new EdgeLayerControl();
             _edges.EdgeSelected += SelectEdge;
             _edges.EdgeDeleteRequested += DeleteEdge;
+            _canvasWidth = FlowViewState.DefaultCanvasWidth;
+            _canvasHeight = FlowViewState.DefaultCanvasHeight;
             _nodeLayer = new Canvas
             {
-                Width = CanvasWidth,
-                Height = CanvasHeight,
+                Width = _canvasWidth,
+                Height = _canvasHeight,
                 Background = null
             };
             _nodeLayer.LayoutUpdated += OnNodeLayerLayoutUpdated;

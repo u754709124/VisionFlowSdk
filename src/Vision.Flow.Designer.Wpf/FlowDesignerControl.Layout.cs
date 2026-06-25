@@ -112,13 +112,14 @@ namespace Vision.Flow.Designer.Wpf
             _canvasScale = new ScaleTransform(1.0, 1.0);
             _surface = new Grid
             {
-                Width = CanvasWidth,
-                Height = CanvasHeight,
+                Width = _canvasWidth,
+                Height = _canvasHeight,
                 Background = BrushFromRgb(248, 250, 252),
                 Cursor = Cursors.Hand
             };
             _surface.LayoutTransform = _canvasScale;
-            _surface.Children.Add(CreateGridLayer());
+            _gridLayer = CreateGridLayer();
+            _surface.Children.Add(_gridLayer);
             _surface.Children.Add(_edges);
             _surface.Children.Add(_nodeLayer);
             _surface.PreviewMouseWheel += OnCanvasMouseWheel;
@@ -283,12 +284,12 @@ namespace Vision.Flow.Designer.Wpf
             return canvas;
         }
 
-        private UIElement CreateGridLayer()
+        private Rectangle CreateGridLayer()
         {
             return new Rectangle
             {
-                Width = CanvasWidth,
-                Height = CanvasHeight,
+                Width = _canvasWidth,
+                Height = _canvasHeight,
                 Fill = CreateDotGridBrush(),
                 IsHitTestVisible = false
             };

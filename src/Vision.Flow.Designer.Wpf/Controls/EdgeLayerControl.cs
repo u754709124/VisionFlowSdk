@@ -29,14 +29,20 @@ namespace Vision.Flow.Designer.Wpf
 
         public EdgeLayerControl()
         {
-            Width = 1800;
-            Height = 1100;
+            Width = FlowViewState.DefaultCanvasWidth;
+            Height = FlowViewState.DefaultCanvasHeight;
             IsHitTestVisible = true;
         }
 
         public event Action<EdgeDefinition> EdgeSelected;
 
         public event Action<EdgeDefinition> EdgeDeleteRequested;
+
+        public void SetCanvasSize(double width, double height)
+        {
+            Width = width;
+            Height = height;
+        }
 
         public void Render(FlowDesignDocument document, EdgeDefinition selectedEdge, IDictionary<string, Point> portAnchors)
         {

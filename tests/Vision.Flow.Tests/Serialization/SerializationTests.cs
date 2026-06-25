@@ -30,6 +30,8 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("ManualStart", restored.Entries[0].EntryName, "Runtime entry should round-trip.");
             AssertEx.False(json.IndexOf("Zoom", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view zoom.");
             AssertEx.False(json.IndexOf("OffsetX", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view offsets.");
+            AssertEx.False(json.IndexOf("CanvasWidth", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view canvas width.");
+            AssertEx.False(json.IndexOf("CanvasHeight", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view canvas height.");
             AssertEx.False(json.IndexOf("NodeViewState", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain designer view types.");
             return Task.FromResult(0);
         }
@@ -45,7 +47,9 @@ namespace Vision.Flow.Tests
                 {
                     Zoom = 1.25,
                     OffsetX = 12,
-                    OffsetY = 34
+                    OffsetY = 34,
+                    CanvasWidth = 2400,
+                    CanvasHeight = 1600
                 }
             };
             document.View.Nodes["camera_trigger_1"] = new NodeViewState
@@ -61,8 +65,21 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("Station01_Main", restored.FlowId, "Design FlowId should round-trip.");
             AssertEx.Equal("Station01_Main", restored.Runtime.FlowId, "Design runtime should round-trip.");
             AssertEx.Equal(1.25, restored.View.Zoom, "View zoom should round-trip.");
+            AssertEx.Equal(2400.0, restored.View.CanvasWidth, "View canvas width should round-trip.");
+            AssertEx.Equal(1600.0, restored.View.CanvasHeight, "View canvas height should round-trip.");
             AssertEx.Equal(100.0, restored.View.Nodes["camera_trigger_1"].X, "Node X should round-trip.");
             AssertEx.True(restored.View.Nodes["camera_trigger_1"].IsCollapsed, "Node collapsed state should round-trip.");
+            return Task.FromResult(0);
+        }
+
+        public static Task DesignMissingCanvasSizeUsesDefaults()
+        {
+            var json = "{\"FlowId\":\"legacy-design\",\"FlowName\":\"Legacy Design\",\"SchemaVersion\":1,\"Runtime\":{\"FlowId\":\"legacy-design\",\"FlowName\":\"Legacy Design\",\"SchemaVersion\":1,\"Nodes\":[],\"Edges\":[],\"Entries\":[]},\"View\":{\"Zoom\":1,\"OffsetX\":0,\"OffsetY\":0,\"Nodes\":{}}}";
+
+            var restored = FlowDesignSerializer.Deserialize(json);
+
+            AssertEx.Equal(FlowViewState.DefaultCanvasWidth, restored.View.CanvasWidth, "Legacy design should use default canvas width.");
+            AssertEx.Equal(FlowViewState.DefaultCanvasHeight, restored.View.CanvasHeight, "Legacy design should use default canvas height.");
             return Task.FromResult(0);
         }
 

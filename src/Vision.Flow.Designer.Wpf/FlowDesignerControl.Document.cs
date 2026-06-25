@@ -356,6 +356,7 @@ namespace Vision.Flow.Designer.Wpf
 
         private void RenderCanvas()
         {
+            EnsureCanvasContainsNodes();
             _nodeLayer.Children.Clear();
             _nodeCards.Clear();
 

@@ -105,4 +105,5 @@ Designer 不直接执行节点逻辑。
 - The variable selector lists common `token.*` expressions and outputs from other nodes in the current design. It skips the selected node's own outputs to reduce accidental self-binding.
 - New combo values are available for `CallbackMode`, `StreamOutputMode`, `FrameIndexSource`, `MatchMode`, `DuplicatePolicy`, `QueueFullMode`, and common queue names.
 - Queue property editing includes `WaitForCompletion`; camera stream editing includes PerFrame fields; fusion/image outputs expose explicit image-role names such as `HeightMap`, `TextureImage`, and `ConfidenceMap`.
+- Designer canvas size is stored only in `.flowdesign` as `View.CanvasWidth` and `View.CanvasHeight`. Dragging nodes near any canvas edge expands the design canvas; left/top expansion shifts design-time node coordinates to avoid negative saved positions.
 - Designer debug run continues to compile the current design and execute it through `FlowRunner`; production runtime must still use `.flowruntime` without Designer UI.

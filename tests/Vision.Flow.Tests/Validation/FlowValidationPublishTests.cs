@@ -170,6 +170,8 @@ namespace Vision.Flow.Tests
             document.View.Zoom = 1.5;
             document.View.OffsetX = 24;
             document.View.OffsetY = 42;
+            document.View.CanvasWidth = 2400;
+            document.View.CanvasHeight = 1600;
             document.View.Nodes["delay1"] = new NodeViewState
             {
                 X = 100,
@@ -185,6 +187,8 @@ namespace Vision.Flow.Tests
             AssertEx.False(json.IndexOf("View", StringComparison.OrdinalIgnoreCase) >= 0, "Published runtime must not contain view state.");
             AssertEx.False(json.IndexOf("Zoom", StringComparison.OrdinalIgnoreCase) >= 0, "Published runtime must not contain canvas zoom.");
             AssertEx.False(json.IndexOf("OffsetX", StringComparison.OrdinalIgnoreCase) >= 0, "Published runtime must not contain canvas offsets.");
+            AssertEx.False(json.IndexOf("CanvasWidth", StringComparison.OrdinalIgnoreCase) >= 0, "Published runtime must not contain canvas width.");
+            AssertEx.False(json.IndexOf("CanvasHeight", StringComparison.OrdinalIgnoreCase) >= 0, "Published runtime must not contain canvas height.");
             AssertEx.False(json.IndexOf("NodeViewState", StringComparison.OrdinalIgnoreCase) >= 0, "Published runtime must not contain designer view types.");
             AssertEx.False(json.IndexOf("IsCollapsed", StringComparison.OrdinalIgnoreCase) >= 0, "Published runtime must not contain node collapsed state.");
             return Task.FromResult(0);

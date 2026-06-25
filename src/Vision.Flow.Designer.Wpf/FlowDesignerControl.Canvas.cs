@@ -27,6 +27,7 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
+            EnsureCanvasContainsNodes();
             var zoom = ClampZoom(_document.View.Zoom <= 0 ? 1.0 : _document.View.Zoom);
             _canvasScale.ScaleX = zoom;
             _canvasScale.ScaleY = zoom;
@@ -51,11 +52,285 @@ namespace Vision.Flow.Designer.Wpf
             }
 
             _document.View.Zoom = _canvasScale.ScaleX;
+            _document.View.CanvasWidth = _canvasWidth;
+            _document.View.CanvasHeight = _canvasHeight;
             if (_canvasScroll != null)
             {
                 _document.View.OffsetX = _canvasScroll.HorizontalOffset;
                 _document.View.OffsetY = _canvasScroll.VerticalOffset;
             }
+        }
+
+        private void ApplyCanvasSizeFromView()
+        {
+            if (_document == null || _document.View == null)
+            {
+                return;
+            }
+
+            _canvasWidth = NormalizeCanvasExtent(_document.View.CanvasWidth, FlowViewState.DefaultCanvasWidth);
+            _canvasHeight = NormalizeCanvasExtent(_document.View.CanvasHeight, FlowViewState.DefaultCanvasHeight);
+            _document.View.CanvasWidth = _canvasWidth;
+            _document.View.CanvasHeight = _canvasHeight;
+
+            if (_surface != null)
+            {
+                _surface.Width = _canvasWidth;
+                _surface.Height = _canvasHeight;
+            }
+
+            if (_gridLayer != null)
+            {
+                _gridLayer.Width = _canvasWidth;
+                _gridLayer.Height = _canvasHeight;
+            }
+
+            if (_nodeLayer != null)
+            {
+                _nodeLayer.Width = _canvasWidth;
+                _nodeLayer.Height = _canvasHeight;
+            }
+
+            if (_edges != null)
+            {
+                _edges.SetCanvasSize(_canvasWidth, _canvasHeight);
+            }
+        }
+
+        private void EnsureCanvasContainsNodes()
+        {
+            if (_document == null || _document.View == null)
+            {
+                return;
+            }
+
+            ApplyCanvasSizeFromView();
+            if (_document.View.Nodes == null)
+            {
+                _document.View.Nodes = new Dictionary<string, NodeViewState>();
+            }
+
+            if (_document.View.Nodes.Count == 0)
+            {
+                return;
+            }
+
+            var hasBounds = false;
+            var left = double.MaxValue;
+            var top = double.MaxValue;
+            var right = double.MinValue;
+            var bottom = double.MinValue;
+            foreach (var state in _document.View.Nodes.Values)
+            {
+                if (state == null)
+                {
+                    continue;
+                }
+
+                if (!IsFinite(state.X))
+                {
+                    state.X = CanvasExpansionMargin;
+                }
+
+                if (!IsFinite(state.Y))
+                {
+                    state.Y = CanvasExpansionMargin;
+                }
+
+                left = Math.Min(left, state.X);
+                top = Math.Min(top, state.Y);
+                right = Math.Max(right, state.X + NodeBoundsFallbackWidth);
+                bottom = Math.Max(bottom, state.Y + NodeBoundsFallbackHeight);
+                hasBounds = true;
+            }
+
+            if (!hasBounds)
+            {
+                return;
+            }
+
+            var shiftX = left < CanvasExpansionMargin
+                ? GetCanvasExpansionAmount(CanvasExpansionMargin - left)
+                : 0;
+            var shiftY = top < CanvasExpansionMargin
+                ? GetCanvasExpansionAmount(CanvasExpansionMargin - top)
+                : 0;
+
+            if (shiftX > 0 || shiftY > 0)
+            {
+                // 左侧或上侧扩张时整体平移设计态坐标，避免保存负坐标。
+                TranslateDesignNodes(shiftX, shiftY);
+                _document.View.CanvasWidth += shiftX;
+                _document.View.CanvasHeight += shiftY;
+                var zoom = GetStoredCanvasZoom();
+                _document.View.OffsetX = Math.Max(0, _document.View.OffsetX + shiftX * zoom);
+                _document.View.OffsetY = Math.Max(0, _document.View.OffsetY + shiftY * zoom);
+                right += shiftX;
+                bottom += shiftY;
+            }
+
+            var requiredWidth = right + CanvasExpansionMargin;
+            var requiredHeight = bottom + CanvasExpansionMargin;
+            if (requiredWidth > _document.View.CanvasWidth)
+            {
+                _document.View.CanvasWidth = ExpandCanvasExtent(_document.View.CanvasWidth, requiredWidth, FlowViewState.DefaultCanvasWidth);
+            }
+
+            if (requiredHeight > _document.View.CanvasHeight)
+            {
+                _document.View.CanvasHeight = ExpandCanvasExtent(_document.View.CanvasHeight, requiredHeight, FlowViewState.DefaultCanvasHeight);
+            }
+
+            ApplyCanvasSizeFromView();
+        }
+
+        private void ExpandCanvasForNode(ref double x, ref double y, FrameworkElement nodeVisual)
+        {
+            if (_document == null || _document.View == null || nodeVisual == null)
+            {
+                return;
+            }
+
+            ApplyCanvasSizeFromView();
+            var nodeWidth = GetVisualExtent(nodeVisual.ActualWidth, nodeVisual.Width, NodeBoundsFallbackWidth);
+            var nodeHeight = GetVisualExtent(nodeVisual.ActualHeight, nodeVisual.MinHeight, NodeBoundsFallbackHeight);
+            var shiftX = x < CanvasExpansionMargin
+                ? GetCanvasExpansionAmount(CanvasExpansionMargin - x)
+                : 0;
+            var shiftY = y < CanvasExpansionMargin
+                ? GetCanvasExpansionAmount(CanvasExpansionMargin - y)
+                : 0;
+
+            if (shiftX > 0 || shiftY > 0)
+            {
+                // 同步移动当前渲染层和滚动偏移，让视口看起来只是向左/上长出新空间。
+                TranslateDesignNodes(shiftX, shiftY);
+                ShiftRenderedNodeCards(shiftX, shiftY);
+                _document.View.CanvasWidth += shiftX;
+                _document.View.CanvasHeight += shiftY;
+                x += shiftX;
+                y += shiftY;
+
+                var zoom = _canvasScale == null ? GetStoredCanvasZoom() : _canvasScale.ScaleX;
+                if (_canvasScroll != null)
+                {
+                    _canvasScroll.ScrollToHorizontalOffset(_canvasScroll.HorizontalOffset + shiftX * zoom);
+                    _canvasScroll.ScrollToVerticalOffset(_canvasScroll.VerticalOffset + shiftY * zoom);
+                }
+
+                _document.View.OffsetX = Math.Max(0, _document.View.OffsetX + shiftX * zoom);
+                _document.View.OffsetY = Math.Max(0, _document.View.OffsetY + shiftY * zoom);
+            }
+
+            var requiredWidth = x + nodeWidth + CanvasExpansionMargin;
+            var requiredHeight = y + nodeHeight + CanvasExpansionMargin;
+            if (requiredWidth > _document.View.CanvasWidth)
+            {
+                _document.View.CanvasWidth = ExpandCanvasExtent(_document.View.CanvasWidth, requiredWidth, FlowViewState.DefaultCanvasWidth);
+            }
+
+            if (requiredHeight > _document.View.CanvasHeight)
+            {
+                _document.View.CanvasHeight = ExpandCanvasExtent(_document.View.CanvasHeight, requiredHeight, FlowViewState.DefaultCanvasHeight);
+            }
+
+            ApplyCanvasSizeFromView();
+        }
+
+        private void TranslateDesignNodes(double offsetX, double offsetY)
+        {
+            if (_document == null || _document.View == null || _document.View.Nodes == null)
+            {
+                return;
+            }
+
+            foreach (var state in _document.View.Nodes.Values)
+            {
+                if (state == null)
+                {
+                    continue;
+                }
+
+                state.X += offsetX;
+                state.Y += offsetY;
+            }
+        }
+
+        private void ShiftRenderedNodeCards(double offsetX, double offsetY)
+        {
+            foreach (var card in _nodeCards.Values)
+            {
+                if (card == null)
+                {
+                    continue;
+                }
+
+                var left = Canvas.GetLeft(card);
+                var top = Canvas.GetTop(card);
+                Canvas.SetLeft(card, (IsFinite(left) ? left : 0) + offsetX);
+                Canvas.SetTop(card, (IsFinite(top) ? top : 0) + offsetY);
+            }
+        }
+
+        private double GetStoredCanvasZoom()
+        {
+            if (_document != null && _document.View != null && _document.View.Zoom > 0)
+            {
+                return ClampZoom(_document.View.Zoom);
+            }
+
+            return _canvasScale == null ? 1.0 : _canvasScale.ScaleX;
+        }
+
+        private static double NormalizeCanvasExtent(double value, double defaultValue)
+        {
+            if (!IsFinite(value) || value < defaultValue)
+            {
+                return defaultValue;
+            }
+
+            return SnapUpToGrid(value);
+        }
+
+        private static double ExpandCanvasExtent(double current, double required, double defaultValue)
+        {
+            var normalizedCurrent = NormalizeCanvasExtent(current, defaultValue);
+            if (required <= normalizedCurrent)
+            {
+                return normalizedCurrent;
+            }
+
+            return normalizedCurrent + GetCanvasExpansionAmount(required - normalizedCurrent);
+        }
+
+        private static double GetCanvasExpansionAmount(double required)
+        {
+            if (required <= 0)
+            {
+                return 0;
+            }
+
+            return Math.Ceiling(required / CanvasExpansionStep) * CanvasExpansionStep;
+        }
+
+        private static double SnapUpToGrid(double value)
+        {
+            return Math.Ceiling(value / GridSize) * GridSize;
+        }
+
+        private static double GetVisualExtent(double actual, double configured, double fallback)
+        {
+            if (IsFinite(actual) && actual > 0)
+            {
+                return actual;
+            }
+
+            if (IsFinite(configured) && configured > 0)
+            {
+                return configured;
+            }
+
+            return fallback;
         }
 
         private void OnCanvasMouseWheel(object sender, MouseWheelEventArgs e)
@@ -446,6 +721,7 @@ namespace Vision.Flow.Designer.Wpf
             var point = e.GetPosition(_nodeLayer);
             var x = Math.Max(8, SnapToGrid(point.X - _dragOffset.X));
             var y = Math.Max(8, SnapToGrid(point.Y - _dragOffset.Y));
+            ExpandCanvasForNode(ref x, ref y, _dragCard);
             Canvas.SetLeft(_dragCard, x);
             Canvas.SetTop(_dragCard, y);
 

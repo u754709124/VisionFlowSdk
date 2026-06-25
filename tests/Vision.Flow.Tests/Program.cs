@@ -37,6 +37,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Flow protocol constants keep existing wire values", FlowProtocolConstantsTests.ConstantsKeepExistingWireValues),
                 new TestCase("Runtime serialization round-trips without view state", SerializationTests.RuntimeRoundTrip),
                 new TestCase("Design serialization round-trips runtime and view state", SerializationTests.DesignRoundTrip),
+                new TestCase("Legacy design serialization uses default canvas size", SerializationTests.DesignMissingCanvasSizeUsesDefaults),
                 new TestCase("FlowValidator rejects duplicate NodeId", FlowValidationPublishTests.DuplicateNodeIdReturnsError),
                 new TestCase("FlowValidator rejects dangling edges", FlowValidationPublishTests.DanglingEdgeReturnsError),
                 new TestCase("FlowValidator rejects missing required settings", FlowValidationPublishTests.MissingRequiredSettingReturnsError),
