@@ -34,7 +34,65 @@ namespace Vision.Flow.Nodes
 
         public byte[] Data { get; private set; }
 
+        public object NativeImage
+        {
+            get { return null; }
+        }
+
+        public bool IsDisposed { get; private set; }
+
         public IDictionary<string, object> Metadata { get; private set; }
+
+        public IVisionImage CloneReference()
+        {
+            var clone = new GeneratedVisionImage(ImageId, Width, Height, PixelFormat, Data)
+            {
+                CreatedUtc = CreatedUtc
+            };
+            CopyMetadata(Metadata, clone.Metadata);
+            return clone;
+        }
+
+        public bool TryGetBytes(out byte[] data)
+        {
+            data = null;
+            if (IsDisposed || Data == null)
+            {
+                return false;
+            }
+
+            data = new byte[Data.Length];
+            if (Data.Length > 0)
+            {
+                Buffer.BlockCopy(Data, 0, data, 0, Data.Length);
+            }
+
+            return true;
+        }
+
+        public void Dispose()
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            IsDisposed = true;
+            Data = new byte[0];
+        }
+
+        private static void CopyMetadata(IDictionary<string, object> source, IDictionary<string, object> target)
+        {
+            if (source == null || target == null)
+            {
+                return;
+            }
+
+            foreach (var item in source)
+            {
+                target[item.Key] = item.Value;
+            }
+        }
     }
 
     public sealed class FrameGroupItem

@@ -616,6 +616,11 @@ namespace Vision.Flow.Nodes
             bool appendResultSuffix,
             CancellationToken cancellationToken)
         {
+            if (image.IsDisposed)
+            {
+                throw new InvalidOperationException("Cannot save a disposed image: " + image.ImageId);
+            }
+
             var directory = AdapterNodeHelpers.RenderDirectoryTemplate(
                 context,
                 image,
@@ -633,7 +638,7 @@ namespace Vision.Flow.Nodes
             var request = new ImageSaveRequest
             {
                 SaverId = saverId,
-                Image = image,
+                Image = image.CloneReference(),
                 DirectoryPath = directory,
                 FileName = fileName,
                 Format = AdapterNodeHelpers.GetFileFormat(fileName)

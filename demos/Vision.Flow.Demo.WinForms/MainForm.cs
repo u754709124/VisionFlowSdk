@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -571,7 +572,7 @@ namespace Vision.Flow.Demo.WinForms
             var image = value as IVisionImage;
             if (image != null)
             {
-                _lastImageSummary = image.Width + "x" + image.Height + " " + image.PixelFormat;
+                _lastImageSummary = BuildImageSummary(image);
             }
 
             if (string.Equals(variableName, "cam_callback_1.FrameId", StringComparison.OrdinalIgnoreCase))
@@ -611,6 +612,31 @@ namespace Vision.Flow.Demo.WinForms
                 "ResultImagePath: " + (resultImagePath ?? "-") + "\r\n" +
                 "DatabaseSave: " + (saved ?? "-");
             _outputSummary.Text = _lastOutputSummary;
+        }
+
+        private static string BuildImageSummary(IVisionImage image)
+        {
+            if (image == null)
+            {
+                return null;
+            }
+
+            byte[] bytes;
+            var byteText = image.TryGetBytes(out bytes) && bytes != null
+                ? bytes.Length.ToString(CultureInfo.InvariantCulture) + " bytes"
+                : "bytes unavailable";
+            var storageText = image.NativeImage == null ? "managed" : "native";
+            var disposedText = image.IsDisposed ? ", disposed" : string.Empty;
+            return image.Width.ToString(CultureInfo.InvariantCulture) +
+                "x" +
+                image.Height.ToString(CultureInfo.InvariantCulture) +
+                " " +
+                image.PixelFormat +
+                ", " +
+                byteText +
+                ", " +
+                storageText +
+                disposedText;
         }
 
         private object FindLatestOutput(string variableName)

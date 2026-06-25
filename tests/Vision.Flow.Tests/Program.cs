@@ -55,8 +55,11 @@ namespace Vision.Flow.Tests
                 new TestCase("FakeCameraAdapter soft trigger raises FrameArrived", AdapterTests.SoftTriggerReceivesFrame),
                 new TestCase("FakeCameraAdapter cancellation prevents frame creation", AdapterTests.SoftTriggerCancellationPreventsFrame),
                 new TestCase("FakeCameraAdapter can return before frame arrives", AdapterTests.SoftTriggerCanReturnBeforeFrameArrived),
+                new TestCase("VisionImageReference supports clone and disposal", AdapterTests.VisionImageReferenceLifecycle),
+                new TestCase("FakeVisionImage supports clone and disposal", AdapterTests.FakeVisionImageLifecycle),
                 new TestCase("FakeRecipeAdapter returns OK", AdapterTests.FakeRecipeReturnsOk),
                 new TestCase("FakeImageSaveAdapter returns a simulated path", AdapterTests.FakeImageSaveReturnsPath),
+                new TestCase("FakeImageSaveAdapter snapshots image references", AdapterTests.FakeImageSaveSnapshotsImageReference),
                 new TestCase("CommonNodeRegistration resolves common factories", CommonNodeTests.RegisterAllResolvesFactories),
                 new TestCase("LogNode publishes a runtime log event", CommonNodeTests.LogNodePublishesRuntimeEvent),
                 new TestCase("DelayNode executes a configured delay", CommonNodeTests.DelayNodeExecutes),
@@ -1689,6 +1692,61 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("trigger-background", frame.TriggerId, "Background fake frame should preserve trigger id.");
         }
 
+        public static Task VisionImageReferenceLifecycle()
+        {
+            var native = new DisposableNativeImage();
+            var image = new VisionImageReference("image-native", 10, 20, "Mono8", new byte[] { 1, 2, 3 }, native, true);
+            image.Metadata["CameraId"] = "Camera01";
+
+            byte[] bytes;
+            AssertEx.True(image.TryGetBytes(out bytes), "VisionImageReference should expose bytes before disposal.");
+            AssertEx.Equal(3, bytes.Length, "VisionImageReference should report byte length.");
+            bytes[0] = 99;
+
+            byte[] secondRead;
+            AssertEx.True(image.TryGetBytes(out secondRead), "TryGetBytes should be repeatable.");
+            AssertEx.Equal((byte)1, secondRead[0], "TryGetBytes should return a defensive copy.");
+
+            var clone = image.CloneReference();
+            AssertEx.False(object.ReferenceEquals(image, clone), "CloneReference should create a distinct image reference.");
+            AssertEx.Equal("image-native", clone.ImageId, "CloneReference should preserve ImageId.");
+            AssertEx.True(object.ReferenceEquals(image.NativeImage, clone.NativeImage), "CloneReference should preserve native image reference.");
+            AssertEx.Equal("Camera01", Convert.ToString(clone.Metadata["CameraId"]), "CloneReference should copy metadata.");
+
+            image.Dispose();
+
+            AssertEx.True(image.IsDisposed, "Dispose should mark image disposed.");
+            AssertEx.True(native.IsDisposed, "Dispose should release owned native image.");
+            AssertEx.False(image.TryGetBytes(out bytes), "Disposed image should not expose bytes.");
+            AssertEx.False(clone.IsDisposed, "CloneReference should not be disposed with the source image.");
+            AssertEx.True(clone.TryGetBytes(out bytes), "CloneReference should still expose bytes after source disposal.");
+            AssertEx.Equal((byte)1, bytes[0], "CloneReference should keep the referenced bytes.");
+            clone.Dispose();
+            return Task.FromResult(0);
+        }
+
+        public static Task FakeVisionImageLifecycle()
+        {
+            var native = new DisposableNativeImage();
+            var image = new FakeVisionImage("fake-native", 5, 6, "RGB24", new byte[] { 7, 8 }, native, true);
+            image.Metadata["FrameId"] = "frame-001";
+
+            var clone = image.CloneReference();
+            AssertEx.False(object.ReferenceEquals(image, clone), "FakeVisionImage CloneReference should create a distinct reference.");
+            AssertEx.True(object.ReferenceEquals(image.NativeImage, clone.NativeImage), "FakeVisionImage clone should preserve native image reference.");
+            AssertEx.Equal("frame-001", Convert.ToString(clone.Metadata["FrameId"]), "FakeVisionImage clone should copy metadata.");
+
+            image.Dispose();
+
+            byte[] bytes;
+            AssertEx.True(native.IsDisposed, "FakeVisionImage should dispose owned native image.");
+            AssertEx.False(image.TryGetBytes(out bytes), "Disposed FakeVisionImage should not expose bytes.");
+            AssertEx.True(clone.TryGetBytes(out bytes), "FakeVisionImage clone should keep bytes after source disposal.");
+            AssertEx.Equal(2, bytes.Length, "FakeVisionImage clone should keep byte length.");
+            clone.Dispose();
+            return Task.FromResult(0);
+        }
+
         public static async Task FakeRecipeReturnsOk()
         {
             var recipe = new FakeRecipeAdapter("Recipe01");
@@ -1721,6 +1779,45 @@ namespace Vision.Flow.Tests
             AssertEx.True(result.IsSuccess, "Fake image saver should succeed.");
             AssertEx.True(result.Path.IndexOf("fake://images", StringComparison.OrdinalIgnoreCase) == 0, "Fake image saver should use the fake base path.");
             AssertEx.True(result.Path.EndsWith("/part-a.bmp", StringComparison.OrdinalIgnoreCase), "Fake image saver should return a simulated file path.");
+        }
+
+        public static async Task FakeImageSaveSnapshotsImageReference()
+        {
+            var saver = new FakeImageSaveAdapter("ImageSave01");
+            var image = new FakeVisionImage("image-snapshot", 320, 240, "Mono8", new byte[] { 1, 2, 3, 4 });
+
+            var result = await saver.SaveAsync(
+                new ImageSaveRequest
+                {
+                    Image = image,
+                    FileName = "part-b",
+                    Format = "png"
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            AssertEx.Equal(4, Convert.ToInt32(result.Metadata["ByteLength"], CultureInfo.InvariantCulture), "Fake saver should record byte length.");
+            AssertEx.Equal(false, Convert.ToBoolean(result.Metadata["HasNativeImage"], CultureInfo.InvariantCulture), "Fake saver should record native image state.");
+
+            var savedRequests = saver.SnapshotSavedRequests();
+            AssertEx.Equal(1, savedRequests.Count, "Fake saver should snapshot one request.");
+            AssertEx.False(object.ReferenceEquals(image, savedRequests[0].Image), "Fake saver snapshot should clone the image reference.");
+            image.Dispose();
+
+            byte[] bytes;
+            AssertEx.False(image.TryGetBytes(out bytes), "Source image should be disposed.");
+            AssertEx.False(savedRequests[0].Image.IsDisposed, "Snapshot image reference should remain usable after source disposal.");
+            AssertEx.True(savedRequests[0].Image.TryGetBytes(out bytes), "Snapshot image reference should expose bytes.");
+            AssertEx.Equal(4, bytes.Length, "Snapshot image reference should keep bytes.");
+        }
+
+        private sealed class DisposableNativeImage : IDisposable
+        {
+            public bool IsDisposed { get; private set; }
+
+            public void Dispose()
+            {
+                IsDisposed = true;
+            }
         }
     }
 

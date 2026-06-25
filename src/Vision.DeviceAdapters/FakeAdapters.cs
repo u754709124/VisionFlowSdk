@@ -19,19 +19,40 @@ namespace Vision.DeviceAdapters
 
     public sealed class FakeVisionImage : IVisionImage
     {
+        private readonly bool _ownsNativeImage;
+
         public FakeVisionImage()
             : this(null, 640, 480, "Mono8", null)
         {
         }
 
         public FakeVisionImage(string imageId, int width, int height, string pixelFormat, byte[] data)
+            : this(imageId, width, height, pixelFormat, data, null, false)
+        {
+        }
+
+        public FakeVisionImage(string imageId, int width, int height, string pixelFormat, byte[] data, object nativeImage)
+            : this(imageId, width, height, pixelFormat, data, nativeImage, false)
+        {
+        }
+
+        public FakeVisionImage(
+            string imageId,
+            int width,
+            int height,
+            string pixelFormat,
+            byte[] data,
+            object nativeImage,
+            bool ownsNativeImage)
         {
             ImageId = string.IsNullOrWhiteSpace(imageId) ? Guid.NewGuid().ToString("N") : imageId;
-            Width = width;
-            Height = height;
+            Width = width <= 0 ? 1 : width;
+            Height = height <= 0 ? 1 : height;
             PixelFormat = string.IsNullOrWhiteSpace(pixelFormat) ? "Mono8" : pixelFormat;
             CreatedUtc = DateTime.UtcNow;
             Data = data ?? new byte[0];
+            NativeImage = nativeImage;
+            _ownsNativeImage = ownsNativeImage;
             Metadata = new Dictionary<string, object>();
         }
 
@@ -47,7 +68,72 @@ namespace Vision.DeviceAdapters
 
         public byte[] Data { get; private set; }
 
+        public object NativeImage { get; private set; }
+
+        public bool IsDisposed { get; private set; }
+
         public IDictionary<string, object> Metadata { get; private set; }
+
+        public IVisionImage CloneReference()
+        {
+            var clone = new FakeVisionImage(ImageId, Width, Height, PixelFormat, Data, NativeImage, false)
+            {
+                CreatedUtc = CreatedUtc
+            };
+            CopyMetadata(Metadata, clone.Metadata);
+            return clone;
+        }
+
+        public bool TryGetBytes(out byte[] data)
+        {
+            data = null;
+            if (IsDisposed || Data == null)
+            {
+                return false;
+            }
+
+            data = new byte[Data.Length];
+            if (Data.Length > 0)
+            {
+                Buffer.BlockCopy(Data, 0, data, 0, Data.Length);
+            }
+
+            return true;
+        }
+
+        public void Dispose()
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            IsDisposed = true;
+            if (_ownsNativeImage)
+            {
+                var disposable = NativeImage as IDisposable;
+                if (disposable != null)
+                {
+                    disposable.Dispose();
+                }
+            }
+
+            NativeImage = null;
+            Data = new byte[0];
+        }
+
+        private static void CopyMetadata(IDictionary<string, object> source, IDictionary<string, object> target)
+        {
+            if (source == null || target == null)
+            {
+                return;
+            }
+
+            foreach (var item in source)
+            {
+                target[item.Key] = item.Value;
+            }
+        }
     }
 
     public sealed class FakeCameraAdapter : ICameraAdapter
@@ -652,6 +738,13 @@ namespace Vision.DeviceAdapters
                 throw new ArgumentException("Image save request requires an image.", "request");
             }
 
+            if (request.Image.IsDisposed)
+            {
+                throw new ObjectDisposedException("Image", "Image save request contains a disposed image.");
+            }
+
+            byte[] imageBytes;
+            var hasBytes = request.Image.TryGetBytes(out imageBytes);
             var directory = string.IsNullOrWhiteSpace(request.DirectoryPath) ? BasePath : request.DirectoryPath;
             var format = string.IsNullOrWhiteSpace(request.Format) ? "png" : request.Format.TrimStart('.');
             var fileName = string.IsNullOrWhiteSpace(request.FileName) ? request.Image.ImageId : request.FileName;
@@ -668,6 +761,9 @@ namespace Vision.DeviceAdapters
             };
             result.Metadata["SaverId"] = SaverId;
             result.Metadata["ImageId"] = request.Image.ImageId;
+            result.Metadata["ByteLength"] = hasBytes && imageBytes != null ? imageBytes.Length : 0;
+            result.Metadata["HasNativeImage"] = request.Image.NativeImage != null;
+            result.Metadata["PixelFormat"] = request.Image.PixelFormat;
 
             lock (_gate)
             {
@@ -711,7 +807,7 @@ namespace Vision.DeviceAdapters
             var clone = new ImageSaveRequest
             {
                 SaverId = request.SaverId,
-                Image = request.Image,
+                Image = request.Image == null ? null : request.Image.CloneReference(),
                 DirectoryPath = request.DirectoryPath,
                 FileName = request.FileName,
                 Format = request.Format

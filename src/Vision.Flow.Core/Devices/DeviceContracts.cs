@@ -90,7 +90,7 @@ namespace Vision.Flow.Core
         Task SaveAsync(DatabaseSaveRequest request, CancellationToken cancellationToken);
     }
 
-    public interface IVisionImage
+    public interface IVisionImage : IDisposable
     {
         string ImageId { get; }
 
@@ -104,7 +104,15 @@ namespace Vision.Flow.Core
 
         byte[] Data { get; }
 
+        object NativeImage { get; }
+
+        bool IsDisposed { get; }
+
         IDictionary<string, object> Metadata { get; }
+
+        IVisionImage CloneReference();
+
+        bool TryGetBytes(out byte[] data);
     }
 
     public sealed class CameraTriggerContext
