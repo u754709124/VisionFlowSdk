@@ -146,3 +146,11 @@ WPF Designer
 - Runtime services now include `ICameraFrameRouter` for camera callback matching and `IFlowTaskQueueRegistry` for bounded background work queues.
 - `IVisionImage` models image lifetime explicitly through `IDisposable`, `CloneReference`, `TryGetBytes`, and optional native-image wrapping.
 - WPF Designer can be hosted with injected `NodeRegistry`, debug `IDeviceRegistry`, and `FlowDesignerOptions`; production WinForms runtime remains independent from Designer assemblies.
+
+## 2026-06 Production Hardening
+
+- `FlowExecutionOptions` keeps the default sequential fan-out behavior but can enable parallel fan-out per output port with a max degree of parallelism.
+- `ICameraFrameRouter` is now a disposable runtime service with unregister, waiter cancellation, expired-frame cleanup, and subscription disposal support.
+- `camera.image_callback` can run `StreamFrames` in `Batch` or `PerFrame` mode. Per-frame mode dispatches the `Frame` output port for each frame and emits `Completed` after collection.
+- Queue-enabled nodes support `WaitForCompletion=false` for detached background recipe/save/database work while continuing to report queue completion or failure events.
+- `IVisionImage.ImageKind` identifies raw, preprocessed, stitched, height-map, texture, and confidence-map image roles without leaking SDK image types.

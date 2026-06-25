@@ -3386,11 +3386,22 @@ namespace Vision.Flow.Designer.Wpf
                 items.Add("TriggerId");
                 items.Add("Any");
                 items.Add("ScanGroupId");
+                items.Add("TimeWindow");
             }
             else if (string.Equals(setting.Name, "CallbackMode", StringComparison.OrdinalIgnoreCase))
             {
                 items.Add("WaitNextFrame");
                 items.Add("StreamFrames");
+            }
+            else if (string.Equals(setting.Name, "StreamOutputMode", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("Batch");
+                items.Add("PerFrame");
+            }
+            else if (string.Equals(setting.Name, "FrameIndexSource", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add("Increment");
+                items.Add("Metadata");
             }
             else if (string.Equals(setting.Name, "DuplicatePolicy", StringComparison.OrdinalIgnoreCase))
             {
@@ -3402,12 +3413,17 @@ namespace Vision.Flow.Designer.Wpf
             {
                 items.Add("Wait");
                 items.Add("Reject");
+                items.Add("Drop");
+                items.Add("StopFlow");
+                items.Add("NotifyOnly");
             }
             else if (string.Equals(setting.Name, "QueueName", StringComparison.OrdinalIgnoreCase))
             {
                 items.Add("recipe");
                 items.Add("image-save");
                 items.Add("database-save");
+                items.Add("frame-preprocess");
+                items.Add("fusion");
             }
 
             return items;

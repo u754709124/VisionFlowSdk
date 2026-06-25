@@ -121,7 +121,11 @@ New or enhanced node types:
 - `join.and`: waits for all configured inputs sharing the same join key.
 - `motion.notify`, `motion.move_to`, `motion.wait_in_position`: access motion devices only through `IMotionAdapter`.
 - `camera.image_callback`: supports next-frame matching and basic stream collection through `ICameraFrameRouter`.
-- `recipe.run`, `image.save`, `database.save`: can optionally execute adapter work through named bounded queues.
-- `group.frame_join`, `image.stitch`, `scan.group_join`, `fusion.final_3d_2d`: support binding-driven inputs, duplicate policies, and continuous index validation.
+- `camera.image_callback`: `StreamFrames` can use `Batch` for collected output or `PerFrame` to dispatch the `Frame` output port for each frame.
+- `recipe.run`, `image.save`, `database.save`: can optionally execute adapter work through named bounded queues and can return before background completion with `WaitForCompletion=false`.
+- `frame.preprocess` and `fusion.final_3d_2d`: expose the same queue settings for heavier algorithm stages.
+- `group.frame_join`, `image.stitch`, `scan.group_join`, `fusion.final_3d_2d`: support binding-driven inputs, duplicate policies, continuous index validation, and explicit image roles.
 
 Node descriptors must expose every user-editable setting, including queue settings and binding settings, so Designer and Validator can stay descriptor-driven.
+
+`fusion.final_3d_2d` outputs `Final3DImage`/`Final2DImage` for compatibility and `HeightMap`/`TextureImage`/`ConfidenceMap` for explicit downstream use.

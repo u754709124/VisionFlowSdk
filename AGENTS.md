@@ -481,8 +481,10 @@ WPF 设计器应提供现代节点编辑体验：
 ## 2026-06 Current Implementation Notes
 
 - Runtime supports output-port ordered fan-out scheduling through `RuntimeFlowPlan` and execution-path cycle detection.
+- `FlowExecutionOptions` can enable parallel fan-out per output port; default remains sequential/shared-token.
 - Common nodes include condition, AND join, motion, camera, queue-enabled recipe/save/database, frame group, scan group, stitching, and final fusion nodes.
-- Camera callbacks are routed through `ICameraFrameRouter`; image lifetime is explicit through disposable `IVisionImage` references.
-- Save-like nodes can use bounded queues; queue behavior must be covered by runtime and node tests when changed.
-- WPF Designer supports injected registries/devices/options and variable selection for input bindings and binding settings.
+- Camera callbacks are routed through disposable `ICameraFrameRouter`; `camera.image_callback` supports `StreamFrames` `Batch` and `PerFrame` modes.
+- Save-like and heavy algorithm nodes can use bounded queues; `WaitForCompletion=false` returns after queue acceptance and relies on queue events for background status.
+- `IVisionImage` includes `ImageKind`; fusion outputs include `HeightMap`, `TextureImage`, and `ConfidenceMap`.
+- WPF Designer supports injected registries/devices/options, variable selection for input bindings and binding settings, and current stream/queue option values.
 - Production WinForms hosts must continue to load `.flowruntime` and must not reference Designer UI assemblies.

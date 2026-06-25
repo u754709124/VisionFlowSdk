@@ -62,7 +62,16 @@ public sealed class StationEventSink : IFlowEventSink
 }
 
 var eventSink = new StationEventSink();
-var runner = new FlowRunner(flow, nodes, eventSink, devices);
+var cameraFrames = new DefaultCameraFrameRouter();
+var queues = new FlowTaskQueueRegistry(eventSink);
+var options = new FlowExecutionOptions
+{
+    FanOutMode = FlowFanOutMode.Sequential,
+    MaxDegreeOfParallelism = 1,
+    BranchTokenMode = FlowBranchTokenMode.Shared
+};
+
+var runner = new FlowRunner(flow, nodes, eventSink, devices, cameraFrames, queues, options);
 ```
 
 Start the runner once during station initialization, then trigger flow entries from station events:
@@ -90,10 +99,12 @@ continuous-scan.flowdesign
 ```
 ## 2026-06 Integration Notes
 
-Production hosts that use camera callback nodes should create or reuse a camera frame router and pass it to the runner options used by the application. The default router subscribes to registered camera adapters and buffers lightweight frame metadata for `camera.image_callback`.
+Production hosts that use camera callback nodes should create or reuse a camera frame router and pass it to the runner. The default router subscribes to registered camera adapters and buffers lightweight frame metadata for `camera.image_callback`.
 
-Queue-enabled nodes (`recipe.run`, `image.save`, and `database.save`) can use named bounded queues. Configure queue names and capacity in the flow file, then provide a shared queue registry so repeated node executions reuse the same queue.
+Queue-enabled nodes (`recipe.run`, `image.save`, `database.save`, `frame.preprocess`, and `fusion.final_3d_2d`) can use named bounded queues. Configure queue names and capacity in the flow file, then provide a shared queue registry so repeated node executions reuse the same queue. `WaitForCompletion=false` returns after queue acceptance; observe `QueueCompleted` and `QueueFailed` events for the background result.
 
-When image data crosses async or queued boundaries, use `IVisionImage.CloneReference()` or an adapter-owned image reference to keep native handles alive until the downstream save or algorithm work completes. Dispose image references when the host owns their lifetime.
+When image data crosses async or queued boundaries, use `IVisionImage.CloneReference()` or an adapter-owned image reference to keep native handles alive until the downstream save or algorithm work completes. Set `ImageKind` to describe the image role, and dispose image references when the host owns their lifetime.
+
+Use `FlowExecutionOptions.FanOutMode=Parallel` only when downstream branches can safely share the same token and variable pool. The default sequential mode remains the safest production setting.
 
 The WinForms demo accepts an optional `.flowruntime` path as the first command-line argument. This is only a demo convenience; production stations should load runtime files from their own recipe/configuration system.

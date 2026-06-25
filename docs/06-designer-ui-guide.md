@@ -103,5 +103,6 @@ Designer 不直接执行节点逻辑。
 - `FlowDesignerControl` supports injected `NodeRegistry`, debug `IDeviceRegistry`, and `FlowDesignerOptions`. This allows Demo, tests, and future hosts to compose the Designer without editing the control internals.
 - The property panel still renders from `NodeSettingDescriptor`, but binding-like settings such as `FrameBinding`, `ImageBinding`, `ResultBinding`, and group bindings now use the variable selector.
 - The variable selector lists common `token.*` expressions and outputs from other nodes in the current design. It skips the selected node's own outputs to reduce accidental self-binding.
-- New combo values are available for `CallbackMode`, `MatchMode`, `DuplicatePolicy`, `QueueFullMode`, and common queue names.
+- New combo values are available for `CallbackMode`, `StreamOutputMode`, `FrameIndexSource`, `MatchMode`, `DuplicatePolicy`, `QueueFullMode`, and common queue names.
+- Queue property editing includes `WaitForCompletion`; camera stream editing includes PerFrame fields; fusion/image outputs expose explicit image-role names such as `HeightMap`, `TextureImage`, and `ConfidenceMap`.
 - Designer debug run continues to compile the current design and execute it through `FlowRunner`; production runtime must still use `.flowruntime` without Designer UI.

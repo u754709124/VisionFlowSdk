@@ -121,9 +121,15 @@
 
 The published `.flowruntime` format remains UI-free. New runtime-only settings are allowed in node `settings` or `inputBindings`:
 
-- `camera.image_callback`: `CallbackMode`, `MatchMode`, `StreamCount`, `StreamTimeoutMs`, and matching bindings such as `TriggerIdBinding` or `ScanGroupIdBinding`.
-- queue-enabled nodes: `UseQueue`, `QueueName`, `QueueCapacity`, `QueueMaxDegreeOfParallelism`, and `QueueFullMode`.
+- `camera.image_callback`: `CallbackMode`, `MatchMode`, `StreamOutputMode`, `ExpectedFrameCount`, `FrameTimeoutMs`, `AutoStopAfterExpectedFrameCount`, `FrameIndexSource`, `StartFrameIndex`, and matching bindings such as `TriggerIdBinding` or `ScanGroupIdBinding`.
+- queue-enabled nodes: `UseQueue`, `QueueName`, `QueueCapacity`, `QueueMaxDegreeOfParallelism`, `QueueFullMode`, and `WaitForCompletion`.
 - group/scan nodes: `DuplicatePolicy`, `RequireContinuousShotIndex`, `RequireContinuousFrameIndex`, `FirstShotIndex`, and `FirstFrameIndex`.
 - binding settings such as `FrameBinding`, `ImageBinding`, `CaptureGroupIdBinding`, `ScanGroupIdBinding`, `FrameGroupBinding`, and `ScanGroupResultBinding`.
 
 `FlowValidator` rejects invalid StreamFrames settings, invalid queue settings, invalid duplicate policies, and missing binding sources. `.flowruntime` must still exclude WPF view state, canvas coordinates, zoom, styles, and designer-only debug state.
+
+## 2026-06 Sample Flow Updates
+
+- `single-shot.flowruntime` now includes `light.control` before `camera.soft_trigger`.
+- `continuous-scan.flowdesign` starts from `camera.image_callback` with `CallbackMode=StreamFrames` and `StreamOutputMode=PerFrame`; each `Frame` continuation drives `frame.preprocess`.
+- `.flowruntime` remains runtime-only. New queue, stream, and image-kind behavior is expressed through node settings and outputs, not through Designer view state.

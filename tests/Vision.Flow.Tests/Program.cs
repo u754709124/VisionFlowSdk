@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -47,19 +48,27 @@ namespace Vision.Flow.Tests
                 new TestCase("Sample runtime file excludes designer view state", SampleFlowTests.SampleRuntimeExcludesViewState),
                 new TestCase("FlowRunner executes A -> B -> C and writes output variables", FlowRunnerTests.LinearOrderAndVariables),
                 new TestCase("FlowRunner executes all fan-out edges from one output port", FlowRunnerTests.FanOutExecutesAllOutgoingEdges),
+                new TestCase("FlowRunner executes fan-out branches in parallel when configured", FlowRunnerTests.ParallelFanOutExecutesBranchesInParallel),
                 new TestCase("FlowRunner executes branched fan-out graph", FlowRunnerTests.BranchedFanOutGraphExecutesAllBranches),
                 new TestCase("FlowRunner allows reconverging branches without global visited blocking", FlowRunnerTests.ReconvergingBranchesCanReachSameNode),
                 new TestCase("FlowRunner publishes NodeFailed and follows Error route", FlowRunnerTests.NodeFailedAndErrorRoute),
                 new TestCase("FlowRunner publishes NodeTimeout and follows Timeout route", FlowRunnerTests.NodeTimeoutAndTimeoutRoute),
+                new TestCase("FlowRunner StopAsync cancels running flow", FlowRunnerTests.StopAsyncCancelsRunningFlow),
+                new TestCase("FlowRunner continuation dispatcher routes output-port continuations", FlowRunnerTests.ContinuationDispatcherRoutesOutputPort),
                 new TestCase("FlowRunner detects cycles on the current execution path", FlowRunnerTests.CycleRouteThrows),
                 new TestCase("FlowRunner reports a clear missing entry exception", FlowRunnerTests.MissingEntryThrows),
                 new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
                 new TestCase("FlowTaskQueue enforces capacity and publishes events", FlowTaskQueueTests.CapacityRejectsAndPublishesEvents),
+                new TestCase("FlowTaskQueue supports drop stop and notify full modes", FlowTaskQueueTests.DropStopAndNotifyFullModes),
                 new TestCase("FlowTaskQueueRegistry reuses named queues", FlowTaskQueueTests.RegistryReusesNamedQueues),
                 new TestCase("DefaultDeviceRegistry resolves a fake camera", AdapterTests.RegistryGetsFakeCamera),
                 new TestCase("FakeCameraAdapter soft trigger raises FrameArrived", AdapterTests.SoftTriggerReceivesFrame),
                 new TestCase("FakeCameraAdapter cancellation prevents frame creation", AdapterTests.SoftTriggerCancellationPreventsFrame),
                 new TestCase("FakeCameraAdapter can return before frame arrives", AdapterTests.SoftTriggerCanReturnBeforeFrameArrived),
+                new TestCase("CameraFrameRouter duplicate register does not duplicate callbacks", AdapterTests.CameraFrameRouterDuplicateRegisterDoesNotDuplicateCallbacks),
+                new TestCase("CameraFrameRouter unregister releases camera subscription", AdapterTests.CameraFrameRouterUnregisterReleasesSubscription),
+                new TestCase("CameraFrameRouter dispose cancels waiters", AdapterTests.CameraFrameRouterDisposeCancelsWaiters),
+                new TestCase("CameraFrameRouter stream subscription dispose stops callbacks", AdapterTests.CameraFrameRouterStreamSubscriptionDisposeStopsCallbacks),
                 new TestCase("VisionImageReference supports clone and disposal", AdapterTests.VisionImageReferenceLifecycle),
                 new TestCase("FakeVisionImage supports clone and disposal", AdapterTests.FakeVisionImageLifecycle),
                 new TestCase("FakeRecipeAdapter returns OK", AdapterTests.FakeRecipeReturnsOk),
@@ -81,8 +90,11 @@ namespace Vision.Flow.Tests
                 new TestCase("CameraImageCallbackNode times out on mismatched TriggerId", CameraNodeTests.ImageCallbackTimeoutWhenTriggerIdDoesNotMatch),
                 new TestCase("CameraImageCallbackNode can match any next frame", CameraNodeTests.ImageCallbackAnyMatchMode),
                 new TestCase("CameraImageCallbackNode stream mode collects frames", CameraNodeTests.ImageCallbackStreamFrames),
+                new TestCase("CameraImageCallbackNode StreamFrames PerFrame dispatches each frame", CameraNodeTests.ImageCallbackStreamFramesPerFrame),
                 new TestCase("Stage 07 nodes run callback recipe save and database chain", Stage07NodeTests.CallbackRecipeSaveDatabaseFlow),
                 new TestCase("Stage 07 recipe save and database nodes can run through queues", Stage07NodeTests.QueuedRecipeSaveDatabaseFlow),
+                new TestCase("Stage 07 recipe queue can return before completion", Stage07NodeTests.NonBlockingRecipeQueue),
+                new TestCase("Stage 07 save and database queues can return before completion", Stage07NodeTests.NonBlockingSaveAndDatabaseQueues),
                 new TestCase("Stage 08 FrameGroupJoin completes, sorts frames, and stitches", Stage08NodeTests.FrameGroupJoinSortsAndStitches),
                 new TestCase("Stage 08 FrameGroupJoin detects duplicate ShotIndex", Stage08NodeTests.FrameGroupJoinDetectsDuplicateShotIndex),
                 new TestCase("Stage 08 FrameGroupJoin supports bindings replace duplicates and continuous validation", Stage08NodeTests.FrameGroupJoinBindingsReplaceAndContinuousValidation),
@@ -833,6 +845,53 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("stream-002", lastTriggerId, "Node scalar outputs should describe the last collected frame.");
         }
 
+        public static async Task ImageCallbackStreamFramesPerFrame()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            var devices = new DefaultDeviceRegistry();
+            devices.RegisterCamera(camera);
+
+            var sink = new InMemoryFlowEventSink();
+            var executionLog = new List<string>();
+            var runner = CreateCameraRunner(CreateStreamFramesPerFrameFlow(), sink, devices, executionLog);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            var triggerTask = runner.TriggerAsync(
+                "ManualStart",
+                new FlowToken
+                {
+                    TokenId = "token-camera-stream-per-frame",
+                    ScanGroupId = "scan-per-frame"
+                });
+
+            await Task.Delay(20).ConfigureAwait(false);
+            await camera.SoftTriggerAsync(
+                new CameraTriggerContext { CameraId = "Camera01", TriggerId = "stream-frame-001" },
+                CancellationToken.None).ConfigureAwait(false);
+            await camera.SoftTriggerAsync(
+                new CameraTriggerContext { CameraId = "Camera01", TriggerId = "stream-frame-002" },
+                CancellationToken.None).ConfigureAwait(false);
+
+            await triggerTask.ConfigureAwait(false);
+
+            AssertEx.Equal(2, executionLog.Count(x => string.Equals(x, "recordFrame", StringComparison.OrdinalIgnoreCase)), "PerFrame stream mode should dispatch every frame to downstream nodes.");
+            var frameIndexes = sink.Events
+                .Where(x => x.EventType == FlowRuntimeEventType.OutputProduced && string.Equals(x.NodeId, "callback1", StringComparison.OrdinalIgnoreCase))
+                .Where(x => string.Equals(Convert.ToString(x.Data["VariableName"]), "callback1.FrameIndex", StringComparison.OrdinalIgnoreCase))
+                .Select(x => Convert.ToInt32(x.Data["Value"], CultureInfo.InvariantCulture))
+                .ToList();
+            AssertEx.SequenceEqual(new[] { 0, 1 }, frameIndexes, "PerFrame stream mode should produce incrementing FrameIndex values.");
+
+            var completed = sink.Events.FirstOrDefault(x =>
+                x.EventType == FlowRuntimeEventType.NodeCompleted &&
+                string.Equals(x.NodeId, "callback1", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.OutputPort, "Completed", StringComparison.OrdinalIgnoreCase));
+            AssertEx.NotNull(completed, "PerFrame stream mode should complete through the Completed output port.");
+        }
+
         private static IFlowRunner CreateCameraRunner(
             RuntimeFlowDefinition flow,
             InMemoryFlowEventSink sink,
@@ -984,6 +1043,52 @@ namespace Vision.Flow.Tests
                 }
             });
 
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "callback1" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateStreamFramesPerFrameFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "camera-stream-per-frame",
+                FlowName = "Camera Stream Per Frame",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "callback1",
+                Type = CameraImageCallbackNodeFactory.TypeName,
+                Name = "Image Callback",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "CameraId", "Camera01" },
+                    { "CallbackMode", "StreamFrames" },
+                    { "StreamOutputMode", "PerFrame" },
+                    { "MatchMode", "Any" },
+                    { "ScanGroupIdBinding", "{{ token.ScanGroupId }}" },
+                    { "ExpectedFrameCount", 2 },
+                    { "FrameTimeoutMs", 1000 },
+                    { "TimeoutMs", 1000 },
+                    { "StartFrameIndex", 0 }
+                }
+            });
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "recordFrame",
+                Type = RecordingNodeFactory.TypeName,
+                Name = "Record Frame",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "RequiredVariable", "callback1.Frame" }
+                }
+            });
+
+            flow.Edges.Add(CreateEdge("callback1", "Frame", "recordFrame"));
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "callback1" });
             return flow;
         }
@@ -1189,6 +1294,73 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(1, database.SnapshotSavedRequests().Count, "Queued DatabaseSaveNode should save one row.");
         }
 
+        public static async Task NonBlockingSaveAndDatabaseQueues()
+        {
+            var saver = new FakeImageSaveAdapter("ImageSave01")
+            {
+                DelayMs = 250
+            };
+            var database = new FakeDatabaseAdapter("VisionDb")
+            {
+                DelayMs = 250
+            };
+            var devices = new DefaultDeviceRegistry();
+            devices.RegisterImageSaver(saver);
+            devices.RegisterDatabase(database);
+
+            var sink = new InMemoryFlowEventSink();
+            var registry = new NodeRegistry();
+            CommonNodeRegistration.RegisterAll(registry);
+            var runner = new FlowEngine(registry, sink, devices).CreateRunner(CreateNonBlockingSaveDatabaseFlow());
+            var token = new FlowToken
+            {
+                TokenId = "token-nonblocking-queue"
+            };
+
+            await runner.StartAsync().ConfigureAwait(false);
+            var stopwatch = Stopwatch.StartNew();
+            await runner.TriggerAsync("ManualStart", token).ConfigureAwait(false);
+            stopwatch.Stop();
+
+            AssertEx.True(stopwatch.ElapsedMilliseconds < 220, "WaitForCompletion=false should return before delayed background work completes.");
+            AssertEx.True(Convert.ToBoolean(FindOutput(sink, "save1", "Queued"), CultureInfo.InvariantCulture), "ImageSaveNode should output Queued=true.");
+            AssertEx.True(Convert.ToBoolean(FindOutput(sink, "save1", "ImageQueued"), CultureInfo.InvariantCulture), "ImageSaveNode should output ImageQueued=true.");
+            AssertEx.True(Convert.ToBoolean(FindOutput(sink, "db1", "Queued"), CultureInfo.InvariantCulture), "DatabaseSaveNode should output Queued=true.");
+            AssertEx.False(Convert.ToBoolean(FindOutput(sink, "db1", "Saved"), CultureInfo.InvariantCulture), "DatabaseSaveNode should output Saved=false before background completion.");
+
+            await WaitForQueueCompletedAsync(sink, "save1", "image-save", "image.save.Image", 1).ConfigureAwait(false);
+            await WaitForQueueCompletedAsync(sink, "db1", "database-save", "database.save", 1).ConfigureAwait(false);
+
+            AssertEx.Equal(1, saver.SnapshotSavedRequests().Count, "Non-blocking ImageSaveNode should eventually save one image.");
+            AssertEx.Equal(1, database.SnapshotSavedRequests().Count, "Non-blocking DatabaseSaveNode should eventually save one row.");
+        }
+
+        public static async Task NonBlockingRecipeQueue()
+        {
+            var recipe = new FakeRecipeAdapter("Recipe01")
+            {
+                DelayMs = 250
+            };
+            var devices = new DefaultDeviceRegistry();
+            devices.RegisterRecipe(recipe);
+
+            var sink = new InMemoryFlowEventSink();
+            var registry = new NodeRegistry();
+            CommonNodeRegistration.RegisterAll(registry);
+            var runner = new FlowEngine(registry, sink, devices).CreateRunner(CreateNonBlockingRecipeFlow());
+
+            await runner.StartAsync().ConfigureAwait(false);
+            var stopwatch = Stopwatch.StartNew();
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-nonblocking-recipe" }).ConfigureAwait(false);
+            stopwatch.Stop();
+
+            AssertEx.True(stopwatch.ElapsedMilliseconds < 220, "Non-blocking RecipeRunNode should return before delayed recipe execution completes.");
+            AssertEx.True(Convert.ToBoolean(FindOutput(sink, "recipe1", "Queued"), CultureInfo.InvariantCulture), "RecipeRunNode should output Queued=true.");
+            AssertEx.False(Convert.ToBoolean(FindOutput(sink, "recipe1", "QueueCompleted"), CultureInfo.InvariantCulture), "RecipeRunNode should output QueueCompleted=false before background completion.");
+
+            await WaitForQueueCompletedAsync(sink, "recipe1", "recipe", "recipe.run", 1).ConfigureAwait(false);
+        }
+
         private static RuntimeFlowDefinition CreateStage07Flow()
         {
             var flow = new RuntimeFlowDefinition
@@ -1349,6 +1521,105 @@ namespace Vision.Flow.Tests
             return flow;
         }
 
+        private static RuntimeFlowDefinition CreateNonBlockingSaveDatabaseFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "stage07-nonblocking-queue",
+                FlowName = "Stage 07 Non-blocking Queue",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "save1",
+                Type = ImageSaveNodeFactory.TypeName,
+                Name = "Save Image",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "SaverId", "ImageSave01" },
+                    { "FileNameTemplate", "{ImageId}.png" },
+                    { "UseQueue", true },
+                    { "QueueName", "image-save" },
+                    { "QueueCapacity", 4 },
+                    { "QueueMaxDegreeOfParallelism", 1 },
+                    { "QueueFullMode", "Reject" },
+                    { "WaitForCompletion", false }
+                },
+                InputBindings =
+                {
+                    { "Image", VariableBinding.ForConstant(new FakeVisionImage("queued-image", 320, 240, "Mono8", new byte[] { 1, 2, 3 })) }
+                }
+            });
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "db1",
+                Type = DatabaseSaveNodeFactory.TypeName,
+                Name = "Save Database",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "DatabaseId", "VisionDb" },
+                    { "TableName", "InspectionResult" },
+                    { "UseQueue", true },
+                    { "QueueName", "database-save" },
+                    { "QueueCapacity", 4 },
+                    { "QueueMaxDegreeOfParallelism", 1 },
+                    { "QueueFullMode", "Reject" },
+                    { "WaitForCompletion", false },
+                    {
+                        "FieldMappings",
+                        new[]
+                        {
+                            new DatabaseFieldMappingConfig
+                            {
+                                FieldName = "TokenId",
+                                Value = "token-nonblocking-queue"
+                            }
+                        }
+                    }
+                }
+            });
+
+            flow.Edges.Add(CreateEdge("save1", "Next", "db1"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "save1" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateNonBlockingRecipeFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "stage07-nonblocking-recipe",
+                FlowName = "Stage 07 Non-blocking Recipe",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "recipe1",
+                Type = RecipeRunNodeFactory.TypeName,
+                Name = "Run Recipe",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "RecipeId", "Recipe01" },
+                    { "UseQueue", true },
+                    { "QueueName", "recipe" },
+                    { "QueueCapacity", 4 },
+                    { "QueueMaxDegreeOfParallelism", 1 },
+                    { "QueueFullMode", "Reject" },
+                    { "WaitForCompletion", false },
+                    { "TimeoutMs", 1000 }
+                }
+            });
+
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "recipe1" });
+            return flow;
+        }
+
         private static void EnableQueue(RuntimeFlowDefinition flow, string nodeId, string queueName)
         {
             var node = flow.Nodes.First(x => string.Equals(x.Id, nodeId, StringComparison.OrdinalIgnoreCase));
@@ -1373,6 +1644,32 @@ namespace Vision.Flow.Tests
                 string.Equals(Convert.ToString(x.Data["OperationName"], CultureInfo.InvariantCulture), operationName, StringComparison.OrdinalIgnoreCase));
 
             AssertEx.Equal(expectedCount, count, "QueueCompleted event count should match for " + nodeId + " / " + operationName + ".");
+        }
+
+        private static async Task WaitForQueueCompletedAsync(
+            InMemoryFlowEventSink sink,
+            string nodeId,
+            string queueName,
+            string operationName,
+            int expectedCount)
+        {
+            for (var attempt = 0; attempt < 50; attempt++)
+            {
+                var count = sink.Events.Count(x =>
+                    x.EventType == FlowRuntimeEventType.QueueCompleted &&
+                    string.Equals(x.NodeId, nodeId, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(Convert.ToString(x.Data["QueueName"], CultureInfo.InvariantCulture), queueName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(Convert.ToString(x.Data["OperationName"], CultureInfo.InvariantCulture), operationName, StringComparison.OrdinalIgnoreCase));
+
+                if (count >= expectedCount)
+                {
+                    return;
+                }
+
+                await Task.Delay(20).ConfigureAwait(false);
+            }
+
+            AssertQueueCompleted(sink, nodeId, queueName, operationName, expectedCount);
         }
 
         private static EdgeDefinition CreateEdge(string fromNodeId, string fromPort, string toNodeId)
@@ -1505,6 +1802,9 @@ namespace Vision.Flow.Tests
             var scanGroup = FindOutput(sink, "scanJoin1", "ScanGroupResult") as ScanGroupResult;
             var final3D = FindOutput(sink, "fusion1", "Final3DImage") as IVisionImage;
             var final2D = FindOutput(sink, "fusion1", "Final2DImage") as IVisionImage;
+            var heightMap = FindOutput(sink, "fusion1", "HeightMap") as IVisionImage;
+            var textureImage = FindOutput(sink, "fusion1", "TextureImage") as IVisionImage;
+            var confidenceMap = FindOutput(sink, "fusion1", "ConfidenceMap") as IVisionImage;
 
             AssertEx.NotNull(scanGroup, "ScanGroupJoinNode should output a completed scan group.");
             AssertEx.Equal("scan-A", scanGroup.ScanGroupId, "ScanGroupResult should keep the scan group id.");
@@ -1512,6 +1812,14 @@ namespace Vision.Flow.Tests
             AssertEx.SequenceEqual(new[] { 0, 1, 2 }, scanGroup.Frames.Select(x => x.FrameIndex), "ScanGroupResult should be sorted by FrameIndex.");
             AssertEx.NotNull(final3D, "Final3D2DFusionNode should output Final3DImage.");
             AssertEx.NotNull(final2D, "Final3D2DFusionNode should output Final2DImage.");
+            AssertEx.NotNull(heightMap, "Final3D2DFusionNode should output HeightMap.");
+            AssertEx.NotNull(textureImage, "Final3D2DFusionNode should output TextureImage.");
+            AssertEx.NotNull(confidenceMap, "Final3D2DFusionNode should output ConfidenceMap.");
+            AssertEx.True(object.ReferenceEquals(final3D, heightMap), "Final3DImage should remain a HeightMap alias.");
+            AssertEx.True(object.ReferenceEquals(final2D, textureImage), "Final2DImage should remain a TextureImage alias.");
+            AssertEx.Equal("HeightMap", heightMap.ImageKind, "HeightMap output should carry ImageKind.");
+            AssertEx.Equal("TextureImage", textureImage.ImageKind, "TextureImage output should carry ImageKind.");
+            AssertEx.Equal("ConfidenceMap", confidenceMap.ImageKind, "ConfidenceMap output should carry ImageKind.");
             AssertEx.Equal("scan-A", Convert.ToString(final3D.Metadata["ScanGroupId"]), "Final3DImage should carry ScanGroupId metadata.");
             AssertEx.Equal("scan-A", Convert.ToString(final2D.Metadata["ScanGroupId"]), "Final2DImage should carry ScanGroupId metadata.");
             AssertEx.Equal(3, Convert.ToInt32(final3D.Metadata["SourceFrameCount"]), "Final3DImage should record source frame count.");
@@ -1961,10 +2269,144 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("trigger-background", frame.TriggerId, "Background fake frame should preserve trigger id.");
         }
 
+        public static async Task CameraFrameRouterDuplicateRegisterDoesNotDuplicateCallbacks()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            using (var router = new DefaultCameraFrameRouter())
+            using (var subscription = router.Subscribe(
+                camera,
+                new CameraFrameWaitTicket
+                {
+                    CameraId = "Camera01",
+                    MatchMode = CameraFrameMatchModes.Any
+                }))
+            {
+                var callbackCount = 0;
+                subscription.FrameArrived += delegate
+                {
+                    Interlocked.Increment(ref callbackCount);
+                };
+
+                router.EnsureCamera(camera, "Camera01");
+                router.EnsureCamera(camera, "Camera01");
+
+                await camera.SoftTriggerAsync(
+                    new CameraTriggerContext
+                    {
+                        CameraId = "Camera01",
+                        TriggerId = "router-duplicate"
+                    },
+                    CancellationToken.None).ConfigureAwait(false);
+
+                AssertEx.Equal(1, callbackCount, "Duplicate EnsureCamera calls must not duplicate camera event subscriptions.");
+            }
+        }
+
+        public static async Task CameraFrameRouterUnregisterReleasesSubscription()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            using (var router = new DefaultCameraFrameRouter())
+            {
+                var callbackCount = 0;
+                var subscription = router.Subscribe(
+                    camera,
+                    new CameraFrameWaitTicket
+                    {
+                        CameraId = "Camera01",
+                        MatchMode = CameraFrameMatchModes.Any
+                    });
+                subscription.FrameArrived += delegate
+                {
+                    Interlocked.Increment(ref callbackCount);
+                };
+
+                AssertEx.True(router.UnregisterCamera("Camera01"), "UnregisterCamera should return true for a registered camera.");
+
+                await camera.SoftTriggerAsync(
+                    new CameraTriggerContext
+                    {
+                        CameraId = "Camera01",
+                        TriggerId = "router-unregister"
+                    },
+                    CancellationToken.None).ConfigureAwait(false);
+
+                AssertEx.Equal(0, callbackCount, "UnregisterCamera should unsubscribe camera frame callbacks.");
+                AssertEx.False(router.UnregisterCamera("Camera01"), "UnregisterCamera should return false after the camera has already been removed.");
+            }
+        }
+
+        public static async Task CameraFrameRouterDisposeCancelsWaiters()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            var router = new DefaultCameraFrameRouter();
+            var waitTask = router.WaitForFrameAsync(
+                camera,
+                new CameraFrameWaitTicket
+                {
+                    CameraId = "Camera01",
+                    MatchMode = CameraFrameMatchModes.TriggerId,
+                    TriggerId = "never-arrives"
+                },
+                10000,
+                CancellationToken.None);
+
+            router.Dispose();
+
+            await AssertEx.ThrowsAsync<OperationCanceledException>(
+                async delegate
+                {
+                    await waitTask.ConfigureAwait(false);
+                }).ConfigureAwait(false);
+        }
+
+        public static async Task CameraFrameRouterStreamSubscriptionDisposeStopsCallbacks()
+        {
+            var camera = new FakeCameraAdapter("Camera01")
+            {
+                FrameDelayMs = 1
+            };
+            using (var router = new DefaultCameraFrameRouter())
+            {
+                var callbackCount = 0;
+                var subscription = router.Subscribe(
+                    camera,
+                    new CameraFrameWaitTicket
+                    {
+                        CameraId = "Camera01",
+                        MatchMode = CameraFrameMatchModes.Any
+                    });
+                subscription.FrameArrived += delegate
+                {
+                    Interlocked.Increment(ref callbackCount);
+                };
+
+                subscription.Dispose();
+
+                await camera.SoftTriggerAsync(
+                    new CameraTriggerContext
+                    {
+                        CameraId = "Camera01",
+                        TriggerId = "router-subscription-dispose"
+                    },
+                    CancellationToken.None).ConfigureAwait(false);
+
+                AssertEx.Equal(0, callbackCount, "Disposed stream subscriptions must not receive frames.");
+            }
+        }
+
         public static Task VisionImageReferenceLifecycle()
         {
             var native = new DisposableNativeImage();
-            var image = new VisionImageReference("image-native", 10, 20, "Mono8", new byte[] { 1, 2, 3 }, native, true);
+            var image = new VisionImageReference("image-native", 10, 20, "Mono8", new byte[] { 1, 2, 3 }, native, true, "HeightMap");
             image.Metadata["CameraId"] = "Camera01";
 
             byte[] bytes;
@@ -1979,6 +2421,7 @@ namespace Vision.Flow.Tests
             var clone = image.CloneReference();
             AssertEx.False(object.ReferenceEquals(image, clone), "CloneReference should create a distinct image reference.");
             AssertEx.Equal("image-native", clone.ImageId, "CloneReference should preserve ImageId.");
+            AssertEx.Equal("HeightMap", clone.ImageKind, "CloneReference should preserve ImageKind.");
             AssertEx.True(object.ReferenceEquals(image.NativeImage, clone.NativeImage), "CloneReference should preserve native image reference.");
             AssertEx.Equal("Camera01", Convert.ToString(clone.Metadata["CameraId"]), "CloneReference should copy metadata.");
 
@@ -1997,11 +2440,12 @@ namespace Vision.Flow.Tests
         public static Task FakeVisionImageLifecycle()
         {
             var native = new DisposableNativeImage();
-            var image = new FakeVisionImage("fake-native", 5, 6, "RGB24", new byte[] { 7, 8 }, native, true);
+            var image = new FakeVisionImage("fake-native", 5, 6, "RGB24", new byte[] { 7, 8 }, native, true, "TextureImage");
             image.Metadata["FrameId"] = "frame-001";
 
             var clone = image.CloneReference();
             AssertEx.False(object.ReferenceEquals(image, clone), "FakeVisionImage CloneReference should create a distinct reference.");
+            AssertEx.Equal("TextureImage", clone.ImageKind, "FakeVisionImage clone should preserve ImageKind.");
             AssertEx.True(object.ReferenceEquals(image.NativeImage, clone.NativeImage), "FakeVisionImage clone should preserve native image reference.");
             AssertEx.Equal("frame-001", Convert.ToString(clone.Metadata["FrameId"]), "FakeVisionImage clone should copy metadata.");
 
@@ -2066,6 +2510,7 @@ namespace Vision.Flow.Tests
 
             AssertEx.Equal(4, Convert.ToInt32(result.Metadata["ByteLength"], CultureInfo.InvariantCulture), "Fake saver should record byte length.");
             AssertEx.Equal(false, Convert.ToBoolean(result.Metadata["HasNativeImage"], CultureInfo.InvariantCulture), "Fake saver should record native image state.");
+            AssertEx.Equal("Raw", Convert.ToString(result.Metadata["ImageKind"], CultureInfo.InvariantCulture), "Fake saver should record image kind.");
 
             var savedRequests = saver.SnapshotSavedRequests();
             AssertEx.Equal(1, savedRequests.Count, "Fake saver should snapshot one request.");
@@ -2344,7 +2789,7 @@ namespace Vision.Flow.Tests
                     { "UseQueue", true },
                     { "QueueCapacity", 0 },
                     { "QueueMaxDegreeOfParallelism", 0 },
-                    { "QueueFullMode", "Drop" }
+                    { "QueueFullMode", "Bogus" }
                 }
             });
 
@@ -2675,6 +3120,31 @@ namespace Vision.Flow.Tests
                 "Fan-out branch C should complete.");
         }
 
+        public static async Task ParallelFanOutExecutesBranchesInParallel()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(
+                CreateDelayedFanOutFlow(160),
+                executionLog,
+                sink,
+                new FlowExecutionOptions
+                {
+                    FanOutMode = FlowFanOutMode.Parallel,
+                    MaxDegreeOfParallelism = 2
+                });
+
+            await runner.StartAsync().ConfigureAwait(false);
+            var startUtc = DateTime.UtcNow;
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-parallel-fanout" }).ConfigureAwait(false);
+            var elapsedMs = (DateTime.UtcNow - startUtc).TotalMilliseconds;
+
+            AssertEx.True(executionLog.Contains("A"), "Parallel fan-out should execute the source node.");
+            AssertEx.True(executionLog.Contains("B"), "Parallel fan-out should execute branch B.");
+            AssertEx.True(executionLog.Contains("C"), "Parallel fan-out should execute branch C.");
+            AssertEx.True(elapsedMs < 280, "Parallel fan-out should complete faster than two sequential delayed branches. ElapsedMs=" + elapsedMs.ToString(CultureInfo.InvariantCulture));
+        }
+
         public static async Task BranchedFanOutGraphExecutesAllBranches()
         {
             var executionLog = new List<string>();
@@ -2731,6 +3201,41 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("Timeout", timeoutEvent.OutputPort, "NodeTimeout should use the configured Timeout output port.");
         }
 
+        public static async Task StopAsyncCancelsRunningFlow()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateLongRunningFlow(), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            var triggerTask = runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-stop" });
+            await WaitForEventAsync(sink, FlowRuntimeEventType.NodeStarted, "A").ConfigureAwait(false);
+            await runner.StopAsync().ConfigureAwait(false);
+
+            await AssertEx.ThrowsAsync<OperationCanceledException>(
+                async delegate
+                {
+                    await triggerTask.ConfigureAwait(false);
+                }).ConfigureAwait(false);
+
+            AssertEx.False(runner.IsRunning, "StopAsync should mark the runner as stopped.");
+        }
+
+        public static async Task ContinuationDispatcherRoutesOutputPort()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateContinuationFlow(), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-continuation" }).ConfigureAwait(false);
+
+            AssertEx.SequenceEqual(new[] { "A", "B" }, executionLog, "Continuation should route A.Frame to B.");
+            AssertEx.True(
+                sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data["VariableName"]) == "A.Value"),
+                "Continuation outputs should be written through the source node namespace.");
+        }
+
         public static async Task CycleRouteThrows()
         {
             var runner = CreateRunner(CreateCycleFlow(), new List<string>(), new InMemoryFlowEventSink());
@@ -2773,13 +3278,23 @@ namespace Vision.Flow.Tests
                 },
                 eventTypes,
                 "Runtime events should be published in execution order.");
+
+            var completed = sink.Events.FirstOrDefault(x => x.EventType == FlowRuntimeEventType.NodeCompleted);
+            AssertEx.NotNull(completed, "NodeCompleted event should be published.");
+            AssertEx.False(string.IsNullOrWhiteSpace(completed.FlowRunId), "Runtime events should include FlowRunId.");
+            AssertEx.True(completed.ElapsedMs >= 0, "Runtime events should include elapsed time.");
         }
 
         private static IFlowRunner CreateRunner(RuntimeFlowDefinition flow, IList<string> executionLog, InMemoryFlowEventSink sink)
         {
+            return CreateRunner(flow, executionLog, sink, null);
+        }
+
+        private static IFlowRunner CreateRunner(RuntimeFlowDefinition flow, IList<string> executionLog, InMemoryFlowEventSink sink, FlowExecutionOptions options)
+        {
             var registry = new NodeRegistry();
             registry.Register(new RecordingNodeFactory(executionLog));
-            return new FlowEngine(registry, sink).CreateRunner(flow);
+            return new FlowEngine(registry, sink, null, null, null, options).CreateRunner(flow);
         }
 
         private static RuntimeFlowDefinition CreateLinearFlow(bool includeOutputs)
@@ -2815,6 +3330,16 @@ namespace Vision.Flow.Tests
             flow.Edges.Add(CreateEdge("A", "Next", "B"));
             flow.Edges.Add(CreateEdge("A", "Next", "C"));
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateDelayedFanOutFlow(int delayMs)
+        {
+            var flow = CreateFanOutFlow();
+            flow.FlowId = "parallel-fanout";
+            flow.FlowName = "Parallel Fan Out";
+            flow.Nodes[1].Settings["DelayMs"] = delayMs;
+            flow.Nodes[2].Settings["DelayMs"] = delayMs;
             return flow;
         }
 
@@ -2875,6 +3400,42 @@ namespace Vision.Flow.Tests
             flow.Nodes.Add(failing);
             flow.Nodes.Add(CreateNode("ErrorHandler", null, null));
             flow.Edges.Add(CreateEdge("A", "Error", "ErrorHandler"));
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateLongRunningFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "stop-flow",
+                FlowName = "Stop Flow",
+                Version = "1.0.0"
+            };
+
+            var node = CreateNode("A", null, null);
+            node.Settings["DelayMs"] = 1000;
+            flow.Nodes.Add(node);
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
+            return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateContinuationFlow()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "continuation",
+                FlowName = "Continuation",
+                Version = "1.0.0"
+            };
+
+            var source = CreateNode("A", null, null);
+            source.Settings["Mode"] = "ContinueFrame";
+            source.Settings["ContinuationOutputName"] = "Value";
+            source.Settings["ContinuationOutputValue"] = "continued";
+            flow.Nodes.Add(source);
+            flow.Nodes.Add(CreateNode("B", null, "A.Value"));
+            flow.Edges.Add(CreateEdge("A", "Frame", "B"));
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
             return flow;
         }
@@ -2963,6 +3524,23 @@ namespace Vision.Flow.Tests
                 ToPort = "In"
             };
         }
+
+        private static async Task WaitForEventAsync(InMemoryFlowEventSink sink, FlowRuntimeEventType eventType, string nodeId)
+        {
+            for (var attempt = 0; attempt < 100; attempt++)
+            {
+                if (sink.Events.Any(x =>
+                    x.EventType == eventType &&
+                    string.Equals(x.NodeId, nodeId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return;
+                }
+
+                await Task.Delay(10).ConfigureAwait(false);
+            }
+
+            throw new InvalidOperationException("Timed out waiting for event " + eventType + " on node " + nodeId + ".");
+        }
     }
 
     internal static class FlowTaskQueueTests
@@ -3029,6 +3607,30 @@ namespace Vision.Flow.Tests
                 "Queue events should include queue name.");
         }
 
+        public static async Task DropStopAndNotifyFullModes()
+        {
+            var drop = await FillAndTrySecondAsync(FlowTaskQueueFullMode.Drop).ConfigureAwait(false);
+            AssertEx.True(drop.Result.IsDropped, "Drop mode should mark the second item as dropped.");
+            AssertEx.False(drop.Result.IsAccepted, "Dropped queue work should not be accepted.");
+            AssertEx.True(
+                drop.Sink.Events.Any(x => x.EventType == FlowRuntimeEventType.QueueWarning),
+                "Drop mode should publish a queue warning.");
+
+            var stop = await FillAndTrySecondAsync(FlowTaskQueueFullMode.StopFlow).ConfigureAwait(false);
+            AssertEx.True(stop.Result.ShouldStopFlow, "StopFlow mode should request flow stop.");
+            AssertEx.True(stop.Result.IsRejected, "StopFlow mode should reject the full item.");
+            AssertEx.True(
+                stop.Sink.Events.Any(x => x.EventType == FlowRuntimeEventType.QueueRejected),
+                "StopFlow mode should publish QueueRejected.");
+
+            var notify = await FillAndTrySecondAsync(FlowTaskQueueFullMode.NotifyOnly).ConfigureAwait(false);
+            AssertEx.True(notify.Result.IsNotifyOnly, "NotifyOnly mode should mark notification-only full items.");
+            AssertEx.False(notify.Result.IsAccepted, "NotifyOnly full items should not execute work.");
+            AssertEx.True(
+                notify.Sink.Events.Any(x => x.EventType == FlowRuntimeEventType.QueueWarning),
+                "NotifyOnly mode should publish a queue warning.");
+        }
+
         public static Task RegistryReusesNamedQueues()
         {
             var registry = new FlowTaskQueueRegistry(new InMemoryFlowEventSink());
@@ -3048,6 +3650,63 @@ namespace Vision.Flow.Tests
             AssertEx.True(object.ReferenceEquals(first, resolved), "TryGetQueue should return the registered queue.");
             AssertEx.Equal(2, first.Capacity, "Queue registry should preserve initial options.");
             return Task.FromResult(0);
+        }
+
+        private static async Task<FullModeAttempt> FillAndTrySecondAsync(FlowTaskQueueFullMode mode)
+        {
+            var sink = new InMemoryFlowEventSink();
+            var queue = new FlowTaskQueue(
+                new FlowTaskQueueOptions
+                {
+                    QueueName = "full-" + mode.ToString().ToLowerInvariant(),
+                    Capacity = 1,
+                    MaxDegreeOfParallelism = 1,
+                    FullMode = mode
+                },
+                sink);
+            var release = new TaskCompletionSource<int>();
+            var firstStarted = new TaskCompletionSource<int>();
+            var context = new FlowTaskQueueItemContext
+            {
+                FlowId = "flow-full",
+                TokenId = "token-full",
+                NodeId = "queue1",
+                OperationName = "FullMode"
+            };
+
+            var first = queue.EnqueueAsync<int>(
+                async delegate(CancellationToken token)
+                {
+                    firstStarted.TrySetResult(0);
+                    await release.Task.ConfigureAwait(false);
+                    return 1;
+                },
+                context,
+                CancellationToken.None);
+
+            await firstStarted.Task.ConfigureAwait(false);
+            var second = await queue.EnqueueAsync<int>(
+                delegate(CancellationToken token)
+                {
+                    return Task.FromResult(2);
+                },
+                context,
+                CancellationToken.None).ConfigureAwait(false);
+
+            release.TrySetResult(0);
+            await first.ConfigureAwait(false);
+            return new FullModeAttempt
+            {
+                Result = second,
+                Sink = sink
+            };
+        }
+
+        private sealed class FullModeAttempt
+        {
+            public FlowTaskQueueResult<int> Result { get; set; }
+
+            public InMemoryFlowEventSink Sink { get; set; }
         }
     }
 
@@ -3096,21 +3755,56 @@ namespace Vision.Flow.Tests
             _executionLog = executionLog;
         }
 
-        public Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
+        public async Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _executionLog.Add(_definition.Id);
+            lock (_executionLog)
+            {
+                _executionLog.Add(_definition.Id);
+            }
+
+            var delayMsText = GetSetting("DelayMs");
+            int delayMs;
+            if (!string.IsNullOrWhiteSpace(delayMsText) &&
+                int.TryParse(delayMsText, NumberStyles.Integer, CultureInfo.InvariantCulture, out delayMs) &&
+                delayMs > 0)
+            {
+                await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
+            }
 
             var mode = GetSetting("Mode");
             if (string.Equals(mode, "Fail", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult(NodeExecutionResult.Failure("Requested failure."));
+                return NodeExecutionResult.Failure("Requested failure.");
             }
 
             if (string.Equals(mode, "Timeout", StringComparison.OrdinalIgnoreCase))
             {
                 var timeoutOutputPort = GetSetting("TimeoutOutputPort");
-                return Task.FromResult(NodeExecutionResult.Timeout("Requested timeout.", timeoutOutputPort));
+                return NodeExecutionResult.Timeout("Requested timeout.", timeoutOutputPort);
+            }
+
+            if (string.Equals(mode, "ContinueFrame", StringComparison.OrdinalIgnoreCase))
+            {
+                var continuationOutputs = new Dictionary<string, object>();
+                var continuationOutputName = GetSetting("ContinuationOutputName");
+                if (!string.IsNullOrWhiteSpace(continuationOutputName))
+                {
+                    continuationOutputs[continuationOutputName] = GetSetting("ContinuationOutputValue");
+                }
+
+                await context.Continuations.DispatchAsync(
+                    new FlowContinuation
+                    {
+                        SourceNodeId = _definition.Id,
+                        OutputPort = "Frame",
+                        Token = context.Token,
+                        Variables = context.Variables,
+                        Outputs = continuationOutputs,
+                        FlowRunId = context.FlowRunId
+                    },
+                    cancellationToken).ConfigureAwait(false);
+                return NodeExecutionResult.Success("Completed");
             }
 
             var requiredVariable = GetSetting("RequiredVariable");
@@ -3119,7 +3813,7 @@ namespace Vision.Flow.Tests
                 object value;
                 if (!context.Variables.TryGet(requiredVariable, out value))
                 {
-                    return Task.FromResult(NodeExecutionResult.Failure("Required variable was missing: " + requiredVariable));
+                    return NodeExecutionResult.Failure("Required variable was missing: " + requiredVariable);
                 }
             }
 
@@ -3130,7 +3824,7 @@ namespace Vision.Flow.Tests
                 outputs[outputName] = GetSetting("OutputValue");
             }
 
-            return Task.FromResult(NodeExecutionResult.Success("Next", outputs));
+            return NodeExecutionResult.Success("Next", outputs);
         }
 
         private string GetSetting(string name)

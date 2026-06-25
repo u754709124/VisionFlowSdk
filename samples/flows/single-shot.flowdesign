@@ -30,6 +30,25 @@
         "inputBindings": {}
       },
       {
+        "id": "light_1",
+        "type": "light.control",
+        "name": "Turn On Light",
+        "version": "1.0.0",
+        "settings": {
+          "LightId": "Light01",
+          "StableDelayMs": 10,
+          "Channels": [
+            {
+              "ChannelName": "CH1",
+              "IsEnabled": true,
+              "Intensity": 75.0,
+              "DurationMs": 0
+            }
+          ]
+        },
+        "inputBindings": {}
+      },
+      {
         "id": "cam_trigger_1",
         "type": "camera.soft_trigger",
         "name": "Soft Trigger",
@@ -115,6 +134,12 @@
       {
         "fromNodeId": "cam_params_1",
         "fromPort": "Next",
+        "toNodeId": "light_1",
+        "toPort": "In"
+      },
+      {
+        "fromNodeId": "light_1",
+        "fromPort": "Next",
         "toNodeId": "cam_trigger_1",
         "toPort": "In"
       },
@@ -159,24 +184,28 @@
         "x": 96,
         "y": 128
       },
-      "cam_trigger_1": {
+      "light_1": {
         "x": 352,
         "y": 128
       },
-      "cam_callback_1": {
+      "cam_trigger_1": {
         "x": 608,
         "y": 128
       },
-      "recipe_1": {
+      "cam_callback_1": {
         "x": 864,
         "y": 128
       },
-      "image_save_1": {
+      "recipe_1": {
         "x": 1120,
         "y": 128
       },
-      "db_save_1": {
+      "image_save_1": {
         "x": 1376,
+        "y": 128
+      },
+      "db_save_1": {
+        "x": 1632,
         "y": 128
       }
     }

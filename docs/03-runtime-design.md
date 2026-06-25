@@ -113,6 +113,14 @@ Runtime 应发布：
 - `RuntimeFlowPlan` is the execution index for `FlowRunner`. It preserves output-port edge order and enables one node output to fan out to multiple downstream nodes.
 - `FlowRunner` keeps existing runtime events and variable-pool behavior, but cycle detection now follows the active execution path instead of a global visited set.
 - `DefaultCameraFrameRouter` subscribes to registered cameras, buffers lightweight frame notifications, and supports `WaitNextFrame`, `Any`, `TriggerId`, `ScanGroupId`, and basic stream collection modes.
-- `FlowTaskQueue` provides bounded queue execution with capacity, max degree of parallelism, wait/reject full modes, and queue runtime events.
+- `FlowTaskQueue` provides bounded queue execution with capacity, max degree of parallelism, wait/reject/drop/stop-flow/notify-only full modes, optional detached execution, and queue runtime events.
 - `FlowExecutionContext` carries optional `Devices`, `CameraFrames`, and `Queues` services so nodes remain UI-independent and adapter-driven.
-- `IVisionImage` references should be cloned when work crosses async boundaries or queues; queued save nodes snapshot image references before background execution.
+- `FlowExecutionContext` also carries the active `FlowRunId` and continuation dispatcher used by event-source nodes.
+- `IVisionImage` references should be cloned when work crosses async boundaries or queues; queued save nodes snapshot image references before background execution and dispose their owned queue reference after work completes.
+
+## 2026-06 Continuations And Fan-Out
+
+- Default execution stays sequential and shared-token compatible.
+- `FlowExecutionOptions.FanOutMode=Parallel` runs downstream edges from the same output port concurrently, limited by `MaxDegreeOfParallelism`.
+- `camera.image_callback` PerFrame mode uses the continuation dispatcher to publish frame outputs and execute downstream `Frame` edges from camera frame delivery.
+- `StopAsync` cancels active runner tokens; continuations check runner state before dispatching.

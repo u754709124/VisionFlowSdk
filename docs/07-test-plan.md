@@ -72,6 +72,7 @@ N frames -> frame.preprocess -> scan.group_join -> fusion.final_3d_2d -> recipe.
 - Serialization and publish: `.flowdesign` round-trip, `.flowruntime` round-trip, publish without view state, sample validation, invalid StreamFrames, invalid queue settings, invalid group settings, and continuous-scan publish.
 - Camera and image lifecycle: parameter set, soft trigger, matching callback, mismatched timeout, `Any` matching, stream mode, fake camera cancellation, fake camera async callback, `VisionImageReference`, fake image disposal, and image-save snapshotting.
 - Motion nodes: notify, move-to, wait-in-position, missing motion id error route, fake motion state/events.
-- Queue execution: bounded capacity/full behavior, registry reuse, queued recipe/image-save/database chain.
-- Industrial nodes: frame group ordering, duplicate handling, binding-driven replacement, continuous shot validation, scan group ordering, fusion output, and continuous frame validation.
+- Queue execution: bounded capacity/full behavior, drop/stop-flow/notify-only modes, registry reuse, queued recipe/image-save/database chain, and `WaitForCompletion=false` background completion events.
+- Industrial nodes: frame group ordering, duplicate handling, binding-driven replacement, continuous shot validation, scan group ordering, PerFrame stream dispatch, fusion extra outputs, image kind propagation, and continuous frame validation.
 - Designer and demos: solution build covers WPF Designer and both demos; computer-use screenshot verification should be run when Windows automation approval is available.
+- CI: `.github/workflows/build-test.yml` runs `build/build.ps1` and `build/test.ps1` on Windows.

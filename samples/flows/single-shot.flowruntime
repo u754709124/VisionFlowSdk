@@ -26,6 +26,25 @@
       "inputBindings": {}
     },
     {
+      "id": "light_1",
+      "type": "light.control",
+      "name": "Turn On Light",
+      "version": "1.0.0",
+      "settings": {
+        "LightId": "Light01",
+        "StableDelayMs": 10,
+        "Channels": [
+          {
+            "ChannelName": "CH1",
+            "IsEnabled": true,
+            "Intensity": 75.0,
+            "DurationMs": 0
+          }
+        ]
+      },
+      "inputBindings": {}
+    },
+    {
       "id": "cam_trigger_1",
       "type": "camera.soft_trigger",
       "name": "Soft Trigger",
@@ -110,6 +129,12 @@
   "edges": [
     {
       "fromNodeId": "cam_params_1",
+      "fromPort": "Next",
+      "toNodeId": "light_1",
+      "toPort": "In"
+    },
+    {
+      "fromNodeId": "light_1",
       "fromPort": "Next",
       "toNodeId": "cam_trigger_1",
       "toPort": "In"

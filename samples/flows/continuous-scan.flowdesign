@@ -9,15 +9,36 @@
     "version": "1.0.0",
     "nodes": [
       {
+        "id": "camera_stream_1",
+        "type": "camera.image_callback",
+        "name": "Stream Camera Frames",
+        "version": "1.0.0",
+        "settings": {
+          "CameraId": "Camera01",
+          "CallbackMode": "StreamFrames",
+          "StreamOutputMode": "PerFrame",
+          "MatchMode": "Any",
+          "ScanGroupIdBinding": "{{ token.ScanGroupId }}",
+          "ExpectedFrameCount": 3,
+          "FrameTimeoutMs": 1000,
+          "TimeoutMs": 3000,
+          "AutoStopAfterExpectedFrameCount": true,
+          "FrameIndexSource": "Increment",
+          "StartFrameIndex": 0
+        },
+        "inputBindings": {}
+      },
+      {
         "id": "preprocess_1",
         "type": "frame.preprocess",
         "name": "Preprocess Scan Frame",
         "version": "1.0.0",
         "settings": {
-          "ScanGroupIdBinding": "{{ token.ScanGroupId }}",
-          "FrameIndexBinding": "{{ token.FrameIndex }}",
-          "ImageBinding": "{{ token.Image }}",
-          "FrameIdBinding": "{{ token.FrameId }}",
+          "ScanGroupIdBinding": "{{ camera_stream_1.ScanGroupId }}",
+          "FrameIndexBinding": "{{ camera_stream_1.FrameIndex }}",
+          "FrameBinding": "{{ camera_stream_1.Frame }}",
+          "ImageBinding": "{{ camera_stream_1.Image }}",
+          "FrameIdBinding": "{{ camera_stream_1.FrameId }}",
           "FrameIndex": -1
         },
         "inputBindings": {}
@@ -112,6 +133,12 @@
     ],
     "edges": [
       {
+        "fromNodeId": "camera_stream_1",
+        "fromPort": "Frame",
+        "toNodeId": "preprocess_1",
+        "toPort": "In"
+      },
+      {
         "fromNodeId": "preprocess_1",
         "fromPort": "Next",
         "toNodeId": "scan_join_1",
@@ -145,7 +172,7 @@
     "entries": [
       {
         "entryName": "CameraFrameStream",
-        "targetNodeId": "preprocess_1"
+        "targetNodeId": "camera_stream_1"
       }
     ]
   },
@@ -154,28 +181,32 @@
     "offsetX": 0,
     "offsetY": 0,
     "nodes": {
-      "preprocess_1": {
+      "camera_stream_1": {
         "x": 96,
         "y": 192
       },
-      "scan_join_1": {
+      "preprocess_1": {
         "x": 384,
         "y": 192
       },
-      "fusion_1": {
+      "scan_join_1": {
         "x": 672,
         "y": 192
       },
-      "recipe_1": {
+      "fusion_1": {
         "x": 960,
         "y": 192
       },
-      "image_save_1": {
+      "recipe_1": {
         "x": 1248,
         "y": 192
       },
-      "db_save_1": {
+      "image_save_1": {
         "x": 1536,
+        "y": 192
+      },
+      "db_save_1": {
+        "x": 1824,
         "y": 192
       }
     }

@@ -76,3 +76,10 @@ public interface ICameraAdapter
 - Fake camera callback delivery is asynchronous and cancellation-aware. It no longer relies on unsafe fire-and-forget callback behavior for tests and demos.
 - Camera frame routing is a runtime service. Production hosts can use the default router or provide their own `ICameraFrameRouter` when existing acquisition pipelines already buffer frames.
 - `IVisionImage` implementations must honor `Dispose`, `CloneReference`, and `TryGetBytes`. Native SDK image handles should be wrapped behind `NativeImage` or an adapter-owned image implementation instead of leaking SDK types into nodes.
+
+## 2026-06 Image And Queue Notes
+
+- `IVisionImage.ImageKind` should describe the role of the image, for example `Raw`, `Preprocessed`, `Stitched`, `HeightMap`, `TextureImage`, or `ConfidenceMap`.
+- When adapter work is queued with `WaitForCompletion=false`, adapters still receive a normal request and must report success or failure through the returned task. Queue events carry the final background status.
+- Image save adapters should treat the request image as valid only for the duration of `SaveAsync`; nodes clone and dispose their owned reference around queued work.
+- Fake adapters expose small delay knobs so non-blocking queue behavior can be tested without real hardware.

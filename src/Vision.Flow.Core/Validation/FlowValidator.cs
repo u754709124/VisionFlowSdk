@@ -630,7 +630,9 @@ namespace Vision.Flow.Core
 
                 if (string.Equals(node.Type, "recipe.run", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(node.Type, "image.save", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(node.Type, "database.save", StringComparison.OrdinalIgnoreCase))
+                    string.Equals(node.Type, "database.save", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(node.Type, "frame.preprocess", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(node.Type, "fusion.final_3d_2d", StringComparison.OrdinalIgnoreCase))
                 {
                     ValidateQueueSettings(node, fieldPrefix, result);
                 }
@@ -656,15 +658,30 @@ namespace Vision.Flow.Core
             }
 
             var matchMode = GetSettingString(node, "MatchMode", "TriggerId");
-            if (!IsOneOf(matchMode, "TriggerId", "Any", "ScanGroupId"))
+            if (!IsOneOf(matchMode, "TriggerId", "Any", "ScanGroupId", "TimeWindow"))
             {
-                result.AddError("CameraMatchModeInvalid", "MatchMode must be TriggerId, Any, or ScanGroupId.", nodeId: node.Id, field: fieldPrefix + "MatchMode");
+                result.AddError("CameraMatchModeInvalid", "MatchMode must be TriggerId, Any, ScanGroupId, or TimeWindow.", nodeId: node.Id, field: fieldPrefix + "MatchMode");
             }
 
             ValidateNonNegativeInt(node, "TimeoutMs", 1000, fieldPrefix, result);
             if (string.Equals(callbackMode, "StreamFrames", StringComparison.OrdinalIgnoreCase))
             {
-                ValidatePositiveInt(node, "ExpectedFrameCount", 1, fieldPrefix, result);
+                var streamOutputMode = GetSettingString(node, "StreamOutputMode", "Batch");
+                if (!IsOneOf(streamOutputMode, "Batch", "PerFrame"))
+                {
+                    result.AddError("CameraStreamOutputModeInvalid", "StreamOutputMode must be Batch or PerFrame.", nodeId: node.Id, field: fieldPrefix + "StreamOutputMode");
+                }
+
+                if (string.Equals(streamOutputMode, "PerFrame", StringComparison.OrdinalIgnoreCase))
+                {
+                    ValidateNonNegativeInt(node, "ExpectedFrameCount", 1, fieldPrefix, result);
+                    ValidateNonNegativeInt(node, "StartFrameIndex", 0, fieldPrefix, result);
+                }
+                else
+                {
+                    ValidatePositiveInt(node, "ExpectedFrameCount", 1, fieldPrefix, result);
+                }
+
                 ValidateNonNegativeInt(node, "FrameTimeoutMs", 1000, fieldPrefix, result);
             }
         }
@@ -675,7 +692,8 @@ namespace Vision.Flow.Core
             var hasUseQueue = TryGetSettingBoolean(node, "UseQueue", out useQueue, result, fieldPrefix + "UseQueue");
             var validateQueue = hasUseQueue && useQueue;
             validateQueue = validateQueue || HasSetting(node, "QueueName") || HasSetting(node, "QueueCapacity") ||
-                HasSetting(node, "QueueMaxDegreeOfParallelism") || HasSetting(node, "QueueFullMode");
+                HasSetting(node, "QueueMaxDegreeOfParallelism") || HasSetting(node, "QueueFullMode") ||
+                HasSetting(node, "WaitForCompletion");
 
             if (!validateQueue)
             {
@@ -691,9 +709,15 @@ namespace Vision.Flow.Core
             ValidatePositiveInt(node, "QueueMaxDegreeOfParallelism", 1, fieldPrefix, result);
 
             var fullMode = GetSettingString(node, "QueueFullMode", "Wait");
-            if (!IsOneOf(fullMode, "Wait", "Reject"))
+            if (!IsOneOf(fullMode, "Wait", "Reject", "Drop", "StopFlow", "NotifyOnly"))
             {
-                result.AddError("QueueFullModeInvalid", "QueueFullMode must be Wait or Reject.", nodeId: node.Id, field: fieldPrefix + "QueueFullMode");
+                result.AddError("QueueFullModeInvalid", "QueueFullMode must be Wait, Reject, Drop, StopFlow, or NotifyOnly.", nodeId: node.Id, field: fieldPrefix + "QueueFullMode");
+            }
+
+            bool waitForCompletion;
+            if (HasSetting(node, "WaitForCompletion"))
+            {
+                TryGetSettingBoolean(node, "WaitForCompletion", out waitForCompletion, result, fieldPrefix + "WaitForCompletion");
             }
         }
 
