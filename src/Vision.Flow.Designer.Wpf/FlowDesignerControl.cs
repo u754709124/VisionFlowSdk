@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using Microsoft.Win32;
@@ -32,9 +33,11 @@ namespace Vision.Flow.Designer.Wpf
         private readonly EdgeLayerControl _edges;
         private readonly Canvas _nodeLayer;
         private readonly TextBlock _statusText;
+        private TextBlock _zoomText;
 
         private FlowDesignDocument _document;
         private NodeDefinition _selectedNode;
+        private EdgeDefinition _selectedEdge;
         private IFlowRunner _runner;
         private Grid _surface;
         private ScrollViewer _canvasScroll;
@@ -42,10 +45,11 @@ namespace Vision.Flow.Designer.Wpf
         private Point _dragOffset;
         private NodeCardControl _dragCard;
         private bool _isPanning;
-        private bool _isSpacePressed;
         private Point _panStart;
         private double _panStartHorizontalOffset;
         private double _panStartVerticalOffset;
+        private bool _isRenderingEdges;
+        private bool _hasDeferredEdgeRefresh;
         private bool _isConnecting;
         private NodeDefinition _connectionSourceNode;
         private string _connectionSourcePort;
@@ -61,6 +65,7 @@ namespace Vision.Flow.Designer.Wpf
             _properties = new PropertyPanelControl();
             _debug = new RuntimeDebugPanelControl();
             _edges = new EdgeLayerControl();
+            _edges.EdgeSelected += SelectEdge;
             _edges.EdgeDeleteRequested += DeleteEdge;
             _nodeLayer = new Canvas
             {
@@ -68,6 +73,7 @@ namespace Vision.Flow.Designer.Wpf
                 Height = CanvasHeight,
                 Background = null
             };
+            _nodeLayer.LayoutUpdated += OnNodeLayerLayoutUpdated;
             _statusText = new TextBlock
             {
                 Foreground = Brushes.White,
@@ -81,7 +87,6 @@ namespace Vision.Flow.Designer.Wpf
             _palette.NodeRequested += AddNodeFromPalette;
             _debug.NodeRequested += SelectNodeById;
             PreviewKeyDown += OnPreviewKeyDown;
-            PreviewKeyUp += OnPreviewKeyUp;
             Focusable = true;
             LoadSingleShotTemplate();
         }
@@ -96,6 +101,111 @@ namespace Vision.Flow.Designer.Wpf
             Resources["FlowAccent"] = BrushFromRgb(22, 101, 52);
             Resources["FlowText"] = BrushFromRgb(17, 24, 39);
             Resources["FlowMutedText"] = BrushFromRgb(100, 116, 139);
+            InstallScrollBarResources();
+        }
+
+        private void InstallScrollBarResources()
+        {
+            var dictionary = (ResourceDictionary)XamlReader.Parse(@"
+<ResourceDictionary xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+                    xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
+    <Style x:Key=""FlowScrollBarPageButton"" TargetType=""{x:Type RepeatButton}"">
+        <Setter Property=""Focusable"" Value=""False"" />
+        <Setter Property=""OverridesDefaultStyle"" Value=""True"" />
+        <Setter Property=""Template"">
+            <Setter.Value>
+                <ControlTemplate TargetType=""{x:Type RepeatButton}"">
+                    <Border Background=""Transparent"" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key=""FlowScrollBarThumb"" TargetType=""{x:Type Thumb}"">
+        <Setter Property=""Focusable"" Value=""False"" />
+        <Setter Property=""Background"" Value=""#94A3B8"" />
+        <Setter Property=""Template"">
+            <Setter.Value>
+                <ControlTemplate TargetType=""{x:Type Thumb}"">
+                    <Border Margin=""2""
+                            Background=""{TemplateBinding Background}""
+                            CornerRadius=""4"" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property=""IsMouseOver"" Value=""True"">
+                <Setter Property=""Background"" Value=""#64748B"" />
+            </Trigger>
+            <Trigger Property=""IsDragging"" Value=""True"">
+                <Setter Property=""Background"" Value=""#166534"" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <ControlTemplate x:Key=""FlowVerticalScrollBarTemplate"" TargetType=""{x:Type ScrollBar}"">
+        <Border Width=""10""
+                Background=""{TemplateBinding Background}""
+                CornerRadius=""5""
+                SnapsToDevicePixels=""True"">
+            <Track x:Name=""PART_Track"" IsDirectionReversed=""True"">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Command=""ScrollBar.PageUpCommand""
+                                  Style=""{StaticResource FlowScrollBarPageButton}"" />
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb MinHeight=""28"" Style=""{StaticResource FlowScrollBarThumb}"" />
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Command=""ScrollBar.PageDownCommand""
+                                  Style=""{StaticResource FlowScrollBarPageButton}"" />
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Border>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key=""FlowHorizontalScrollBarTemplate"" TargetType=""{x:Type ScrollBar}"">
+        <Border Height=""10""
+                Background=""{TemplateBinding Background}""
+                CornerRadius=""5""
+                SnapsToDevicePixels=""True"">
+            <Track x:Name=""PART_Track"" IsDirectionReversed=""False"">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Command=""ScrollBar.PageLeftCommand""
+                                  Style=""{StaticResource FlowScrollBarPageButton}"" />
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb MinWidth=""28"" Style=""{StaticResource FlowScrollBarThumb}"" />
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Command=""ScrollBar.PageRightCommand""
+                                  Style=""{StaticResource FlowScrollBarPageButton}"" />
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Border>
+    </ControlTemplate>
+
+    <Style TargetType=""{x:Type ScrollBar}"">
+        <Setter Property=""Background"" Value=""#E2E8F0"" />
+        <Setter Property=""Width"" Value=""10"" />
+        <Setter Property=""MinWidth"" Value=""10"" />
+        <Setter Property=""Template"" Value=""{StaticResource FlowVerticalScrollBarTemplate}"" />
+        <Style.Triggers>
+            <Trigger Property=""Orientation"" Value=""Horizontal"">
+                <Setter Property=""Width"" Value=""Auto"" />
+                <Setter Property=""MinWidth"" Value=""32"" />
+                <Setter Property=""Height"" Value=""10"" />
+                <Setter Property=""MinHeight"" Value=""10"" />
+                <Setter Property=""Template"" Value=""{StaticResource FlowHorizontalScrollBarTemplate}"" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+</ResourceDictionary>");
+
+            foreach (var key in dictionary.Keys)
+            {
+                Resources[key] = dictionary[key];
+            }
         }
 
         private UIElement CreateShell()
@@ -183,13 +293,17 @@ namespace Vision.Flow.Designer.Wpf
         {
             var border = CreatePanelBorder(new Thickness(10, 0, 10, 0));
             border.Padding = new Thickness(0);
+            border.Background = BrushFromRgb(248, 250, 252);
+            border.BorderBrush = BrushFromRgb(232, 238, 246);
+            border.CornerRadius = new CornerRadius(8);
 
             _canvasScale = new ScaleTransform(1.0, 1.0);
             _surface = new Grid
             {
                 Width = CanvasWidth,
                 Height = CanvasHeight,
-                Background = BrushFromRgb(248, 250, 252)
+                Background = BrushFromRgb(248, 250, 252),
+                Cursor = Cursors.Hand
             };
             _surface.LayoutTransform = _canvasScale;
             _surface.Children.Add(CreateGridLayer());
@@ -202,52 +316,190 @@ namespace Vision.Flow.Designer.Wpf
 
             _canvasScroll = new ScrollViewer
             {
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
                 Content = _surface
             };
             _canvasScroll.ScrollChanged += delegate { SaveCanvasViewState(); };
-            border.Child = _canvasScroll;
+
+            var canvasRoot = new Grid
+            {
+                ClipToBounds = true
+            };
+            canvasRoot.PreviewMouseWheel += OnCanvasMouseWheel;
+            canvasRoot.Children.Add(_canvasScroll);
+            canvasRoot.Children.Add(CreateZoomOverlay());
+            border.Child = canvasRoot;
 
             return border;
         }
 
-        private Canvas CreateGridLayer()
+        private UIElement CreateZoomOverlay()
         {
-            var grid = new Canvas
+            var overlay = new Border
             {
-                Width = CanvasWidth,
-                Height = CanvasHeight,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Margin = new Thickness(0, 0, 14, 14),
+                Padding = new Thickness(4, 2, 4, 2),
+                CornerRadius = new CornerRadius(7),
+                Background = Brushes.White,
+                BorderBrush = BrushFromRgb(226, 232, 240),
+                BorderThickness = new Thickness(1),
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    BlurRadius = 8,
+                    ShadowDepth = 1,
+                    Opacity = 0.12,
+                    Color = Color.FromRgb(15, 23, 42)
+                }
+            };
+
+            var row = new StackPanel
+            {
+                Orientation = Orientation.Horizontal
+            };
+            overlay.Child = row;
+
+            row.Children.Add(CreateZoomButton("-", delegate { ChangeCanvasZoom(0.9); }));
+            _zoomText = new TextBlock
+            {
+                Width = 42,
+                TextAlignment = TextAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontWeight = FontWeights.Medium,
+                FontSize = 12,
+                Foreground = BrushFromRgb(100, 116, 139)
+            };
+            row.Children.Add(_zoomText);
+            row.Children.Add(CreateZoomButton("+", delegate { ChangeCanvasZoom(1.1); }));
+            UpdateZoomText();
+
+            return overlay;
+        }
+
+        private static Button CreateZoomButton(string text, RoutedEventHandler handler)
+        {
+            var button = new Button
+            {
+                Content = CreateZoomIcon(text),
+                Width = 24,
+                Height = 24,
+                Padding = new Thickness(0),
+                Background = Brushes.Transparent,
+                BorderBrush = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Foreground = BrushFromRgb(71, 85, 105),
+                FontWeight = FontWeights.Bold,
+                Cursor = Cursors.Hand,
+                Focusable = false,
+                Template = CreateZoomButtonTemplate()
+            };
+            button.MouseEnter += delegate { button.Background = BrushFromRgb(241, 245, 249); };
+            button.MouseLeave += delegate { button.Background = Brushes.Transparent; };
+            button.Click += handler;
+            return button;
+        }
+
+        private static ControlTemplate CreateZoomButtonTemplate()
+        {
+            var template = new ControlTemplate(typeof(Button));
+            var border = new FrameworkElementFactory(typeof(Border));
+            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
+            border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Button.BorderBrushProperty));
+            border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Button.BorderThicknessProperty));
+            border.SetValue(Border.SnapsToDevicePixelsProperty, true);
+
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            border.AppendChild(presenter);
+
+            template.VisualTree = border;
+            return template;
+        }
+
+        private static UIElement CreateZoomIcon(string text)
+        {
+            var canvas = new Canvas
+            {
+                Width = 16,
+                Height = 16,
                 IsHitTestVisible = false
             };
 
-            for (double x = 0; x <= CanvasWidth; x += GridSize)
+            var stroke = BrushFromRgb(71, 85, 105);
+            var circle = new Ellipse
             {
-                grid.Children.Add(new Line
-                {
-                    X1 = x,
-                    Y1 = 0,
-                    X2 = x,
-                    Y2 = CanvasHeight,
-                    Stroke = BrushFromRgb(235, 240, 247),
-                    StrokeThickness = x % (GridSize * 4) == 0 ? 1.2 : 0.6
-                });
-            }
+                Width = 8,
+                Height = 8,
+                Stroke = stroke,
+                StrokeThickness = 1.3
+            };
+            Canvas.SetLeft(circle, 2);
+            Canvas.SetTop(circle, 2);
+            canvas.Children.Add(circle);
 
-            for (double y = 0; y <= CanvasHeight; y += GridSize)
+            var mark = new TextBlock
             {
-                grid.Children.Add(new Line
-                {
-                    X1 = 0,
-                    Y1 = y,
-                    X2 = CanvasWidth,
-                    Y2 = y,
-                    Stroke = BrushFromRgb(235, 240, 247),
-                    StrokeThickness = y % (GridSize * 4) == 0 ? 1.2 : 0.6
-                });
-            }
+                Text = text,
+                Width = 8,
+                Height = 8,
+                FontSize = 8,
+                FontWeight = FontWeights.Bold,
+                Foreground = stroke,
+                TextAlignment = TextAlignment.Center
+            };
+            Canvas.SetLeft(mark, 2);
+            Canvas.SetTop(mark, 1);
+            canvas.Children.Add(mark);
 
-            return grid;
+            var handle = new Line
+            {
+                X1 = 9,
+                Y1 = 9,
+                X2 = 13,
+                Y2 = 13,
+                Stroke = stroke,
+                StrokeThickness = 1.3,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round
+            };
+            canvas.Children.Add(handle);
+
+            return canvas;
+        }
+
+        private UIElement CreateGridLayer()
+        {
+            return new Rectangle
+            {
+                Width = CanvasWidth,
+                Height = CanvasHeight,
+                Fill = CreateDotGridBrush(),
+                IsHitTestVisible = false
+            };
+        }
+
+        private static Brush CreateDotGridBrush()
+        {
+            var drawing = new GeometryDrawing
+            {
+                Brush = BrushFromRgb(226, 232, 240),
+                Geometry = new EllipseGeometry(new Point(1.2, 1.2), 0.65, 0.65)
+            };
+
+            var brush = new DrawingBrush(drawing)
+            {
+                TileMode = TileMode.Tile,
+                Viewbox = new Rect(0, 0, 14, 14),
+                ViewboxUnits = BrushMappingMode.Absolute,
+                Viewport = new Rect(0, 0, 14, 14),
+                ViewportUnits = BrushMappingMode.Absolute
+            };
+            brush.Freeze();
+            return brush;
         }
 
         private void ApplyCanvasViewState()
@@ -260,6 +512,8 @@ namespace Vision.Flow.Designer.Wpf
             var zoom = ClampZoom(_document.View.Zoom <= 0 ? 1.0 : _document.View.Zoom);
             _canvasScale.ScaleX = zoom;
             _canvasScale.ScaleY = zoom;
+            UpdateZoomText();
+            UpdateStatus();
 
             if (_canvasScroll != null)
             {
@@ -288,37 +542,70 @@ namespace Vision.Flow.Designer.Wpf
 
         private void OnCanvasMouseWheel(object sender, MouseWheelEventArgs e)
         {
+            ChangeCanvasZoom(e.Delta > 0 ? 1.1 : 0.9);
+            e.Handled = true;
+        }
+
+        private void ChangeCanvasZoom(double factor)
+        {
+            if (_canvasScale == null)
+            {
+                return;
+            }
+
+            SetCanvasZoom(_canvasScale.ScaleX * factor);
+        }
+
+        private void SetCanvasZoom(double zoom)
+        {
             if (_canvasScale == null || _document == null)
             {
                 return;
             }
 
-            var factor = e.Delta > 0 ? 1.1 : 0.9;
-            var zoom = ClampZoom(_canvasScale.ScaleX * factor);
-            _canvasScale.ScaleX = zoom;
-            _canvasScale.ScaleY = zoom;
+            var clamped = ClampZoom(zoom);
+            _canvasScale.ScaleX = clamped;
+            _canvasScale.ScaleY = clamped;
             SaveCanvasViewState();
+            UpdateZoomText();
             UpdateStatus();
-            e.Handled = true;
+        }
+
+        private void UpdateZoomText()
+        {
+            if (_zoomText == null)
+            {
+                return;
+            }
+
+            var zoom = _canvasScale == null ? 1.0 : _canvasScale.ScaleX;
+            _zoomText.Text = Math.Round(zoom * 100.0).ToString("0", CultureInfo.InvariantCulture) + "%";
         }
 
         private void OnSurfaceMouseDown(object sender, MouseButtonEventArgs e)
         {
             Focus();
-            if (e.ChangedButton == MouseButton.Middle || (_isSpacePressed && e.ChangedButton == MouseButton.Left))
+            if (e.ChangedButton == MouseButton.Left && !_isConnecting)
             {
-                _isPanning = true;
-                _panStart = e.GetPosition(this);
-                _panStartHorizontalOffset = _canvasScroll == null ? 0 : _canvasScroll.HorizontalOffset;
-                _panStartVerticalOffset = _canvasScroll == null ? 0 : _canvasScroll.VerticalOffset;
-                if (_surface != null)
-                {
-                    _surface.CaptureMouse();
-                    _surface.Cursor = Cursors.Hand;
-                }
-
+                SelectNode(null);
+                BeginCanvasPan(e);
                 e.Handled = true;
             }
+        }
+
+        private void BeginCanvasPan(MouseButtonEventArgs e)
+        {
+            if (_canvasScroll == null || _surface == null)
+            {
+                return;
+            }
+
+            _isPanning = true;
+            _panStart = e.GetPosition(this);
+            _panStartHorizontalOffset = _canvasScroll.HorizontalOffset;
+            _panStartVerticalOffset = _canvasScroll.VerticalOffset;
+            _surface.CaptureMouse();
+            _surface.Cursor = Cursors.Hand;
         }
 
         private void OnSurfaceMouseMove(object sender, MouseEventArgs e)
@@ -348,7 +635,7 @@ namespace Vision.Flow.Designer.Wpf
                 if (_surface != null)
                 {
                     _surface.ReleaseMouseCapture();
-                    _surface.Cursor = Cursors.Arrow;
+                    _surface.Cursor = Cursors.Hand;
                 }
 
                 e.Handled = true;
@@ -356,23 +643,17 @@ namespace Vision.Flow.Designer.Wpf
 
             if (_isConnecting)
             {
-                CancelConnectionPreview();
+                CompleteConnectionAt(e.GetPosition(_nodeLayer));
+                e.Handled = true;
             }
         }
 
         private void OnPreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Space)
+            if ((e.Key == Key.Delete || e.Key == Key.Back) && !IsTextEditorFocused())
             {
-                _isSpacePressed = true;
-            }
-        }
-
-        private void OnPreviewKeyUp(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Space)
-            {
-                _isSpacePressed = false;
+                DeleteSelection();
+                e.Handled = true;
             }
         }
 
@@ -385,6 +666,7 @@ namespace Vision.Flow.Designer.Wpf
         {
             _document = CreateDocument("designer-flow", "Designer Flow");
             _selectedNode = null;
+            _selectedEdge = null;
             RenderCanvas();
             ApplyCanvasViewState();
             RenderProperties();
@@ -442,6 +724,7 @@ namespace Vision.Flow.Designer.Wpf
             AddEdge("save_1", "db_1");
 
             _selectedNode = flow.Nodes.FirstOrDefault();
+            _selectedEdge = null;
             RenderCanvas();
             ApplyCanvasViewState();
             RenderProperties();
@@ -660,6 +943,131 @@ namespace Vision.Flow.Designer.Wpf
             });
         }
 
+        private void RenderEdges()
+        {
+            if (_isRenderingEdges)
+            {
+                return;
+            }
+
+            try
+            {
+                _isRenderingEdges = true;
+                if (_nodeLayer != null)
+                {
+                    _nodeLayer.UpdateLayout();
+                }
+
+                _edges.Render(_document, _selectedEdge, CreatePortAnchorMap());
+            }
+            finally
+            {
+                _isRenderingEdges = false;
+            }
+        }
+
+        private void OnNodeLayerLayoutUpdated(object sender, EventArgs e)
+        {
+            if (!_hasDeferredEdgeRefresh || _isRenderingEdges)
+            {
+                return;
+            }
+
+            _hasDeferredEdgeRefresh = false;
+            RenderEdges();
+        }
+
+        private IDictionary<string, Point> CreatePortAnchorMap()
+        {
+            var anchors = new Dictionary<string, Point>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in _nodeCards)
+            {
+                var card = item.Value;
+                if (card == null)
+                {
+                    continue;
+                }
+
+                AddPortAnchors(anchors, item.Key, "Input", card.InputPortControls);
+                AddPortAnchors(anchors, item.Key, "Output", card.OutputPortControls);
+            }
+
+            return anchors;
+        }
+
+        private void AddPortAnchors(IDictionary<string, Point> anchors, string nodeId, string direction, IEnumerable<PortControl> ports)
+        {
+            if (anchors == null || string.IsNullOrWhiteSpace(nodeId) || ports == null)
+            {
+                return;
+            }
+
+            PortControl firstPort = null;
+            foreach (var port in ports)
+            {
+                if (port == null || port.Port == null || port.Visibility != Visibility.Visible)
+                {
+                    continue;
+                }
+
+                if (firstPort == null)
+                {
+                    firstPort = port;
+                }
+
+                var center = GetPortCenter(port);
+                if (!IsFinite(center.X) || !IsFinite(center.Y))
+                {
+                    continue;
+                }
+
+                anchors[CreatePortAnchorKey(nodeId, direction, port.Port.Name)] = center;
+            }
+
+            if (firstPort != null)
+            {
+                var center = GetPortCenter(firstPort);
+                if (IsFinite(center.X) && IsFinite(center.Y))
+                {
+                    anchors[CreatePortAnchorKey(nodeId, direction, null)] = center;
+                }
+            }
+        }
+
+        private void SelectEdge(EdgeDefinition edge)
+        {
+            if (edge == null)
+            {
+                return;
+            }
+
+            Focus();
+            _selectedEdge = edge;
+            _selectedNode = null;
+            foreach (var item in _nodeCards)
+            {
+                item.Value.SetSelected(false);
+            }
+
+            RenderProperties();
+            RenderEdges();
+            UpdateStatus();
+        }
+
+        private void DeleteSelection()
+        {
+            if (_selectedEdge != null)
+            {
+                DeleteEdge(_selectedEdge);
+                return;
+            }
+
+            if (_selectedNode != null)
+            {
+                DeleteNode(_selectedNode);
+            }
+        }
+
         private void DeleteEdge(EdgeDefinition edge)
         {
             if (edge == null || _document == null || _document.Runtime == null)
@@ -667,8 +1075,15 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
-            _document.Runtime.Edges.Remove(edge);
-            _edges.Render(_document);
+            CancelConnectionPreview();
+            _document.Runtime.Edges.RemoveAll(x => object.ReferenceEquals(x, edge) || EdgeEquals(x, edge));
+            if (EdgeEquals(_selectedEdge, edge))
+            {
+                _selectedEdge = null;
+            }
+
+            RenderEdges();
+            UpdateStatus();
             AddDebugMessage("Deleted edge " + edge.FromNodeId + " -> " + edge.ToNodeId + ".");
         }
 
@@ -707,7 +1122,8 @@ namespace Vision.Flow.Designer.Wpf
                 _nodeCards[node.Id] = card;
             }
 
-            _edges.Render(_document);
+            _hasDeferredEdgeRefresh = true;
+            RenderEdges();
             UpdateStatus();
         }
 
@@ -733,11 +1149,13 @@ namespace Vision.Flow.Designer.Wpf
         private void SelectNode(NodeDefinition node)
         {
             _selectedNode = node;
+            _selectedEdge = null;
             foreach (var item in _nodeCards)
             {
                 item.Value.SetSelected(StringEquals(item.Key, node == null ? null : node.Id));
             }
 
+            RenderEdges();
             RenderProperties();
             UpdateStatus();
         }
@@ -882,6 +1300,7 @@ namespace Vision.Flow.Designer.Wpf
 
             _document.Runtime.Nodes.Remove(node);
             _document.Runtime.Edges.RemoveAll(x => StringEquals(x.FromNodeId, node.Id) || StringEquals(x.ToNodeId, node.Id));
+            _selectedEdge = null;
             if (_document.View != null)
             {
                 _document.View.Nodes.Remove(node.Id);
@@ -927,11 +1346,17 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
+            SelectNode(card.ViewModel.Node);
             _isConnecting = true;
             _connectionSourceNode = card.ViewModel.Node;
             _connectionSourcePort = e.Port.Name;
             _connectionStartPoint = GetPortCenter(e.PortControl);
             _edges.SetPreview(_connectionStartPoint, _connectionStartPoint);
+            if (_surface != null)
+            {
+                _surface.CaptureMouse();
+                _surface.Cursor = Cursors.Cross;
+            }
         }
 
         private void OnInputPortDragCompleted(object sender, PortConnectionEventArgs e)
@@ -942,22 +1367,104 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
-            var targetNode = card.ViewModel.Node;
+            CompleteConnection(card.ViewModel.Node, e.Port.Name);
+        }
+
+        private void CompleteConnectionAt(Point point)
+        {
+            var target = FindInputPortNear(point);
+            if (target == null)
+            {
+                CancelConnectionPreview();
+                return;
+            }
+
+            CompleteConnection(target.Node, target.Port.Name);
+        }
+
+        private void CompleteConnection(NodeDefinition targetNode, string targetPort)
+        {
+            if (!_isConnecting || _connectionSourceNode == null)
+            {
+                return;
+            }
+
             if (targetNode == null || StringEquals(targetNode.Id, _connectionSourceNode.Id))
             {
                 CancelConnectionPreview();
                 return;
             }
 
-            AddEdge(_connectionSourceNode.Id, _connectionSourcePort, targetNode.Id, e.Port.Name);
-            AddDebugMessage("Connected " + _connectionSourceNode.Id + "." + _connectionSourcePort + " -> " + targetNode.Id + "." + e.Port.Name + ".");
+            AddEdge(_connectionSourceNode.Id, _connectionSourcePort, targetNode.Id, targetPort);
+            AddDebugMessage("Connected " + _connectionSourceNode.Id + "." + _connectionSourcePort + " -> " + targetNode.Id + "." + targetPort + ".");
             CancelConnectionPreview();
             RenderCanvas();
         }
 
+        private PortHit FindInputPortNear(Point point)
+        {
+            var direct = FindInputPortFromHitTest(point);
+            if (direct != null)
+            {
+                return direct;
+            }
+
+            PortHit nearest = null;
+            var nearestDistance = 28.0;
+            foreach (var item in _nodeCards)
+            {
+                var card = item.Value;
+                if (card == null)
+                {
+                    continue;
+                }
+
+                foreach (var port in card.InputPortControls)
+                {
+                    if (port == null || !port.IsVisible)
+                    {
+                        continue;
+                    }
+
+                    var center = GetPortCenter(port);
+                    var distance = (center - point).Length;
+                    if (distance <= nearestDistance)
+                    {
+                        nearestDistance = distance;
+                        nearest = new PortHit(card.ViewModel.Node, port.Port, port);
+                    }
+                }
+            }
+
+            return nearest;
+        }
+
+        private PortHit FindInputPortFromHitTest(Point point)
+        {
+            if (_nodeLayer == null)
+            {
+                return null;
+            }
+
+            var hit = VisualTreeHelper.HitTest(_nodeLayer, point);
+            if (hit == null)
+            {
+                return null;
+            }
+
+            var port = FindAncestor<PortControl>(hit.VisualHit);
+            if (port == null || port.Port == null || !string.Equals(port.Port.Direction, "Input", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var card = FindAncestor<NodeCardControl>(port);
+            return card == null ? null : new PortHit(card.ViewModel.Node, port.Port, port);
+        }
+
         private Point GetPortCenter(PortControl port)
         {
-            return port.TranslatePoint(new Point(port.ActualWidth / 2.0, port.ActualHeight / 2.0), _nodeLayer);
+            return port.GetAnchorPoint(_nodeLayer);
         }
 
         private void CancelConnectionPreview()
@@ -966,6 +1473,11 @@ namespace Vision.Flow.Designer.Wpf
             _connectionSourceNode = null;
             _connectionSourcePort = null;
             _edges.ClearPreview();
+            if (_surface != null && _surface.IsMouseCaptured && !_isPanning)
+            {
+                _surface.ReleaseMouseCapture();
+                _surface.Cursor = Cursors.Hand;
+            }
         }
 
         private static VariableBinding CloneBinding(VariableBinding source)
@@ -994,6 +1506,7 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
+            Focus();
             SelectNode(card.ViewModel.Node);
             if (e.ClickCount == 2)
             {
@@ -1028,7 +1541,7 @@ namespace Vision.Flow.Designer.Wpf
                 _document.View.Nodes[node.Id].Y = y;
             }
 
-            _edges.Render(_document);
+            RenderEdges();
         }
 
         private void OnNodeMouseUp(object sender, MouseButtonEventArgs e)
@@ -1074,6 +1587,7 @@ namespace Vision.Flow.Designer.Wpf
                 }
 
                 _selectedNode = _document.Runtime.Nodes.FirstOrDefault();
+                _selectedEdge = null;
                 RenderCanvas();
                 ApplyCanvasViewState();
                 RenderProperties();
@@ -1261,7 +1775,9 @@ namespace Vision.Flow.Designer.Wpf
         {
             var nodeCount = _document == null || _document.Runtime == null ? 0 : _document.Runtime.Nodes.Count;
             var edgeCount = _document == null || _document.Runtime == null ? 0 : _document.Runtime.Edges.Count;
-            var selected = _selectedNode == null ? "none" : _selectedNode.Id;
+            var selected = _selectedNode != null
+                ? _selectedNode.Id
+                : (_selectedEdge == null ? "none" : FormatEdgeLabel(_selectedEdge));
             var zoom = _canvasScale == null ? 1.0 : _canvasScale.ScaleX;
             _statusText.Text = string.Format(CultureInfo.InvariantCulture, "{0} nodes | {1} edges | zoom {2:P0} | selected: {3}", nodeCount, edgeCount, zoom, selected);
         }
@@ -1437,6 +1953,116 @@ namespace Vision.Flow.Designer.Wpf
             return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
         }
 
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        internal static string CreatePortAnchorKey(string nodeId, string direction, string portName)
+        {
+            return (nodeId ?? string.Empty) + "|" + (direction ?? string.Empty) + "|" + (portName ?? string.Empty);
+        }
+
+        internal static bool EdgeEquals(EdgeDefinition left, EdgeDefinition right)
+        {
+            return left != null &&
+                right != null &&
+                StringEquals(left.FromNodeId, right.FromNodeId) &&
+                StringEquals(left.FromPort, right.FromPort) &&
+                StringEquals(left.ToNodeId, right.ToNodeId) &&
+                StringEquals(left.ToPort, right.ToPort);
+        }
+
+        internal static string FormatEdgeLabel(EdgeDefinition edge)
+        {
+            if (edge == null)
+            {
+                return "none";
+            }
+
+            return (edge.FromNodeId ?? string.Empty) + "." + (string.IsNullOrWhiteSpace(edge.FromPort) ? "?" : edge.FromPort) +
+                " -> " +
+                (edge.ToNodeId ?? string.Empty) + "." + (string.IsNullOrWhiteSpace(edge.ToPort) ? "?" : edge.ToPort);
+        }
+
+        private static bool IsTextEditorFocused()
+        {
+            var current = Keyboard.FocusedElement as DependencyObject;
+            while (current != null)
+            {
+                if (current is TextBox || current is PasswordBox || current is ComboBox)
+                {
+                    return true;
+                }
+
+                DependencyObject parent = null;
+                try
+                {
+                    parent = VisualTreeHelper.GetParent(current);
+                }
+                catch (InvalidOperationException)
+                {
+                    parent = null;
+                }
+
+                if (parent == null)
+                {
+                    parent = LogicalTreeHelper.GetParent(current);
+                }
+
+                current = parent;
+            }
+
+            return false;
+        }
+
+        private static T FindAncestor<T>(DependencyObject current) where T : DependencyObject
+        {
+            while (current != null)
+            {
+                var typed = current as T;
+                if (typed != null)
+                {
+                    return typed;
+                }
+
+                DependencyObject parent = null;
+                try
+                {
+                    parent = VisualTreeHelper.GetParent(current);
+                }
+                catch (InvalidOperationException)
+                {
+                    parent = null;
+                }
+
+                if (parent == null)
+                {
+                    parent = LogicalTreeHelper.GetParent(current);
+                }
+
+                current = parent;
+            }
+
+            return null;
+        }
+
+        private sealed class PortHit
+        {
+            public PortHit(NodeDefinition node, PortViewModel port, PortControl portControl)
+            {
+                Node = node;
+                Port = port;
+                PortControl = portControl;
+            }
+
+            public NodeDefinition Node { get; private set; }
+
+            public PortViewModel Port { get; private set; }
+
+            public PortControl PortControl { get; private set; }
+        }
+
         internal static SolidColorBrush BrushFromRgb(byte r, byte g, byte b)
         {
             var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
@@ -1569,7 +2195,7 @@ namespace Vision.Flow.Designer.Wpf
     {
         private readonly TextBlock _title;
         private readonly TextBlock _type;
-        private readonly TextBlock _summary;
+        private readonly StackPanel _summaryRows;
         private readonly Border _stateChip;
         private readonly TextBlock _stateText;
         private bool _isDisabled;
@@ -1577,39 +2203,59 @@ namespace Vision.Flow.Designer.Wpf
         public NodeCardControl(NodeViewModel viewModel)
         {
             ViewModel = viewModel;
-            Width = 218;
-            MinHeight = 112;
+            Width = 190;
+            MinHeight = 86;
             Background = Brushes.White;
-            BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225);
+            BorderBrush = FlowDesignerControl.BrushFromRgb(52, 211, 153);
             BorderThickness = new Thickness(1);
-            CornerRadius = new CornerRadius(6);
-            Padding = new Thickness(10);
+            CornerRadius = new CornerRadius(8);
+            Padding = new Thickness(9, 8, 9, 8);
             Cursor = Cursors.SizeAll;
+            InputPortControls = new List<PortControl>();
+            OutputPortControls = new List<PortControl>();
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                BlurRadius = 8,
+                ShadowDepth = 1,
+                Opacity = 0.08,
+                Color = Color.FromRgb(15, 23, 42)
+            };
 
-            var root = new DockPanel();
-            Child = root;
+            var chrome = new Grid();
+            Child = chrome;
+
+            var root = new DockPanel
+            {
+                LastChildFill = true,
+                Margin = new Thickness(12, 0, 12, 0)
+            };
+            chrome.Children.Add(root);
 
             var ports = CreatePortRow(viewModel);
-            DockPanel.SetDock(ports, Dock.Bottom);
-            root.Children.Add(ports);
+            Panel.SetZIndex(ports, 2);
+            chrome.Children.Add(ports);
 
-            var header = new DockPanel();
+            var header = new DockPanel
+            {
+                Margin = new Thickness(0, 0, 0, 8)
+            };
             DockPanel.SetDock(header, Dock.Top);
             root.Children.Add(header);
 
             var icon = new Border
             {
-                Width = 30,
-                Height = 30,
+                Width = 22,
+                Height = 22,
                 CornerRadius = new CornerRadius(5),
-                Background = FlowDesignerControl.BrushFromRgb(220, 252, 231),
+                Background = GetNodeAccentBrush(viewModel.Node.Type),
                 Child = new TextBlock
                 {
-                    Text = "VF",
+                    Text = GetNodeGlyph(viewModel.Node.Type),
+                    FontSize = 10,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                     FontWeight = FontWeights.Bold,
-                    Foreground = FlowDesignerControl.BrushFromRgb(22, 101, 52)
+                    Foreground = Brushes.White
                 }
             };
             DockPanel.SetDock(icon, Dock.Left);
@@ -1617,14 +2263,16 @@ namespace Vision.Flow.Designer.Wpf
 
             _stateChip = new Border
             {
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(6, 2, 6, 2),
-                Background = FlowDesignerControl.BrushFromRgb(241, 245, 249),
+                Width = 10,
+                Height = 10,
+                CornerRadius = new CornerRadius(5),
+                Margin = new Thickness(8, 6, 0, 0),
+                Background = FlowDesignerControl.BrushFromRgb(16, 185, 129),
+                ToolTip = "Ready",
                 Child = _stateText = new TextBlock
                 {
-                    Text = "Ready",
-                    FontSize = 11,
-                    Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105)
+                    Text = string.Empty,
+                    FontSize = 1
                 }
             };
             DockPanel.SetDock(_stateChip, Dock.Right);
@@ -1632,7 +2280,8 @@ namespace Vision.Flow.Designer.Wpf
 
             var text = new StackPanel
             {
-                Margin = new Thickness(8, 0, 8, 0)
+                Margin = new Thickness(7, 0, 6, 0),
+                VerticalAlignment = VerticalAlignment.Center
             };
             header.Children.Add(text);
             _title = new TextBlock
@@ -1640,31 +2289,34 @@ namespace Vision.Flow.Designer.Wpf
                 Text = viewModel.Node.Name,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = FlowDesignerControl.BrushFromRgb(15, 23, 42),
-                TextTrimming = TextTrimming.CharacterEllipsis
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                FontSize = 12.5,
+                LineHeight = 16
             };
             _type = new TextBlock
             {
                 Text = viewModel.Node.Type,
-                FontSize = 11,
+                FontSize = 9.5,
                 Foreground = FlowDesignerControl.BrushFromRgb(100, 116, 139),
-                TextTrimming = TextTrimming.CharacterEllipsis
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 1, 0, 0)
             };
             text.Children.Add(_title);
             text.Children.Add(_type);
 
-            _summary = new TextBlock
+            _summaryRows = new StackPanel
             {
-                Margin = new Thickness(0, 10, 0, 8),
-                Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105),
-                TextWrapping = TextWrapping.Wrap,
-                FontSize = 12,
-                MaxHeight = 34
+                Margin = new Thickness(0, 0, 0, 1)
             };
-            root.Children.Add(_summary);
+            root.Children.Add(_summaryRows);
             UpdateSummary();
         }
 
         public NodeViewModel ViewModel { get; private set; }
+
+        public IList<PortControl> InputPortControls { get; private set; }
+
+        public IList<PortControl> OutputPortControls { get; private set; }
 
         public event EventHandler<PortConnectionEventArgs> OutputPortDragStarted;
 
@@ -1675,26 +2327,109 @@ namespace Vision.Flow.Designer.Wpf
             _title.Text = string.IsNullOrWhiteSpace(ViewModel.Node.Name) ? ViewModel.Node.Id : ViewModel.Node.Name;
             _type.Text = ViewModel.Node.Type;
 
-            var parts = new List<string>();
-            foreach (var setting in ViewModel.Node.Settings.Take(3))
+            _summaryRows.Children.Clear();
+            foreach (var row in CreateSummaryRows())
             {
-                if (setting.Value == null)
-                {
-                    continue;
-                }
+                _summaryRows.Children.Add(CreateSummaryRow(row.Key, row.Value));
+            }
+        }
 
-                parts.Add(setting.Key + "=" + ToShortText(setting.Value));
+        private IEnumerable<KeyValuePair<string, string>> CreateSummaryRows()
+        {
+            var rows = new List<KeyValuePair<string, string>>
+            {
+                new KeyValuePair<string, string>("TYPE", ShortNodeType(ViewModel.Node.Type))
+            };
+
+            if (ViewModel.Node.InputBindings != null)
+            {
+                foreach (var binding in ViewModel.Node.InputBindings)
+                {
+                    if (binding.Value == null || string.IsNullOrWhiteSpace(binding.Value.Expression))
+                    {
+                        continue;
+                    }
+
+                    rows.Add(new KeyValuePair<string, string>(binding.Key, ToShortText(binding.Value.Expression)));
+                    break;
+                }
             }
 
-            _summary.Text = parts.Count == 0 ? "No settings" : string.Join(", ", parts.ToArray());
+            if (rows.Count < 3 && ViewModel.Node.Settings != null)
+            {
+                foreach (var setting in ViewModel.Node.Settings)
+                {
+                    if (setting.Value == null)
+                    {
+                        continue;
+                    }
+
+                    rows.Add(new KeyValuePair<string, string>(setting.Key, ToShortText(setting.Value)));
+                    if (rows.Count >= 3)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (rows.Count < 2)
+            {
+                var ports = ViewModel.OutputPorts.Select(x => x.Name).Where(x => !string.IsNullOrWhiteSpace(x)).Take(2).ToArray();
+                rows.Add(new KeyValuePair<string, string>("OUT", ports.Length == 0 ? "default" : string.Join(", ", ports)));
+            }
+
+            return rows.Take(3);
+        }
+
+        private static UIElement CreateSummaryRow(string label, string value)
+        {
+            var border = new Border
+            {
+                MinHeight = 20,
+                Margin = new Thickness(0, 0, 0, 4),
+                Padding = new Thickness(6, 2, 6, 2),
+                Background = FlowDesignerControl.BrushFromRgb(243, 246, 249),
+                CornerRadius = new CornerRadius(4)
+            };
+
+            var row = new DockPanel
+            {
+                LastChildFill = true
+            };
+            border.Child = row;
+
+            var left = new TextBlock
+            {
+                Text = ToShortLabel(label),
+                FontSize = 9.5,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = FlowDesignerControl.BrushFromRgb(100, 116, 139),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            DockPanel.SetDock(left, Dock.Left);
+            row.Children.Add(left);
+
+            var right = new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(value) ? "-" : value,
+                FontSize = 10.5,
+                Foreground = FlowDesignerControl.BrushFromRgb(51, 65, 85),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            row.Children.Add(right);
+
+            return border;
         }
 
         public void SetSelected(bool isSelected)
         {
             BorderBrush = isSelected
-                ? FlowDesignerControl.BrushFromRgb(22, 101, 52)
-                : FlowDesignerControl.BrushFromRgb(203, 213, 225);
-            BorderThickness = isSelected ? new Thickness(2) : new Thickness(1);
+                ? FlowDesignerControl.BrushFromRgb(16, 185, 129)
+                : FlowDesignerControl.BrushFromRgb(52, 211, 153);
+            BorderThickness = isSelected ? new Thickness(1.6) : new Thickness(1);
         }
 
         public void SetDisabled(bool isDisabled)
@@ -1704,8 +2439,8 @@ namespace Vision.Flow.Designer.Wpf
             if (isDisabled)
             {
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(226, 232, 240);
-                _stateText.Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105);
-                _stateText.Text = "Disabled";
+                _stateChip.ToolTip = "Disabled";
+                _stateText.Text = string.Empty;
             }
         }
 
@@ -1719,8 +2454,8 @@ namespace Vision.Flow.Designer.Wpf
             if (_isDisabled && state == NodeRuntimeState.Waiting)
             {
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(226, 232, 240);
-                _stateText.Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105);
-                _stateText.Text = "Disabled";
+                _stateChip.ToolTip = "Disabled";
+                _stateText.Text = string.Empty;
                 ToolTip = "Node is disabled in the designer.";
                 return;
             }
@@ -1728,55 +2463,59 @@ namespace Vision.Flow.Designer.Wpf
             ToolTip = string.IsNullOrWhiteSpace(message) ? null : message;
             if (state == NodeRuntimeState.Running)
             {
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(254, 249, 195);
-                _stateText.Foreground = FlowDesignerControl.BrushFromRgb(133, 77, 14);
-                _stateText.Text = "Running";
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(245, 158, 11);
+                _stateChip.ToolTip = "Running";
+                _stateText.Text = string.Empty;
                 return;
             }
 
             if (state == NodeRuntimeState.Completed)
             {
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(220, 252, 231);
-                _stateText.Foreground = FlowDesignerControl.BrushFromRgb(22, 101, 52);
-                _stateText.Text = elapsed.HasValue ? "Done " + FormatElapsed(elapsed.Value) : "Done";
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(16, 185, 129);
+                _stateChip.ToolTip = elapsed.HasValue ? "Done " + FormatElapsed(elapsed.Value) : "Done";
+                _stateText.Text = string.Empty;
                 return;
             }
 
             if (state == NodeRuntimeState.Failed)
             {
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(254, 226, 226);
-                _stateText.Foreground = FlowDesignerControl.BrushFromRgb(153, 27, 27);
-                _stateText.Text = elapsed.HasValue ? "Failed " + FormatElapsed(elapsed.Value) : "Failed";
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(239, 68, 68);
+                _stateChip.ToolTip = elapsed.HasValue ? "Failed " + FormatElapsed(elapsed.Value) : "Failed";
+                _stateText.Text = string.Empty;
                 return;
             }
 
             if (state == NodeRuntimeState.Timeout)
             {
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(255, 237, 213);
-                _stateText.Foreground = FlowDesignerControl.BrushFromRgb(154, 52, 18);
-                _stateText.Text = elapsed.HasValue ? "Timeout " + FormatElapsed(elapsed.Value) : "Timeout";
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(249, 115, 22);
+                _stateChip.ToolTip = elapsed.HasValue ? "Timeout " + FormatElapsed(elapsed.Value) : "Timeout";
+                _stateText.Text = string.Empty;
                 return;
             }
 
-            _stateChip.Background = FlowDesignerControl.BrushFromRgb(241, 245, 249);
-            _stateText.Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105);
-            _stateText.Text = "Ready";
+            _stateChip.Background = FlowDesignerControl.BrushFromRgb(16, 185, 129);
+            _stateChip.ToolTip = "Ready";
+            _stateText.Text = string.Empty;
         }
 
         private UIElement CreatePortRow(NodeViewModel viewModel)
         {
-            var row = new DockPanel
+            var row = new Grid
             {
-                LastChildFill = false
+                Margin = new Thickness(-16, 0, -16, 0),
+                IsHitTestVisible = true
             };
 
             var input = new StackPanel
             {
-                Orientation = Orientation.Horizontal
+                Orientation = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center
             };
             foreach (var port in viewModel.InputPorts)
             {
                 var portControl = new PortControl(port);
+                InputPortControls.Add(portControl);
                 portControl.MouseLeftButtonUp += delegate(object sender, MouseButtonEventArgs e)
                 {
                     var handler = InputPortDragCompleted;
@@ -1790,17 +2529,18 @@ namespace Vision.Flow.Designer.Wpf
                 input.Children.Add(portControl);
             }
 
-            DockPanel.SetDock(input, Dock.Left);
             row.Children.Add(input);
 
             var output = new StackPanel
             {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right
+                Orientation = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
             };
             foreach (var port in viewModel.OutputPorts)
             {
                 var portControl = new PortControl(port);
+                OutputPortControls.Add(portControl);
                 portControl.MouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs e)
                 {
                     var handler = OutputPortDragStarted;
@@ -1814,7 +2554,6 @@ namespace Vision.Flow.Designer.Wpf
                 output.Children.Add(portControl);
             }
 
-            DockPanel.SetDock(output, Dock.Right);
             row.Children.Add(output);
             return row;
         }
@@ -1824,6 +2563,101 @@ namespace Vision.Flow.Designer.Wpf
             return elapsed.TotalMilliseconds < 1000
                 ? Math.Max(1, (int)elapsed.TotalMilliseconds).ToString(CultureInfo.InvariantCulture) + "ms"
                 : elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture) + "s";
+        }
+
+        private static Brush GetNodeAccentBrush(string nodeType)
+        {
+            var type = nodeType ?? string.Empty;
+            if (type.StartsWith("camera.", StringComparison.OrdinalIgnoreCase))
+            {
+                return FlowDesignerControl.BrushFromRgb(59, 130, 246);
+            }
+
+            if (type.StartsWith("light.", StringComparison.OrdinalIgnoreCase))
+            {
+                return FlowDesignerControl.BrushFromRgb(245, 158, 11);
+            }
+
+            if (type.StartsWith("database.", StringComparison.OrdinalIgnoreCase))
+            {
+                return FlowDesignerControl.BrushFromRgb(20, 184, 166);
+            }
+
+            if (type.StartsWith("join.", StringComparison.OrdinalIgnoreCase) ||
+                type.StartsWith("group.", StringComparison.OrdinalIgnoreCase) ||
+                type.StartsWith("scan.", StringComparison.OrdinalIgnoreCase) ||
+                type.StartsWith("fusion.", StringComparison.OrdinalIgnoreCase))
+            {
+                return FlowDesignerControl.BrushFromRgb(14, 165, 233);
+            }
+
+            if (type.IndexOf("branch", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                type.IndexOf("condition", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return FlowDesignerControl.BrushFromRgb(6, 182, 212);
+            }
+
+            return FlowDesignerControl.BrushFromRgb(99, 102, 241);
+        }
+
+        private static string GetNodeGlyph(string nodeType)
+        {
+            var type = nodeType ?? string.Empty;
+            if (type.IndexOf("jwt", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "JWT";
+            }
+
+            if (type.IndexOf("http", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "GET";
+            }
+
+            if (type.StartsWith("camera.", StringComparison.OrdinalIgnoreCase))
+            {
+                return "CAM";
+            }
+
+            if (type.StartsWith("database.", StringComparison.OrdinalIgnoreCase))
+            {
+                return "DB";
+            }
+
+            if (type.IndexOf("branch", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                type.IndexOf("condition", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "IF";
+            }
+
+            return "VF";
+        }
+
+        private static string ShortNodeType(string nodeType)
+        {
+            if (string.IsNullOrWhiteSpace(nodeType))
+            {
+                return "node";
+            }
+
+            var text = nodeType.Trim();
+            var index = text.LastIndexOf('.');
+            if (index >= 0 && index < text.Length - 1)
+            {
+                text = text.Substring(index + 1);
+            }
+
+            return ToShortText(text);
+        }
+
+        private static string ToShortLabel(string label)
+        {
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                return "INFO";
+            }
+
+            var text = label.Trim().ToUpperInvariant();
+            return text.Length <= 8 ? text : text.Substring(0, 8);
         }
 
         private static string ToShortText(object value)
@@ -1845,16 +2679,68 @@ namespace Vision.Flow.Designer.Wpf
 
     public sealed class PortControl : Border
     {
+        private readonly Border _tab;
+        private readonly Brush _normalFill;
+        private readonly Brush _hoverFill;
+
         public PortControl(PortViewModel port)
         {
+            Port = port;
+            var isInput = port != null && string.Equals(port.Direction, "Input", StringComparison.OrdinalIgnoreCase);
+            _normalFill = FlowDesignerControl.BrushFromRgb(59, 130, 246);
+            _hoverFill = FlowDesignerControl.BrushFromRgb(37, 99, 235);
+
             Width = 14;
-            Height = 14;
-            CornerRadius = new CornerRadius(7);
-            Margin = new Thickness(2);
-            Background = port.Direction == "Input"
-                ? FlowDesignerControl.BrushFromRgb(14, 165, 233)
-                : FlowDesignerControl.BrushFromRgb(34, 197, 94);
-            ToolTip = port.Name + " (" + port.DataType + ")";
+            Height = 22;
+            CornerRadius = new CornerRadius(0);
+            Margin = new Thickness(0, 4, 0, 4);
+            Padding = new Thickness(0);
+            Background = Brushes.Transparent;
+            BorderThickness = new Thickness(0);
+            Cursor = isInput ? Cursors.Cross : Cursors.Hand;
+            ToolTip = (isInput ? "Input: " : "Output: ") + (port == null ? string.Empty : port.Name + " (" + port.DataType + ")");
+            SnapsToDevicePixels = true;
+
+            var grid = new Grid();
+            _tab = new Border
+            {
+                Width = 5,
+                Height = 18,
+                Background = _normalFill,
+                CornerRadius = new CornerRadius(2.5),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            grid.Children.Add(_tab);
+            Child = grid;
+
+            MouseEnter += delegate { SetHover(true); };
+            MouseLeave += delegate { SetHover(false); };
+        }
+
+        public PortViewModel Port { get; private set; }
+
+        public Point GetAnchorPoint(UIElement relativeTo)
+        {
+            var width = _tab.ActualWidth > 0 ? _tab.ActualWidth : _tab.Width;
+            var height = _tab.ActualHeight > 0 ? _tab.ActualHeight : _tab.Height;
+            if (double.IsNaN(width) || width <= 0)
+            {
+                width = 5;
+            }
+
+            if (double.IsNaN(height) || height <= 0)
+            {
+                height = 18;
+            }
+
+            return _tab.TranslatePoint(new Point(width / 2.0, height / 2.0), relativeTo);
+        }
+
+        private void SetHover(bool isHover)
+        {
+            _tab.Background = isHover ? _hoverFill : _normalFill;
+            _tab.Width = isHover ? 6 : 5;
         }
     }
 
@@ -1873,6 +2759,9 @@ namespace Vision.Flow.Designer.Wpf
 
     public sealed class EdgeLayerControl : Canvas
     {
+        private const double NodeCardWidth = 190;
+        private const double PortAnchorY = 43;
+
         private bool _hasPreview;
         private Point _previewStart;
         private Point _previewEnd;
@@ -1884,9 +2773,11 @@ namespace Vision.Flow.Designer.Wpf
             IsHitTestVisible = true;
         }
 
+        public event Action<EdgeDefinition> EdgeSelected;
+
         public event Action<EdgeDefinition> EdgeDeleteRequested;
 
-        public void Render(FlowDesignDocument document)
+        public void Render(FlowDesignDocument document, EdgeDefinition selectedEdge, IDictionary<string, Point> portAnchors)
         {
             Children.Clear();
             if (document == null || document.Runtime == null || document.View == null)
@@ -1904,9 +2795,19 @@ namespace Vision.Flow.Designer.Wpf
                     continue;
                 }
 
-                var start = new Point(from.X + 218, from.Y + 82);
-                var end = new Point(to.X, to.Y + 82);
-                Children.Add(CreateEdgePath(start, end, edge, false));
+                var fallbackStart = new Point(from.X + NodeCardWidth, from.Y + PortAnchorY);
+                var fallbackEnd = new Point(to.X, to.Y + PortAnchorY);
+                var start = GetPortAnchor(
+                    portAnchors,
+                    FlowDesignerControl.CreatePortAnchorKey(edge.FromNodeId, "Output", edge.FromPort),
+                    FlowDesignerControl.CreatePortAnchorKey(edge.FromNodeId, "Output", null),
+                    fallbackStart);
+                var end = GetPortAnchor(
+                    portAnchors,
+                    FlowDesignerControl.CreatePortAnchorKey(edge.ToNodeId, "Input", edge.ToPort),
+                    FlowDesignerControl.CreatePortAnchorKey(edge.ToNodeId, "Input", null),
+                    fallbackEnd);
+                Children.Add(CreateEdgeVisual(start, end, edge, FlowDesignerControl.EdgeEquals(edge, selectedEdge)));
             }
 
             RenderPreview();
@@ -1930,8 +2831,8 @@ namespace Vision.Flow.Designer.Wpf
         {
             for (var index = Children.Count - 1; index >= 0; index--)
             {
-                var path = Children[index] as ShapesPath;
-                if (path != null && string.Equals(Convert.ToString(path.Tag, CultureInfo.InvariantCulture), "__preview", StringComparison.Ordinal))
+                var element = Children[index] as FrameworkElement;
+                if (element != null && string.Equals(Convert.ToString(element.Tag, CultureInfo.InvariantCulture), "__preview", StringComparison.Ordinal))
                 {
                     Children.RemoveAt(index);
                 }
@@ -1939,51 +2840,119 @@ namespace Vision.Flow.Designer.Wpf
 
             if (_hasPreview)
             {
-                Children.Add(CreatePreviewPath(_previewStart, _previewEnd));
+                Children.Add(CreatePreviewVisual(_previewStart, _previewEnd));
             }
         }
 
-        private UIElement CreateEdgePath(Point start, Point end, EdgeDefinition edge, bool isPreview)
+        private UIElement CreateEdgeVisual(Point start, Point end, EdgeDefinition edge, bool isSelected)
         {
-            var path = CreateBezierPath(start, end);
-            path.Stroke = isPreview ? FlowDesignerControl.BrushFromRgb(22, 101, 52) : FlowDesignerControl.BrushFromRgb(71, 85, 105);
-            path.StrokeThickness = isPreview ? 2.0 : 2.4;
-            path.StrokeStartLineCap = PenLineCap.Round;
-            path.StrokeEndLineCap = PenLineCap.Round;
-            path.Fill = Brushes.Transparent;
-            path.Tag = edge;
-            if (!isPreview)
+            var geometry = CreateBezierGeometry(start, end);
+            var stroke = isSelected
+                ? FlowDesignerControl.BrushFromRgb(16, 185, 129)
+                : FlowDesignerControl.BrushFromRgb(203, 213, 225);
+
+            var group = new Canvas
             {
-                path.ToolTip = edge.FromNodeId + "." + edge.FromPort + " -> " + edge.ToNodeId + "." + edge.ToPort;
-                path.MouseRightButtonDown += delegate(object sender, MouseButtonEventArgs e)
-                {
-                    var handler = EdgeDeleteRequested;
-                    if (handler != null)
-                    {
-                        handler(edge);
-                    }
+                Width = Width,
+                Height = Height,
+                Background = null,
+                Tag = edge,
+                ToolTip = FlowDesignerControl.FormatEdgeLabel(edge)
+            };
 
-                    e.Handled = true;
-                };
+            var hitPath = CreatePath(geometry, Brushes.Transparent, 13, null);
+            hitPath.Cursor = Cursors.Hand;
+            group.Children.Add(hitPath);
+
+            var visiblePath = CreatePath(geometry, stroke, isSelected ? 2.4 : 1.6, null);
+            visiblePath.IsHitTestVisible = false;
+            group.Children.Add(visiblePath);
+
+            group.MouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs e)
+            {
+                SelectEdge(edge);
+                e.Handled = true;
+            };
+            group.MouseRightButtonDown += delegate(object sender, MouseButtonEventArgs e)
+            {
+                SelectEdge(edge);
+            };
+            group.ContextMenu = CreateEdgeContextMenu(edge);
+            return group;
+        }
+
+        private static Point GetPortAnchor(IDictionary<string, Point> anchors, string exactKey, string fallbackKey, Point fallback)
+        {
+            Point point;
+            if (anchors != null && !string.IsNullOrWhiteSpace(exactKey) && anchors.TryGetValue(exactKey, out point))
+            {
+                return point;
             }
 
-            return path;
+            if (anchors != null && !string.IsNullOrWhiteSpace(fallbackKey) && anchors.TryGetValue(fallbackKey, out point))
+            {
+                return point;
+            }
+
+            return fallback;
         }
 
-        private UIElement CreatePreviewPath(Point start, Point end)
+        private UIElement CreatePreviewVisual(Point start, Point end)
         {
-            var path = CreateBezierPath(start, end);
-            path.Stroke = FlowDesignerControl.BrushFromRgb(22, 101, 52);
-            path.StrokeThickness = 2.0;
-            path.StrokeDashArray = new DoubleCollection { 4, 4 };
-            path.StrokeStartLineCap = PenLineCap.Round;
-            path.StrokeEndLineCap = PenLineCap.Round;
-            path.Tag = "__preview";
-            path.IsHitTestVisible = false;
-            return path;
+            var stroke = FlowDesignerControl.BrushFromRgb(16, 185, 129);
+            var geometry = CreateBezierGeometry(start, end);
+            var group = new Canvas
+            {
+                Width = Width,
+                Height = Height,
+                IsHitTestVisible = false,
+                Tag = "__preview"
+            };
+            var path = CreatePath(geometry, stroke, 1.8, new DoubleCollection { 4, 4 });
+            group.Children.Add(path);
+            return group;
         }
 
-        private static ShapesPath CreateBezierPath(Point start, Point end)
+        private ContextMenu CreateEdgeContextMenu(EdgeDefinition edge)
+        {
+            var menu = new ContextMenu();
+            var delete = new MenuItem { Header = "Delete" };
+            delete.Click += delegate
+            {
+                var handler = EdgeDeleteRequested;
+                if (handler != null)
+                {
+                    handler(edge);
+                }
+            };
+            menu.Items.Add(delete);
+            return menu;
+        }
+
+        private void SelectEdge(EdgeDefinition edge)
+        {
+            var handler = EdgeSelected;
+            if (handler != null)
+            {
+                handler(edge);
+            }
+        }
+
+        private static ShapesPath CreatePath(PathGeometry geometry, Brush stroke, double thickness, DoubleCollection dashArray)
+        {
+            return new ShapesPath
+            {
+                Data = geometry,
+                Stroke = stroke,
+                StrokeThickness = thickness,
+                StrokeDashArray = dashArray,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Fill = null
+            };
+        }
+
+        private static PathGeometry CreateBezierGeometry(Point start, Point end)
         {
             var distance = Math.Max(72, Math.Abs(end.X - start.X) * 0.45);
             var geometry = new PathGeometry();
@@ -2000,10 +2969,7 @@ namespace Vision.Flow.Designer.Wpf
                 true));
             geometry.Figures.Add(figure);
 
-            return new ShapesPath
-            {
-                Data = geometry
-            };
+            return geometry;
         }
     }
 
