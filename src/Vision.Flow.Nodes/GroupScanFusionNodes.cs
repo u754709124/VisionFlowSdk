@@ -197,11 +197,31 @@ namespace Vision.Flow.Nodes
         {
             ExpectedShotCount = 2;
             TimeoutMs = 0;
+            DuplicatePolicy = "Error";
+            FirstShotIndex = 0;
         }
+
+        public string CaptureGroupId { get; set; }
+
+        public string CaptureGroupIdBinding { get; set; }
+
+        public string ShotIndexBinding { get; set; }
+
+        public string FrameBinding { get; set; }
+
+        public string ImageBinding { get; set; }
+
+        public string FrameIdBinding { get; set; }
 
         public int ExpectedShotCount { get; set; }
 
         public int TimeoutMs { get; set; }
+
+        public string DuplicatePolicy { get; set; }
+
+        public bool RequireContinuousShotIndex { get; set; }
+
+        public int FirstShotIndex { get; set; }
     }
 
     public sealed class FrameGroupJoinNodeFactory : BaseNodeFactory<FrameGroupJoinNodeConfig>
@@ -222,8 +242,17 @@ namespace Vision.Flow.Nodes
         {
             return new FrameGroupJoinNodeConfig
             {
+                CaptureGroupId = GetStringSetting(definition, "CaptureGroupId", null),
+                CaptureGroupIdBinding = GetStringSetting(definition, "CaptureGroupIdBinding", null),
+                ShotIndexBinding = GetStringSetting(definition, "ShotIndexBinding", null),
+                FrameBinding = GetStringSetting(definition, "FrameBinding", null),
+                ImageBinding = GetStringSetting(definition, "ImageBinding", null),
+                FrameIdBinding = GetStringSetting(definition, "FrameIdBinding", null),
                 ExpectedShotCount = GetInt32Setting(definition, "ExpectedShotCount", 2),
-                TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 0)
+                TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 0),
+                DuplicatePolicy = GetStringSetting(definition, "DuplicatePolicy", "Error"),
+                RequireContinuousShotIndex = Convert.ToBoolean(GetSetting(definition, "RequireContinuousShotIndex", false), CultureInfo.InvariantCulture),
+                FirstShotIndex = GetInt32Setting(definition, "FirstShotIndex", 0)
             };
         }
 
@@ -261,23 +290,27 @@ namespace Vision.Flow.Nodes
                 return Task.FromResult(NodeExecutionResult.Failure("TimeoutMs must be greater than or equal to zero."));
             }
 
-            var captureGroupId = ResolveCaptureGroupId(context);
+            var captureGroupId = ResolveCaptureGroupId(context, _config.CaptureGroupId, _config.CaptureGroupIdBinding);
             if (string.IsNullOrWhiteSpace(captureGroupId))
             {
                 return Task.FromResult(NodeExecutionResult.Failure("CaptureGroupId is required."));
             }
 
             int shotIndex;
-            if (!TryResolveInt32(context, "ShotIndex", out shotIndex))
+            if (!TryResolveInt32(context, "ShotIndex", _config.ShotIndexBinding, out shotIndex))
             {
                 return Task.FromResult(NodeExecutionResult.Failure("ShotIndex is required."));
             }
 
-            var item = CreateFrameGroupItem(context, captureGroupId, shotIndex);
+            var item = CreateFrameGroupItem(context, _config, captureGroupId, shotIndex);
             if (item.Image == null && item.Frame == null)
             {
                 return Task.FromResult(NodeExecutionResult.Failure("Frame or Image input is required."));
             }
+
+            var duplicatePolicy = ResolveDuplicatePolicy(ResolveString(context, "DuplicatePolicy", _config.DuplicatePolicy));
+            var requireContinuous = ResolveBoolean(context, "RequireContinuousShotIndex", _config.RequireContinuousShotIndex);
+            var firstShotIndex = ResolveInt32(context, "FirstShotIndex", _config.FirstShotIndex);
 
             lock (_gate)
             {
@@ -290,8 +323,16 @@ namespace Vision.Flow.Nodes
 
                 if (bucket.Items.ContainsKey(shotIndex))
                 {
-                    return Task.FromResult(NodeExecutionResult.Failure(
-                        "Duplicate ShotIndex detected for CaptureGroupId '" + captureGroupId + "': " + shotIndex));
+                    if (duplicatePolicy == DuplicateItemPolicy.Error)
+                    {
+                        return Task.FromResult(NodeExecutionResult.Failure(
+                            "Duplicate ShotIndex detected for CaptureGroupId '" + captureGroupId + "': " + shotIndex));
+                    }
+
+                    if (duplicatePolicy == DuplicateItemPolicy.Ignore)
+                    {
+                        return Task.FromResult(CreateWaitingResult(captureGroupId, bucket.Items.Count, expectedShotCount, timeoutMs, true));
+                    }
                 }
 
                 bucket.ExpectedCount = expectedShotCount;
@@ -300,15 +341,15 @@ namespace Vision.Flow.Nodes
 
                 if (bucket.Items.Count < expectedShotCount)
                 {
-                    return Task.FromResult(NodeExecutionResult.Success(
-                        "Waiting",
-                        new Dictionary<string, object>
-                        {
-                            { "CaptureGroupId", captureGroupId },
-                            { "CurrentShotCount", bucket.Items.Count },
-                            { "ExpectedShotCount", expectedShotCount },
-                            { "TimeoutMs", timeoutMs }
-                        }));
+                    return Task.FromResult(CreateWaitingResult(captureGroupId, bucket.Items.Count, expectedShotCount, timeoutMs, false));
+                }
+
+                if (requireContinuous && !HasContinuousIndexes(bucket.Items.Keys, expectedShotCount, firstShotIndex))
+                {
+                    _buckets.Remove(captureGroupId);
+                    return Task.FromResult(NodeExecutionResult.Failure(
+                        "ShotIndex sequence must be continuous from " + firstShotIndex.ToString(CultureInfo.InvariantCulture) +
+                        " for CaptureGroupId '" + captureGroupId + "'."));
                 }
 
                 _buckets.Remove(captureGroupId);
@@ -327,17 +368,41 @@ namespace Vision.Flow.Nodes
             }
         }
 
-        private static FrameGroupItem CreateFrameGroupItem(FlowExecutionContext context, string captureGroupId, int shotIndex)
+        private static NodeExecutionResult CreateWaitingResult(
+            string captureGroupId,
+            int currentCount,
+            int expectedCount,
+            int timeoutMs,
+            bool duplicateIgnored)
         {
-            var frame = ResolveFrame(context);
-            var image = frame == null ? ResolveImage(context) : frame.Image;
+            return NodeExecutionResult.Success(
+                "Waiting",
+                new Dictionary<string, object>
+                {
+                    { "CaptureGroupId", captureGroupId },
+                    { "CurrentShotCount", currentCount },
+                    { "ExpectedShotCount", expectedCount },
+                    { "TimeoutMs", timeoutMs },
+                    { "DuplicateIgnored", duplicateIgnored }
+                });
+        }
+
+        private static FrameGroupItem CreateFrameGroupItem(
+            FlowExecutionContext context,
+            FrameGroupJoinNodeConfig config,
+            string captureGroupId,
+            int shotIndex)
+        {
+            var frame = ResolveFrame(context, config.FrameBinding);
+            var image = frame == null ? ResolveImage(context, config.ImageBinding) : frame.Image;
+            var frameId = ResolveStringValue(context, "FrameId", context.Token.FrameId, config.FrameIdBinding);
             var item = new FrameGroupItem
             {
                 CaptureGroupId = captureGroupId,
                 ShotIndex = shotIndex,
                 Frame = frame,
                 Image = image,
-                FrameId = frame == null ? ResolveString(context, "FrameId", context.Token.FrameId) : frame.FrameId,
+                FrameId = frame == null ? frameId : frame.FrameId,
                 GrabTime = frame == null ? DateTime.UtcNow : frame.GrabTime
             };
 
@@ -351,23 +416,6 @@ namespace Vision.Flow.Nodes
             item.Metadata["ShotIndex"] = shotIndex;
             item.Metadata["FrameId"] = item.FrameId;
             return item;
-        }
-
-        private static string ResolveCaptureGroupId(FlowExecutionContext context)
-        {
-            var value = ResolveString(context, "CaptureGroupId", null);
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value;
-            }
-
-            object tokenValue;
-            if (context.Token.TryGet("CaptureGroupId", out tokenValue))
-            {
-                return tokenValue == null ? null : Convert.ToString(tokenValue, CultureInfo.InvariantCulture);
-            }
-
-            return context.Token.CaptureGroupId;
         }
     }
 
@@ -402,8 +450,17 @@ namespace Vision.Flow.Nodes
                 },
                 Settings =
                 {
+                    CreateStringSetting("CaptureGroupId", "Capture Group", null, false, "Optional capture group id. Token CaptureGroupId is used when empty."),
+                    CreateStringSetting("CaptureGroupIdBinding", "Capture Group Binding", null, false, "Optional binding expression for CaptureGroupId."),
+                    CreateStringSetting("ShotIndexBinding", "Shot Index Binding", null, false, "Optional binding expression for ShotIndex."),
+                    CreateStringSetting("FrameBinding", "Frame Binding", null, false, "Optional binding expression for Frame."),
+                    CreateStringSetting("ImageBinding", "Image Binding", null, false, "Optional binding expression for Image."),
+                    CreateStringSetting("FrameIdBinding", "Frame Id Binding", null, false, "Optional binding expression for FrameId."),
                     CreateIntSetting("ExpectedShotCount", "Expected Shots", 2, true, "Number of shots required to complete a group."),
-                    CreateIntSetting("TimeoutMs", "Timeout (ms)", 0, false, "Reserved group timeout. Zero disables timeout handling.")
+                    CreateIntSetting("TimeoutMs", "Timeout (ms)", 0, false, "Reserved group timeout. Zero disables timeout handling."),
+                    CreateStringSetting("DuplicatePolicy", "Duplicate Policy", "Error", false, "Duplicate ShotIndex policy: Error, Ignore, or Replace."),
+                    CreateBoolSetting("RequireContinuousShotIndex", "Require Continuous Shots", false, false, "When true, completed ShotIndex values must be continuous."),
+                    CreateIntSetting("FirstShotIndex", "First Shot Index", 0, false, "Expected first ShotIndex when continuous validation is enabled.")
                 },
                 Outputs =
                 {
@@ -420,6 +477,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class StitchNodeConfig
     {
+        public string FrameGroupBinding { get; set; }
     }
 
     public sealed class StitchNodeFactory : BaseNodeFactory<StitchNodeConfig>
@@ -436,6 +494,14 @@ namespace Vision.Flow.Nodes
             get { return StitchNodeDescriptor.Create(); }
         }
 
+        protected override StitchNodeConfig CreateConfig(NodeDefinition definition)
+        {
+            return new StitchNodeConfig
+            {
+                FrameGroupBinding = GetStringSetting(definition, "FrameGroupBinding", null)
+            };
+        }
+
         protected override IFlowNode CreateNode(NodeDefinition definition, StitchNodeConfig config)
         {
             return new StitchNode(config);
@@ -444,15 +510,18 @@ namespace Vision.Flow.Nodes
 
     public sealed class StitchNode : IFlowNode
     {
+        private readonly StitchNodeConfig _config;
+
         public StitchNode(StitchNodeConfig config)
         {
+            _config = config ?? new StitchNodeConfig();
         }
 
         public Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var frameGroup = ResolveFrameGroup(context);
+            var frameGroup = ResolveFrameGroup(context, _config.FrameGroupBinding);
             if (frameGroup == null)
             {
                 return Task.FromResult(NodeExecutionResult.Failure("FrameGroup input is required."));
@@ -475,9 +544,9 @@ namespace Vision.Flow.Nodes
                 }));
         }
 
-        private static FrameGroupResult ResolveFrameGroup(FlowExecutionContext context)
+        private static FrameGroupResult ResolveFrameGroup(FlowExecutionContext context, string bindingExpression)
         {
-            var value = context.GetInputValue("FrameGroup");
+            var value = ResolveConfiguredValue(context, "FrameGroup", bindingExpression);
             if (value == null)
             {
                 value = context.GetInputValue("FrameGroupResult");
@@ -527,6 +596,10 @@ namespace Vision.Flow.Nodes
                     AdapterNodeDescriptors.NextOut(),
                     AdapterNodeDescriptors.ErrorOut("Routes missing or invalid frame groups.")
                 },
+                Settings =
+                {
+                    CreateStringSetting("FrameGroupBinding", "Frame Group Binding", null, false, "Optional binding expression used when FrameGroup is not bound directly.")
+                },
                 Outputs =
                 {
                     CreateOutput("StitchedImage", "Stitched Image", "IVisionImage", "Fake stitched image."),
@@ -546,6 +619,16 @@ namespace Vision.Flow.Nodes
         }
 
         public string ScanGroupId { get; set; }
+
+        public string ScanGroupIdBinding { get; set; }
+
+        public string FrameIndexBinding { get; set; }
+
+        public string FrameBinding { get; set; }
+
+        public string ImageBinding { get; set; }
+
+        public string FrameIdBinding { get; set; }
 
         public int FrameIndex { get; set; }
     }
@@ -569,6 +652,11 @@ namespace Vision.Flow.Nodes
             return new FramePreprocessNodeConfig
             {
                 ScanGroupId = GetStringSetting(definition, "ScanGroupId", null),
+                ScanGroupIdBinding = GetStringSetting(definition, "ScanGroupIdBinding", null),
+                FrameIndexBinding = GetStringSetting(definition, "FrameIndexBinding", null),
+                FrameBinding = GetStringSetting(definition, "FrameBinding", null),
+                ImageBinding = GetStringSetting(definition, "ImageBinding", null),
+                FrameIdBinding = GetStringSetting(definition, "FrameIdBinding", null),
                 FrameIndex = GetInt32Setting(definition, "FrameIndex", -1)
             };
         }
@@ -592,14 +680,14 @@ namespace Vision.Flow.Nodes
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var scanGroupId = ResolveScanGroupId(context, _config.ScanGroupId);
+            var scanGroupId = ResolveScanGroupId(context, _config.ScanGroupId, _config.ScanGroupIdBinding);
             if (string.IsNullOrWhiteSpace(scanGroupId))
             {
                 return Task.FromResult(NodeExecutionResult.Failure("ScanGroupId is required."));
             }
 
             int frameIndex;
-            if (!TryResolveInt32(context, "FrameIndex", out frameIndex))
+            if (!TryResolveInt32(context, "FrameIndex", _config.FrameIndexBinding, out frameIndex))
             {
                 frameIndex = _config.FrameIndex;
             }
@@ -609,14 +697,14 @@ namespace Vision.Flow.Nodes
                 return Task.FromResult(NodeExecutionResult.Failure("FrameIndex must be greater than or equal to zero."));
             }
 
-            var frame = ResolveFrame(context);
-            var sourceImage = frame == null ? ResolveImage(context) : frame.Image;
+            var frame = ResolveFrame(context, _config.FrameBinding);
+            var sourceImage = frame == null ? ResolveImage(context, _config.ImageBinding) : frame.Image;
             if (sourceImage == null)
             {
                 return Task.FromResult(NodeExecutionResult.Failure("Frame or Image input is required."));
             }
 
-            var result = CreatePreprocessResult(context, scanGroupId, frameIndex, frame, sourceImage);
+            var result = CreatePreprocessResult(context, _config, scanGroupId, frameIndex, frame, sourceImage);
             return Task.FromResult(NodeExecutionResult.Success(
                 "Next",
                 new Dictionary<string, object>
@@ -632,13 +720,14 @@ namespace Vision.Flow.Nodes
 
         private static FramePreprocessResult CreatePreprocessResult(
             FlowExecutionContext context,
+            FramePreprocessNodeConfig config,
             string scanGroupId,
             int frameIndex,
             CameraFrameData frame,
             IVisionImage sourceImage)
         {
             var sourceImageId = sourceImage == null ? null : sourceImage.ImageId;
-            var frameId = frame == null ? ResolveString(context, "FrameId", context.Token.FrameId) : frame.FrameId;
+            var frameId = frame == null ? ResolveStringValue(context, "FrameId", context.Token.FrameId, config.FrameIdBinding) : frame.FrameId;
             if (string.IsNullOrWhiteSpace(frameId))
             {
                 frameId = sourceImageId;
@@ -706,6 +795,11 @@ namespace Vision.Flow.Nodes
                 Settings =
                 {
                     CreateStringSetting("ScanGroupId", "Scan Group", null, false, "Scan group id. This can also come from token or input binding."),
+                    CreateStringSetting("ScanGroupIdBinding", "Scan Group Binding", null, false, "Optional binding expression for ScanGroupId."),
+                    CreateStringSetting("FrameIndexBinding", "Frame Index Binding", null, false, "Optional binding expression for FrameIndex."),
+                    CreateStringSetting("FrameBinding", "Frame Binding", null, false, "Optional binding expression for Frame."),
+                    CreateStringSetting("ImageBinding", "Image Binding", null, false, "Optional binding expression for Image."),
+                    CreateStringSetting("FrameIdBinding", "Frame Id Binding", null, false, "Optional binding expression for FrameId."),
                     CreateIntSetting("FrameIndex", "Frame Index", -1, false, "Frame index. Values less than zero require an input or token value.")
                 },
                 Outputs =
@@ -727,11 +821,21 @@ namespace Vision.Flow.Nodes
         {
             ExpectedFrameCount = 2;
             TimeoutMs = 0;
+            DuplicatePolicy = "Error";
+            FirstFrameIndex = 0;
         }
+
+        public string PreprocessResultBinding { get; set; }
 
         public int ExpectedFrameCount { get; set; }
 
         public int TimeoutMs { get; set; }
+
+        public string DuplicatePolicy { get; set; }
+
+        public bool RequireContinuousFrameIndex { get; set; }
+
+        public int FirstFrameIndex { get; set; }
     }
 
     public sealed class ScanGroupJoinNodeFactory : BaseNodeFactory<ScanGroupJoinNodeConfig>
@@ -752,8 +856,12 @@ namespace Vision.Flow.Nodes
         {
             return new ScanGroupJoinNodeConfig
             {
+                PreprocessResultBinding = GetStringSetting(definition, "PreprocessResultBinding", null),
                 ExpectedFrameCount = GetInt32Setting(definition, "ExpectedFrameCount", 2),
-                TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 0)
+                TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 0),
+                DuplicatePolicy = GetStringSetting(definition, "DuplicatePolicy", "Error"),
+                RequireContinuousFrameIndex = Convert.ToBoolean(GetSetting(definition, "RequireContinuousFrameIndex", false), CultureInfo.InvariantCulture),
+                FirstFrameIndex = GetInt32Setting(definition, "FirstFrameIndex", 0)
             };
         }
 
@@ -791,7 +899,7 @@ namespace Vision.Flow.Nodes
                 return Task.FromResult(NodeExecutionResult.Failure("TimeoutMs must be greater than or equal to zero."));
             }
 
-            var preprocessResult = ResolvePreprocessResult(context);
+            var preprocessResult = ResolvePreprocessResult(context, _config.PreprocessResultBinding);
             if (preprocessResult == null)
             {
                 return Task.FromResult(NodeExecutionResult.Failure("PreprocessResult input is required."));
@@ -807,6 +915,10 @@ namespace Vision.Flow.Nodes
                 return Task.FromResult(NodeExecutionResult.Failure("PreprocessResult.FrameIndex must be greater than or equal to zero."));
             }
 
+            var duplicatePolicy = ResolveDuplicatePolicy(ResolveString(context, "DuplicatePolicy", _config.DuplicatePolicy));
+            var requireContinuous = ResolveBoolean(context, "RequireContinuousFrameIndex", _config.RequireContinuousFrameIndex);
+            var firstFrameIndex = ResolveInt32(context, "FirstFrameIndex", _config.FirstFrameIndex);
+
             lock (_gate)
             {
                 ScanGroupBucket bucket;
@@ -818,8 +930,16 @@ namespace Vision.Flow.Nodes
 
                 if (bucket.Items.ContainsKey(preprocessResult.FrameIndex))
                 {
-                    return Task.FromResult(NodeExecutionResult.Failure(
-                        "Duplicate FrameIndex detected for ScanGroupId '" + preprocessResult.ScanGroupId + "': " + preprocessResult.FrameIndex));
+                    if (duplicatePolicy == DuplicateItemPolicy.Error)
+                    {
+                        return Task.FromResult(NodeExecutionResult.Failure(
+                            "Duplicate FrameIndex detected for ScanGroupId '" + preprocessResult.ScanGroupId + "': " + preprocessResult.FrameIndex));
+                    }
+
+                    if (duplicatePolicy == DuplicateItemPolicy.Ignore)
+                    {
+                        return Task.FromResult(CreateWaitingResult(preprocessResult.ScanGroupId, bucket.Items.Count, expectedFrameCount, timeoutMs, true));
+                    }
                 }
 
                 bucket.ExpectedCount = expectedFrameCount;
@@ -828,15 +948,15 @@ namespace Vision.Flow.Nodes
 
                 if (bucket.Items.Count < expectedFrameCount)
                 {
-                    return Task.FromResult(NodeExecutionResult.Success(
-                        "Waiting",
-                        new Dictionary<string, object>
-                        {
-                            { "ScanGroupId", preprocessResult.ScanGroupId },
-                            { "CurrentFrameCount", bucket.Items.Count },
-                            { "ExpectedFrameCount", expectedFrameCount },
-                            { "TimeoutMs", timeoutMs }
-                        }));
+                    return Task.FromResult(CreateWaitingResult(preprocessResult.ScanGroupId, bucket.Items.Count, expectedFrameCount, timeoutMs, false));
+                }
+
+                if (requireContinuous && !HasContinuousIndexes(bucket.Items.Keys, expectedFrameCount, firstFrameIndex))
+                {
+                    _buckets.Remove(preprocessResult.ScanGroupId);
+                    return Task.FromResult(NodeExecutionResult.Failure(
+                        "FrameIndex sequence must be continuous from " + firstFrameIndex.ToString(CultureInfo.InvariantCulture) +
+                        " for ScanGroupId '" + preprocessResult.ScanGroupId + "'."));
                 }
 
                 _buckets.Remove(preprocessResult.ScanGroupId);
@@ -854,9 +974,28 @@ namespace Vision.Flow.Nodes
             }
         }
 
-        private static FramePreprocessResult ResolvePreprocessResult(FlowExecutionContext context)
+        private static NodeExecutionResult CreateWaitingResult(
+            string scanGroupId,
+            int currentCount,
+            int expectedCount,
+            int timeoutMs,
+            bool duplicateIgnored)
         {
-            var value = context.GetInputValue("PreprocessResult");
+            return NodeExecutionResult.Success(
+                "Waiting",
+                new Dictionary<string, object>
+                {
+                    { "ScanGroupId", scanGroupId },
+                    { "CurrentFrameCount", currentCount },
+                    { "ExpectedFrameCount", expectedCount },
+                    { "TimeoutMs", timeoutMs },
+                    { "DuplicateIgnored", duplicateIgnored }
+                });
+        }
+
+        private static FramePreprocessResult ResolvePreprocessResult(FlowExecutionContext context, string bindingExpression)
+        {
+            var value = ResolveConfiguredValue(context, "PreprocessResult", bindingExpression);
             if (value == null)
             {
                 value = context.GetInputValue("FramePreprocessResult");
@@ -897,8 +1036,12 @@ namespace Vision.Flow.Nodes
                 },
                 Settings =
                 {
+                    CreateStringSetting("PreprocessResultBinding", "Preprocess Binding", null, false, "Optional binding expression used when PreprocessResult is not bound directly."),
                     CreateIntSetting("ExpectedFrameCount", "Expected Frames", 2, true, "Number of preprocessed frames required to complete a group."),
-                    CreateIntSetting("TimeoutMs", "Timeout (ms)", 0, false, "Reserved group timeout. Zero disables timeout handling.")
+                    CreateIntSetting("TimeoutMs", "Timeout (ms)", 0, false, "Reserved group timeout. Zero disables timeout handling."),
+                    CreateStringSetting("DuplicatePolicy", "Duplicate Policy", "Error", false, "Duplicate FrameIndex policy: Error, Ignore, or Replace."),
+                    CreateBoolSetting("RequireContinuousFrameIndex", "Require Continuous Frames", false, false, "When true, completed FrameIndex values must be continuous."),
+                    CreateIntSetting("FirstFrameIndex", "First Frame Index", 0, false, "Expected first FrameIndex when continuous validation is enabled.")
                 },
                 Outputs =
                 {
@@ -914,6 +1057,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class Final3D2DFusionNodeConfig
     {
+        public string ScanGroupResultBinding { get; set; }
     }
 
     public sealed class Final3D2DFusionNodeFactory : BaseNodeFactory<Final3D2DFusionNodeConfig>
@@ -930,6 +1074,14 @@ namespace Vision.Flow.Nodes
             get { return Final3D2DFusionNodeDescriptor.Create(); }
         }
 
+        protected override Final3D2DFusionNodeConfig CreateConfig(NodeDefinition definition)
+        {
+            return new Final3D2DFusionNodeConfig
+            {
+                ScanGroupResultBinding = GetStringSetting(definition, "ScanGroupResultBinding", null)
+            };
+        }
+
         protected override IFlowNode CreateNode(NodeDefinition definition, Final3D2DFusionNodeConfig config)
         {
             return new Final3D2DFusionNode(config);
@@ -938,15 +1090,18 @@ namespace Vision.Flow.Nodes
 
     public sealed class Final3D2DFusionNode : IFlowNode
     {
+        private readonly Final3D2DFusionNodeConfig _config;
+
         public Final3D2DFusionNode(Final3D2DFusionNodeConfig config)
         {
+            _config = config ?? new Final3D2DFusionNodeConfig();
         }
 
         public Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var scanGroup = ResolveScanGroup(context);
+            var scanGroup = ResolveScanGroup(context, _config.ScanGroupResultBinding);
             if (scanGroup == null)
             {
                 return Task.FromResult(NodeExecutionResult.Failure("ScanGroupResult input is required."));
@@ -972,9 +1127,9 @@ namespace Vision.Flow.Nodes
                 }));
         }
 
-        private static ScanGroupResult ResolveScanGroup(FlowExecutionContext context)
+        private static ScanGroupResult ResolveScanGroup(FlowExecutionContext context, string bindingExpression)
         {
-            var value = context.GetInputValue("ScanGroupResult");
+            var value = ResolveConfiguredValue(context, "ScanGroupResult", bindingExpression);
             if (value == null)
             {
                 value = context.GetInputValue("ScanGroup");
@@ -1026,6 +1181,10 @@ namespace Vision.Flow.Nodes
                 {
                     AdapterNodeDescriptors.NextOut(),
                     AdapterNodeDescriptors.ErrorOut("Routes missing or invalid scan groups.")
+                },
+                Settings =
+                {
+                    CreateStringSetting("ScanGroupResultBinding", "Scan Group Binding", null, false, "Optional binding expression used when ScanGroupResult is not bound directly.")
                 },
                 Outputs =
                 {
@@ -1126,175 +1285,374 @@ namespace Vision.Flow.Nodes
         }
     }
 
+    internal enum DuplicateItemPolicy
+    {
+        Error = 0,
+        Ignore = 1,
+        Replace = 2
+    }
+
     internal static class GroupScanFusionNodeHelpers
     {
         internal static NodeSettingDescriptor CreateStringSetting(
-        string name,
-        string displayName,
-        string defaultValue,
-        bool isRequired,
-        string description)
-    {
-        return new NodeSettingDescriptor
+            string name,
+            string displayName,
+            string defaultValue,
+            bool isRequired,
+            string description)
         {
-            Name = name,
-            DisplayName = displayName,
-            DataType = "String",
-            DefaultValue = defaultValue,
-            IsRequired = isRequired,
-            Description = description
-        };
-    }
+            return new NodeSettingDescriptor
+            {
+                Name = name,
+                DisplayName = displayName,
+                DataType = "String",
+                DefaultValue = defaultValue,
+                IsRequired = isRequired,
+                Description = description
+            };
+        }
 
         internal static NodeSettingDescriptor CreateIntSetting(
-        string name,
-        string displayName,
-        int defaultValue,
-        bool isRequired,
-        string description)
-    {
-        return new NodeSettingDescriptor
+            string name,
+            string displayName,
+            int defaultValue,
+            bool isRequired,
+            string description)
         {
-            Name = name,
-            DisplayName = displayName,
-            DataType = "Int32",
-            DefaultValue = defaultValue,
-            IsRequired = isRequired,
-            Description = description
-        };
-    }
+            return new NodeSettingDescriptor
+            {
+                Name = name,
+                DisplayName = displayName,
+                DataType = "Int32",
+                DefaultValue = defaultValue,
+                IsRequired = isRequired,
+                Description = description
+            };
+        }
+
+        internal static NodeSettingDescriptor CreateBoolSetting(
+            string name,
+            string displayName,
+            bool defaultValue,
+            bool isRequired,
+            string description)
+        {
+            return new NodeSettingDescriptor
+            {
+                Name = name,
+                DisplayName = displayName,
+                DataType = "Boolean",
+                DefaultValue = defaultValue,
+                IsRequired = isRequired,
+                Description = description
+            };
+        }
 
         internal static NodeOutputDescriptor CreateOutput(string name, string displayName, string dataType, string description)
-    {
-        return new NodeOutputDescriptor
         {
-            Name = name,
-            DisplayName = displayName,
-            DataType = dataType,
-            Description = description
-        };
-    }
+            return new NodeOutputDescriptor
+            {
+                Name = name,
+                DisplayName = displayName,
+                DataType = dataType,
+                Description = description
+            };
+        }
 
         internal static CameraFrameData ResolveFrame(FlowExecutionContext context)
-    {
-        var value = context.GetInputValue("Frame");
-        if (value == null)
         {
-            object tokenValue;
-            if (context.Token.TryGet("Frame", out tokenValue))
+            return ResolveFrame(context, null);
+        }
+
+        internal static CameraFrameData ResolveFrame(FlowExecutionContext context, string bindingExpression)
+        {
+            var value = ResolveConfiguredValue(context, "Frame", bindingExpression);
+            if (value == null)
             {
-                value = tokenValue;
+                object tokenValue;
+                if (context.Token.TryGet("Frame", out tokenValue))
+                {
+                    value = tokenValue;
+                }
             }
-        }
 
-        var frame = value as CameraFrameData;
-        if (value != null && frame == null)
-        {
-            throw new InvalidCastException("Frame must be CameraFrameData.");
-        }
+            var frame = value as CameraFrameData;
+            if (value != null && frame == null)
+            {
+                throw new InvalidCastException("Frame must be CameraFrameData.");
+            }
 
-        return frame;
-    }
+            return frame;
+        }
 
         internal static IVisionImage ResolveImage(FlowExecutionContext context)
-    {
-        var value = context.GetInputValue("Image");
-        if (value == null)
         {
-            object tokenValue;
-            if (context.Token.TryGet("Image", out tokenValue))
+            return ResolveImage(context, null);
+        }
+
+        internal static IVisionImage ResolveImage(FlowExecutionContext context, string bindingExpression)
+        {
+            var value = ResolveConfiguredValue(context, "Image", bindingExpression);
+            if (value == null)
             {
-                value = tokenValue;
+                object tokenValue;
+                if (context.Token.TryGet("Image", out tokenValue))
+                {
+                    value = tokenValue;
+                }
+            }
+
+            return AdapterNodeHelpers.ResolveVisionImage(value, "Image");
+        }
+
+        internal static string ResolveCaptureGroupId(FlowExecutionContext context, string defaultValue, string bindingExpression)
+        {
+            var value = ResolveStringValue(context, "CaptureGroupId", defaultValue, bindingExpression);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            object tokenValue;
+            if (context.Token.TryGet("CaptureGroupId", out tokenValue))
+            {
+                return tokenValue == null ? null : Convert.ToString(tokenValue, CultureInfo.InvariantCulture);
+            }
+
+            return context.Token.CaptureGroupId;
+        }
+
+        internal static string ResolveScanGroupId(FlowExecutionContext context, string defaultValue)
+        {
+            return ResolveScanGroupId(context, defaultValue, null);
+        }
+
+        internal static string ResolveScanGroupId(FlowExecutionContext context, string defaultValue, string bindingExpression)
+        {
+            var value = ResolveStringValue(context, "ScanGroupId", defaultValue, bindingExpression);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            object tokenValue;
+            if (context.Token.TryGet("ScanGroupId", out tokenValue))
+            {
+                return tokenValue == null ? null : Convert.ToString(tokenValue, CultureInfo.InvariantCulture);
+            }
+
+            return context.Token.ScanGroupId;
+        }
+
+        internal static string ResolveString(FlowExecutionContext context, string name, string defaultValue)
+        {
+            return ResolveStringValue(context, name, defaultValue, null);
+        }
+
+        internal static string ResolveStringValue(
+            FlowExecutionContext context,
+            string name,
+            string defaultValue,
+            string bindingExpression)
+        {
+            var value = ResolveConfiguredValue(context, name, bindingExpression);
+            return value == null ? defaultValue : Convert.ToString(value, CultureInfo.InvariantCulture);
+        }
+
+        internal static int ResolveInt32(FlowExecutionContext context, string name, int defaultValue)
+        {
+            int value;
+            return TryResolveInt32(context, name, out value) ? value : defaultValue;
+        }
+
+        internal static bool TryResolveInt32(FlowExecutionContext context, string name, out int value)
+        {
+            return TryResolveInt32(context, name, null, out value);
+        }
+
+        internal static bool TryResolveInt32(FlowExecutionContext context, string name, string bindingExpression, out int value)
+        {
+            object inputValue = ResolveConfiguredValue(context, name, bindingExpression);
+            if (inputValue == null)
+            {
+                object tokenValue;
+                if (context.Token.TryGet(name, out tokenValue))
+                {
+                    inputValue = tokenValue;
+                }
+            }
+
+            if (inputValue == null)
+            {
+                value = 0;
+                return false;
+            }
+
+            value = Convert.ToInt32(inputValue, CultureInfo.InvariantCulture);
+            return true;
+        }
+
+        internal static bool ResolveBoolean(FlowExecutionContext context, string name, bool defaultValue)
+        {
+            var value = ResolveConfiguredValue(context, name, null);
+            return value == null ? defaultValue : Convert.ToBoolean(value, CultureInfo.InvariantCulture);
+        }
+
+        internal static DuplicateItemPolicy ResolveDuplicatePolicy(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return DuplicateItemPolicy.Error;
+            }
+
+            DuplicateItemPolicy policy;
+            if (Enum.TryParse(value, true, out policy))
+            {
+                return policy;
+            }
+
+            throw new InvalidOperationException("DuplicatePolicy must be Error, Ignore, or Replace.");
+        }
+
+        internal static bool HasContinuousIndexes(IEnumerable<int> indexes, int expectedCount, int firstIndex)
+        {
+            if (indexes == null || expectedCount <= 0)
+            {
+                return false;
+            }
+
+            var lookup = new HashSet<int>(indexes);
+            for (var index = 0; index < expectedCount; index++)
+            {
+                if (!lookup.Contains(firstIndex + index))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        internal static object ResolveConfiguredValue(FlowExecutionContext context, string inputName, string bindingExpression)
+        {
+            var value = context.GetInputValue(inputName);
+            if (value != null)
+            {
+                return value;
+            }
+
+            return ResolveBindingExpression(context, bindingExpression);
+        }
+
+        internal static void CopyTokenMetadata(FlowToken token, IDictionary<string, object> metadata)
+        {
+            if (token == null || metadata == null)
+            {
+                return;
+            }
+
+            metadata["TokenId"] = token.TokenId;
+            metadata["ProductId"] = token.ProductId;
+            metadata["WorkpieceId"] = token.WorkpieceId;
+            metadata["PositionId"] = token.PositionId;
+            metadata["CaptureGroupId"] = token.CaptureGroupId;
+            metadata["ScanGroupId"] = token.ScanGroupId;
+            metadata["FrameId"] = token.FrameId;
+            CopyDictionary(token.Metadata, metadata);
+        }
+
+        internal static void CopyDictionary(IDictionary<string, object> source, IDictionary<string, object> target)
+        {
+            if (source == null || target == null)
+            {
+                return;
+            }
+
+            foreach (var item in source)
+            {
+                target[item.Key] = item.Value;
             }
         }
 
-        return AdapterNodeHelpers.ResolveVisionImage(value, "Image");
-    }
-
-        internal static string ResolveScanGroupId(FlowExecutionContext context, string defaultValue)
-    {
-        var value = ResolveString(context, "ScanGroupId", defaultValue);
-        if (!string.IsNullOrWhiteSpace(value))
+        internal static string SafeId(string value)
         {
+            return string.IsNullOrWhiteSpace(value) ? Guid.NewGuid().ToString("N") : value.Replace(" ", "_");
+        }
+
+        private static object ResolveBindingExpression(FlowExecutionContext context, string bindingExpression)
+        {
+            if (string.IsNullOrWhiteSpace(bindingExpression))
+            {
+                return null;
+            }
+
+            var path = NormalizeBindingPath(bindingExpression);
+            if (path.StartsWith("token.", StringComparison.OrdinalIgnoreCase))
+            {
+                return ResolveTokenPath(context.Token, path.Substring("token.".Length));
+            }
+
+            return context.ResolveBinding(VariableBinding.ForExpression(bindingExpression));
+        }
+
+        private static string NormalizeBindingPath(string bindingExpression)
+        {
+            var value = bindingExpression.Trim();
+            if (value.StartsWith("{{", StringComparison.Ordinal) && value.EndsWith("}}", StringComparison.Ordinal))
+            {
+                value = value.Substring(2, value.Length - 4).Trim();
+            }
+
             return value;
         }
 
-        object tokenValue;
-        if (context.Token.TryGet("ScanGroupId", out tokenValue))
+        private static object ResolveTokenPath(FlowToken token, string tokenPath)
         {
-            return tokenValue == null ? null : Convert.ToString(tokenValue, CultureInfo.InvariantCulture);
-        }
-
-        return context.Token.ScanGroupId;
-    }
-
-        internal static string ResolveString(FlowExecutionContext context, string name, string defaultValue)
-    {
-        var value = context.GetInputValue(name);
-        return value == null ? defaultValue : Convert.ToString(value, CultureInfo.InvariantCulture);
-    }
-
-        internal static int ResolveInt32(FlowExecutionContext context, string name, int defaultValue)
-    {
-        int value;
-        return TryResolveInt32(context, name, out value) ? value : defaultValue;
-    }
-
-        internal static bool TryResolveInt32(FlowExecutionContext context, string name, out int value)
-    {
-        object inputValue = context.GetInputValue(name);
-        if (inputValue == null)
-        {
-            object tokenValue;
-            if (context.Token.TryGet(name, out tokenValue))
+            if (token == null || string.IsNullOrWhiteSpace(tokenPath))
             {
-                inputValue = tokenValue;
+                return null;
             }
+
+            if (tokenPath.StartsWith("Values.", StringComparison.OrdinalIgnoreCase))
+            {
+                object value;
+                return token.TryGet(tokenPath.Substring("Values.".Length), out value) ? value : null;
+            }
+
+            if (tokenPath.StartsWith("Metadata.", StringComparison.OrdinalIgnoreCase))
+            {
+                object value;
+                return token.Metadata != null && token.Metadata.TryGetValue(tokenPath.Substring("Metadata.".Length), out value) ? value : null;
+            }
+
+            switch (tokenPath)
+            {
+                case "TokenId":
+                    return token.TokenId;
+                case "ProductId":
+                    return token.ProductId;
+                case "WorkpieceId":
+                    return token.WorkpieceId;
+                case "PositionId":
+                    return token.PositionId;
+                case "CaptureGroupId":
+                    return token.CaptureGroupId;
+                case "ScanGroupId":
+                    return token.ScanGroupId;
+                case "FrameId":
+                    return token.FrameId;
+                case "CreatedAtUtc":
+                    return token.CreatedAtUtc;
+            }
+
+            object tokenValue;
+            if (token.TryGet(tokenPath, out tokenValue))
+            {
+                return tokenValue;
+            }
+
+            object metadataValue;
+            return token.Metadata != null && token.Metadata.TryGetValue(tokenPath, out metadataValue) ? metadataValue : null;
         }
-
-        if (inputValue == null)
-        {
-            value = 0;
-            return false;
-        }
-
-        value = Convert.ToInt32(inputValue, CultureInfo.InvariantCulture);
-        return true;
-    }
-
-        internal static void CopyTokenMetadata(FlowToken token, IDictionary<string, object> metadata)
-    {
-        if (token == null || metadata == null)
-        {
-            return;
-        }
-
-        metadata["TokenId"] = token.TokenId;
-        metadata["ProductId"] = token.ProductId;
-        metadata["WorkpieceId"] = token.WorkpieceId;
-        metadata["PositionId"] = token.PositionId;
-        metadata["CaptureGroupId"] = token.CaptureGroupId;
-        metadata["ScanGroupId"] = token.ScanGroupId;
-        metadata["FrameId"] = token.FrameId;
-        CopyDictionary(token.Metadata, metadata);
-    }
-
-        internal static void CopyDictionary(IDictionary<string, object> source, IDictionary<string, object> target)
-    {
-        if (source == null || target == null)
-        {
-            return;
-        }
-
-        foreach (var item in source)
-        {
-            target[item.Key] = item.Value;
-        }
-    }
-
-        internal static string SafeId(string value)
-    {
-        return string.IsNullOrWhiteSpace(value) ? Guid.NewGuid().ToString("N") : value.Replace(" ", "_");
-    }
     }
 }
