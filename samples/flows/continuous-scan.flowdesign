@@ -14,6 +14,10 @@
         "name": "Preprocess Scan Frame",
         "version": "1.0.0",
         "settings": {
+          "ScanGroupIdBinding": "{{ token.ScanGroupId }}",
+          "FrameIndexBinding": "{{ token.FrameIndex }}",
+          "ImageBinding": "{{ token.Image }}",
+          "FrameIdBinding": "{{ token.FrameId }}",
           "FrameIndex": -1
         },
         "inputBindings": {}
@@ -24,8 +28,12 @@
         "name": "Join Scan Frames",
         "version": "1.0.0",
         "settings": {
+          "PreprocessResultBinding": "{{ preprocess_1.PreprocessResult }}",
           "ExpectedFrameCount": 3,
-          "TimeoutMs": 0
+          "TimeoutMs": 0,
+          "DuplicatePolicy": "Replace",
+          "RequireContinuousFrameIndex": true,
+          "FirstFrameIndex": 0
         },
         "inputBindings": {
           "PreprocessResult": "{{ preprocess_1.PreprocessResult }}"
@@ -36,7 +44,9 @@
         "type": "fusion.final_3d_2d",
         "name": "Final 3D 2D Fusion",
         "version": "1.0.0",
-        "settings": {},
+        "settings": {
+          "ScanGroupResultBinding": "{{ scan_join_1.ScanGroupResult }}"
+        },
         "inputBindings": {
           "ScanGroupResult": "{{ scan_join_1.ScanGroupResult }}"
         }

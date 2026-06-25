@@ -38,9 +38,12 @@ namespace Vision.Flow.Tests
                 new TestCase("FlowValidator rejects dangling edges", FlowValidationPublishTests.DanglingEdgeReturnsError),
                 new TestCase("FlowValidator rejects missing required settings", FlowValidationPublishTests.MissingRequiredSettingReturnsError),
                 new TestCase("FlowValidator rejects missing binding outputs", FlowValidationPublishTests.MissingBindingOutputReturnsError),
+                new TestCase("FlowValidator rejects invalid StreamFrames settings", FlowValidationPublishTests.InvalidStreamFramesSettingsReturnErrors),
+                new TestCase("FlowValidator rejects invalid queue and group settings", FlowValidationPublishTests.InvalidQueueAndGroupSettingsReturnErrors),
                 new TestCase("FlowPublishService removes designer view state", FlowValidationPublishTests.PublishRuntimeDoesNotContainViewState),
                 new TestCase("FlowPublishService publishes a valid runtime", FlowValidationPublishTests.ValidFlowPublishesSuccessfully),
                 new TestCase("Sample flow files deserialize and validate", SampleFlowTests.SampleFlowFilesDeserializeAndValidate),
+                new TestCase("Continuous scan sample publishes runtime with enhanced rules", SampleFlowTests.ContinuousScanPublishesRuntimeWithEnhancedRules),
                 new TestCase("Sample runtime file excludes designer view state", SampleFlowTests.SampleRuntimeExcludesViewState),
                 new TestCase("FlowRunner executes A -> B -> C and writes output variables", FlowRunnerTests.LinearOrderAndVariables),
                 new TestCase("FlowRunner executes all fan-out edges from one output port", FlowRunnerTests.FanOutExecutesAllOutgoingEdges),
@@ -2283,6 +2286,95 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task InvalidStreamFramesSettingsReturnErrors()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "invalid-stream-frames",
+                FlowName = "Invalid Stream Frames",
+                Version = "1.0.0"
+            };
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "callback1",
+                Type = CameraImageCallbackNodeFactory.TypeName,
+                Name = "Stream Callback",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "CameraId", "Camera01" },
+                    { "CallbackMode", "StreamFrames" },
+                    { "MatchMode", "Any" },
+                    { "TimeoutMs", 1000 },
+                    { "ExpectedFrameCount", 0 },
+                    { "FrameTimeoutMs", -1 }
+                }
+            });
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "callback1" });
+
+            var result = CreateValidator().Validate(flow);
+
+            AssertHasIssue(result, "SettingValueInvalid", "Invalid StreamFrames numeric settings should be reported.");
+            AssertEx.True(
+                result.Issues.Any(x => string.Equals(x.Field, "Nodes[0].Settings.ExpectedFrameCount", StringComparison.OrdinalIgnoreCase)),
+                "ExpectedFrameCount field should be reported.");
+            AssertEx.True(
+                result.Issues.Any(x => string.Equals(x.Field, "Nodes[0].Settings.FrameTimeoutMs", StringComparison.OrdinalIgnoreCase)),
+                "FrameTimeoutMs field should be reported.");
+            return Task.FromResult(0);
+        }
+
+        public static Task InvalidQueueAndGroupSettingsReturnErrors()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "invalid-node-settings",
+                FlowName = "Invalid Node Settings",
+                Version = "1.0.0"
+            };
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "save1",
+                Type = ImageSaveNodeFactory.TypeName,
+                Name = "Queued Save",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "UseQueue", true },
+                    { "QueueCapacity", 0 },
+                    { "QueueMaxDegreeOfParallelism", 0 },
+                    { "QueueFullMode", "Drop" }
+                }
+            });
+
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "scanJoin1",
+                Type = ScanGroupJoinNodeFactory.TypeName,
+                Name = "Scan Join",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "ExpectedFrameCount", 0 },
+                    { "DuplicatePolicy", "KeepFirst" },
+                    { "RequireContinuousFrameIndex", true },
+                    { "FirstFrameIndex", -1 }
+                }
+            });
+
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "save1" });
+
+            var result = CreateValidator().Validate(flow);
+
+            AssertHasIssue(result, "QueueFullModeInvalid", "Invalid QueueFullMode should be reported.");
+            AssertHasIssue(result, "DuplicatePolicyInvalid", "Invalid DuplicatePolicy should be reported.");
+            AssertEx.True(
+                result.Issues.Count(x => string.Equals(x.Code, "SettingValueInvalid", StringComparison.OrdinalIgnoreCase)) >= 4,
+                "Invalid queue/group numeric settings should be reported.");
+            return Task.FromResult(0);
+        }
+
         public static Task PublishRuntimeDoesNotContainViewState()
         {
             var document = CreateValidDesignDocument();
@@ -2439,6 +2531,27 @@ namespace Vision.Flow.Tests
                 AssertNoViewState(runtimeJson, path);
             }
 
+            return Task.FromResult(0);
+        }
+
+        public static Task ContinuousScanPublishesRuntimeWithEnhancedRules()
+        {
+            var sampleDirectory = GetSampleDirectory();
+            var path = Path.Combine(sampleDirectory, "continuous-scan.flowdesign");
+            var document = FlowDesignSerializer.Load(path);
+            var result = new FlowPublishService(CreateRegistry()).Publish(document);
+
+            AssertValid(result.Validation, path);
+            AssertEx.NotNull(result.Runtime, "Published continuous scan runtime should be available.");
+
+            var scanJoin = result.Runtime.Nodes.FirstOrDefault(x => string.Equals(x.Id, "scan_join_1", StringComparison.OrdinalIgnoreCase));
+            AssertEx.NotNull(scanJoin, "Continuous scan sample should contain scan_join_1.");
+            AssertEx.Equal(true, Convert.ToBoolean(scanJoin.Settings["RequireContinuousFrameIndex"], CultureInfo.InvariantCulture), "Sample scan join should require continuous frame indexes.");
+            AssertEx.Equal("Replace", Convert.ToString(scanJoin.Settings["DuplicatePolicy"], CultureInfo.InvariantCulture), "Sample scan join should use Replace duplicate policy.");
+
+            var runtimeJson = RuntimeFlowSerializer.Serialize(result.Runtime);
+            AssertNoViewState(runtimeJson, path);
+            AssertEx.False(runtimeJson.IndexOf("\"runtime\"", StringComparison.OrdinalIgnoreCase) >= 0, "Published runtime JSON should not contain a nested runtime document.");
             return Task.FromResult(0);
         }
 

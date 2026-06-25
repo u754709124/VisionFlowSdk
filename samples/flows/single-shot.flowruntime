@@ -46,7 +46,9 @@
         "TimeoutMs": 1000,
         "MatchMode": "TriggerId"
       },
-      "inputBindings": {}
+      "inputBindings": {
+        "TriggerId": "{{ cam_trigger_1.TriggerId }}"
+      }
     },
     {
       "id": "recipe_1",

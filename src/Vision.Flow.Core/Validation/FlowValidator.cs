@@ -67,6 +67,7 @@ namespace Vision.Flow.Core
             ValidateRequiredSettings(nodes, descriptorsByNodeId, result);
             ValidateVariableBindings(nodes, nodeMap, descriptorsByNodeId, result);
             ValidateNoDesignerState(definition, result);
+            ValidateNodeSpecificRules(nodes, result);
 
             return result;
         }
@@ -551,6 +552,11 @@ namespace Vision.Flow.Core
             IDictionary<string, NodeDescriptor> descriptorsByNodeId,
             FlowValidationResult result)
         {
+            if (IsTokenBindingExpression(expression))
+            {
+                return;
+            }
+
             string sourceNodeId;
             string sourceOutputName;
             if (!VariableBinding.TryParseVariablePath(expression, out sourceNodeId, out sourceOutputName))
@@ -601,6 +607,130 @@ namespace Vision.Flow.Core
                     "Variable binding source output does not exist. Source=" + sourceNodeId + "." + sourceOutputName,
                     nodeId: nodeId,
                     field: field);
+            }
+        }
+
+        private static void ValidateNodeSpecificRules(
+            IList<NodeDefinition> nodes,
+            FlowValidationResult result)
+        {
+            for (var index = 0; index < nodes.Count; index++)
+            {
+                var node = nodes[index];
+                if (node == null || string.IsNullOrWhiteSpace(node.Id) || string.IsNullOrWhiteSpace(node.Type))
+                {
+                    continue;
+                }
+
+                var fieldPrefix = "Nodes[" + index + "].Settings.";
+                if (string.Equals(node.Type, "camera.image_callback", StringComparison.OrdinalIgnoreCase))
+                {
+                    ValidateCameraImageCallbackNode(node, fieldPrefix, result);
+                }
+
+                if (string.Equals(node.Type, "recipe.run", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(node.Type, "image.save", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(node.Type, "database.save", StringComparison.OrdinalIgnoreCase))
+                {
+                    ValidateQueueSettings(node, fieldPrefix, result);
+                }
+
+                if (string.Equals(node.Type, "group.frame_join", StringComparison.OrdinalIgnoreCase))
+                {
+                    ValidateFrameGroupJoinNode(node, fieldPrefix, result);
+                }
+
+                if (string.Equals(node.Type, "scan.group_join", StringComparison.OrdinalIgnoreCase))
+                {
+                    ValidateScanGroupJoinNode(node, fieldPrefix, result);
+                }
+            }
+        }
+
+        private static void ValidateCameraImageCallbackNode(NodeDefinition node, string fieldPrefix, FlowValidationResult result)
+        {
+            var callbackMode = GetSettingString(node, "CallbackMode", "WaitNextFrame");
+            if (!IsOneOf(callbackMode, "WaitNextFrame", "StreamFrames"))
+            {
+                result.AddError("CameraCallbackModeInvalid", "CallbackMode must be WaitNextFrame or StreamFrames.", nodeId: node.Id, field: fieldPrefix + "CallbackMode");
+            }
+
+            var matchMode = GetSettingString(node, "MatchMode", "TriggerId");
+            if (!IsOneOf(matchMode, "TriggerId", "Any", "ScanGroupId"))
+            {
+                result.AddError("CameraMatchModeInvalid", "MatchMode must be TriggerId, Any, or ScanGroupId.", nodeId: node.Id, field: fieldPrefix + "MatchMode");
+            }
+
+            ValidateNonNegativeInt(node, "TimeoutMs", 1000, fieldPrefix, result);
+            if (string.Equals(callbackMode, "StreamFrames", StringComparison.OrdinalIgnoreCase))
+            {
+                ValidatePositiveInt(node, "ExpectedFrameCount", 1, fieldPrefix, result);
+                ValidateNonNegativeInt(node, "FrameTimeoutMs", 1000, fieldPrefix, result);
+            }
+        }
+
+        private static void ValidateQueueSettings(NodeDefinition node, string fieldPrefix, FlowValidationResult result)
+        {
+            bool useQueue;
+            var hasUseQueue = TryGetSettingBoolean(node, "UseQueue", out useQueue, result, fieldPrefix + "UseQueue");
+            var validateQueue = hasUseQueue && useQueue;
+            validateQueue = validateQueue || HasSetting(node, "QueueName") || HasSetting(node, "QueueCapacity") ||
+                HasSetting(node, "QueueMaxDegreeOfParallelism") || HasSetting(node, "QueueFullMode");
+
+            if (!validateQueue)
+            {
+                return;
+            }
+
+            if (useQueue && string.IsNullOrWhiteSpace(GetSettingString(node, "QueueName", "default")))
+            {
+                result.AddError("QueueNameMissing", "QueueName is required when UseQueue is true.", nodeId: node.Id, field: fieldPrefix + "QueueName");
+            }
+
+            ValidatePositiveInt(node, "QueueCapacity", 16, fieldPrefix, result);
+            ValidatePositiveInt(node, "QueueMaxDegreeOfParallelism", 1, fieldPrefix, result);
+
+            var fullMode = GetSettingString(node, "QueueFullMode", "Wait");
+            if (!IsOneOf(fullMode, "Wait", "Reject"))
+            {
+                result.AddError("QueueFullModeInvalid", "QueueFullMode must be Wait or Reject.", nodeId: node.Id, field: fieldPrefix + "QueueFullMode");
+            }
+        }
+
+        private static void ValidateFrameGroupJoinNode(NodeDefinition node, string fieldPrefix, FlowValidationResult result)
+        {
+            ValidatePositiveInt(node, "ExpectedShotCount", 2, fieldPrefix, result);
+            ValidateNonNegativeInt(node, "TimeoutMs", 0, fieldPrefix, result);
+            ValidateDuplicatePolicy(node, fieldPrefix, result);
+
+            bool requireContinuous;
+            if (TryGetSettingBoolean(node, "RequireContinuousShotIndex", out requireContinuous, result, fieldPrefix + "RequireContinuousShotIndex") &&
+                requireContinuous)
+            {
+                ValidateNonNegativeInt(node, "FirstShotIndex", 0, fieldPrefix, result);
+            }
+        }
+
+        private static void ValidateScanGroupJoinNode(NodeDefinition node, string fieldPrefix, FlowValidationResult result)
+        {
+            ValidatePositiveInt(node, "ExpectedFrameCount", 2, fieldPrefix, result);
+            ValidateNonNegativeInt(node, "TimeoutMs", 0, fieldPrefix, result);
+            ValidateDuplicatePolicy(node, fieldPrefix, result);
+
+            bool requireContinuous;
+            if (TryGetSettingBoolean(node, "RequireContinuousFrameIndex", out requireContinuous, result, fieldPrefix + "RequireContinuousFrameIndex") &&
+                requireContinuous)
+            {
+                ValidateNonNegativeInt(node, "FirstFrameIndex", 0, fieldPrefix, result);
+            }
+        }
+
+        private static void ValidateDuplicatePolicy(NodeDefinition node, string fieldPrefix, FlowValidationResult result)
+        {
+            var duplicatePolicy = GetSettingString(node, "DuplicatePolicy", "Error");
+            if (!IsOneOf(duplicatePolicy, "Error", "Ignore", "Replace"))
+            {
+                result.AddError("DuplicatePolicyInvalid", "DuplicatePolicy must be Error, Ignore, or Replace.", nodeId: node.Id, field: fieldPrefix + "DuplicatePolicy");
             }
         }
 
@@ -792,6 +922,18 @@ namespace Vision.Flow.Core
             return trimmed.StartsWith("{{", StringComparison.Ordinal) && trimmed.EndsWith("}}", StringComparison.Ordinal);
         }
 
+        private static bool IsTokenBindingExpression(string value)
+        {
+            if (!LooksLikeTemplateBinding(value))
+            {
+                return false;
+            }
+
+            var trimmed = value.Trim();
+            trimmed = trimmed.Substring(2, trimmed.Length - 4).Trim();
+            return trimmed.StartsWith("token.", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static bool LooksLikeBindingField(string field)
         {
             if (string.IsNullOrWhiteSpace(field))
@@ -802,6 +944,137 @@ namespace Vision.Flow.Core
             return field.EndsWith(".ValueBinding", StringComparison.OrdinalIgnoreCase) ||
                 field.EndsWith(".Binding", StringComparison.OrdinalIgnoreCase) ||
                 field.EndsWith(".Expression", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool HasSetting(NodeDefinition node, string name)
+        {
+            object value;
+            return node != null && TryGetIgnoreCase(node.Settings, name, out value);
+        }
+
+        private static string GetSettingString(NodeDefinition node, string name, string defaultValue)
+        {
+            object value;
+            if (!TryGetIgnoreCase(node.Settings, name, out value) || value == null)
+            {
+                return defaultValue;
+            }
+
+            return Convert.ToString(value, CultureInfo.InvariantCulture);
+        }
+
+        private static void ValidatePositiveInt(
+            NodeDefinition node,
+            string name,
+            int defaultValue,
+            string fieldPrefix,
+            FlowValidationResult result)
+        {
+            int value;
+            if (!TryGetSettingInt32(node, name, defaultValue, out value, result, fieldPrefix + name))
+            {
+                return;
+            }
+
+            if (value <= 0)
+            {
+                result.AddError(
+                    "SettingValueInvalid",
+                    name + " must be greater than zero.",
+                    nodeId: node.Id,
+                    field: fieldPrefix + name);
+            }
+        }
+
+        private static void ValidateNonNegativeInt(
+            NodeDefinition node,
+            string name,
+            int defaultValue,
+            string fieldPrefix,
+            FlowValidationResult result)
+        {
+            int value;
+            if (!TryGetSettingInt32(node, name, defaultValue, out value, result, fieldPrefix + name))
+            {
+                return;
+            }
+
+            if (value < 0)
+            {
+                result.AddError(
+                    "SettingValueInvalid",
+                    name + " must be greater than or equal to zero.",
+                    nodeId: node.Id,
+                    field: fieldPrefix + name);
+            }
+        }
+
+        private static bool TryGetSettingInt32(
+            NodeDefinition node,
+            string name,
+            int defaultValue,
+            out int value,
+            FlowValidationResult result,
+            string field)
+        {
+            object rawValue;
+            if (!TryGetIgnoreCase(node.Settings, name, out rawValue) || rawValue == null)
+            {
+                value = defaultValue;
+                return true;
+            }
+
+            try
+            {
+                value = Convert.ToInt32(rawValue, CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch (Exception)
+            {
+                value = defaultValue;
+                result.AddError("SettingValueInvalid", name + " must be an Int32 value.", nodeId: node.Id, field: field);
+                return false;
+            }
+        }
+
+        private static bool TryGetSettingBoolean(
+            NodeDefinition node,
+            string name,
+            out bool value,
+            FlowValidationResult result,
+            string field)
+        {
+            object rawValue;
+            if (!TryGetIgnoreCase(node.Settings, name, out rawValue) || rawValue == null)
+            {
+                value = false;
+                return true;
+            }
+
+            try
+            {
+                value = Convert.ToBoolean(rawValue, CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch (Exception)
+            {
+                value = false;
+                result.AddError("SettingValueInvalid", name + " must be a Boolean value.", nodeId: node.Id, field: field);
+                return false;
+            }
+        }
+
+        private static bool IsOneOf(string value, params string[] allowedValues)
+        {
+            for (var index = 0; index < allowedValues.Length; index++)
+            {
+                if (string.Equals(value, allowedValues[index], StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsSimpleValue(object value)

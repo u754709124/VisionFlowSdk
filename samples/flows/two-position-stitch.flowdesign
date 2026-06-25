@@ -14,8 +14,14 @@
         "name": "Join Position Frames",
         "version": "1.0.0",
         "settings": {
+          "CaptureGroupIdBinding": "{{ token.CaptureGroupId }}",
+          "ShotIndexBinding": "{{ token.ShotIndex }}",
+          "FrameBinding": "{{ token.Frame }}",
           "ExpectedShotCount": 2,
-          "TimeoutMs": 0
+          "TimeoutMs": 0,
+          "DuplicatePolicy": "Replace",
+          "RequireContinuousShotIndex": true,
+          "FirstShotIndex": 1
         },
         "inputBindings": {}
       },
@@ -24,7 +30,9 @@
         "type": "image.stitch",
         "name": "Stitch Images",
         "version": "1.0.0",
-        "settings": {},
+        "settings": {
+          "FrameGroupBinding": "{{ frame_join_1.FrameGroup }}"
+        },
         "inputBindings": {
           "FrameGroup": "{{ frame_join_1.FrameGroup }}"
         }
