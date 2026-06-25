@@ -370,6 +370,10 @@ namespace Vision.DeviceAdapters
 
         public int MoveDelayMs { get; set; }
 
+        public MotionMessage LastMessage { get; private set; }
+
+        public event EventHandler<MotionEventArgs> MotionEventReceived;
+
         public async Task MoveToAsync(string positionName, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -387,6 +391,13 @@ namespace Vision.DeviceAdapters
             {
                 CurrentPosition = positionName;
             }
+
+            RaiseMotionEvent(new MotionEventArgs
+            {
+                MotionId = MotionId,
+                EventType = "MoveCompleted",
+                PositionId = positionName
+            });
         }
 
         public async Task WaitForInPositionAsync(string positionName, CancellationToken cancellationToken)
@@ -407,6 +418,86 @@ namespace Vision.DeviceAdapters
             {
                 await MoveToAsync(positionName, cancellationToken).ConfigureAwait(false);
             }
+
+            RaiseMotionEvent(new MotionEventArgs
+            {
+                MotionId = MotionId,
+                EventType = "InPosition",
+                PositionId = positionName
+            });
+        }
+
+        public Task SendMessageAsync(MotionMessage message, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (message == null)
+            {
+                throw new ArgumentNullException("message");
+            }
+
+            var copy = CloneMessage(message);
+            if (string.IsNullOrWhiteSpace(copy.MotionId))
+            {
+                copy.MotionId = MotionId;
+            }
+
+            lock (_gate)
+            {
+                LastMessage = copy;
+            }
+
+            return Task.FromResult(0);
+        }
+
+        public MotionMessage SnapshotLastMessage()
+        {
+            lock (_gate)
+            {
+                return LastMessage == null ? null : CloneMessage(LastMessage);
+            }
+        }
+
+        public void RaiseMotionEvent(MotionEventArgs args)
+        {
+            if (args == null)
+            {
+                throw new ArgumentNullException("args");
+            }
+
+            if (string.IsNullOrWhiteSpace(args.MotionId))
+            {
+                args.MotionId = MotionId;
+            }
+
+            var handler = MotionEventReceived;
+            if (handler != null)
+            {
+                handler(this, args);
+            }
+        }
+
+        private static MotionMessage CloneMessage(MotionMessage message)
+        {
+            var clone = new MotionMessage
+            {
+                MessageType = message.MessageType,
+                MotionId = message.MotionId,
+                PositionId = message.PositionId,
+                CaptureGroupId = message.CaptureGroupId,
+                ScanGroupId = message.ScanGroupId,
+                TokenId = message.TokenId,
+                Result = message.Result
+            };
+
+            if (message.Metadata != null)
+            {
+                foreach (var item in message.Metadata)
+                {
+                    clone.Metadata[item.Key] = item.Value;
+                }
+            }
+
+            return clone;
         }
     }
 
