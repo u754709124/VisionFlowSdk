@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -19,6 +20,7 @@ namespace Vision.Flow.Demo.WinForms
         private Label _runtimeStatusValue;
         private Label _runtimeFileValue;
         private Label _runnerStateValue;
+        private ComboBox _entrySelector;
         private ListView _tokenList;
         private TextBox _outputSummary;
         private Panel _imagePreview;
@@ -31,13 +33,23 @@ namespace Vision.Flow.Demo.WinForms
         private FakeDatabaseAdapter _database;
         private FlowToken _lastToken;
         private string _runtimePath;
+        private string _requestedRuntimePath;
+        private string _activeCaptureGroupId;
+        private string _activeScanGroupId;
+        private int _scanFrameIndex;
         private string _lastFrameId;
         private string _lastImageSummary;
         private string _lastOutputSummary;
         private int _eventSequence;
 
         public MainForm()
+            : this(null)
         {
+        }
+
+        public MainForm(string runtimePath)
+        {
+            _requestedRuntimePath = runtimePath;
             _eventSink = new UiFlowEventSink(HandleRuntimeEvent);
             Text = "Vision Flow Runtime Demo";
             Width = 1280;
@@ -84,6 +96,7 @@ namespace Vision.Flow.Demo.WinForms
             _runtimeStatusValue.Text = "No runtime loaded";
             _runtimeFileValue.Text = "-";
             _runnerStateValue.Text = "Stopped";
+            ResetEntrySelector();
             InitializeRuntimeServices();
             SeedSummaryData();
             AddEvent("System", "Demo initialized", "Fake devices and node factories registered");
@@ -106,6 +119,10 @@ namespace Vision.Flow.Demo.WinForms
             {
                 await RunUiActionAsync(LoadRuntimeFlowAsync);
             }));
+            buttons.Controls.Add(CreateCommandButton("Browse Runtime...", async delegate
+            {
+                await RunUiActionAsync(BrowseRuntimeFlowAsync);
+            }));
             buttons.Controls.Add(CreateCommandButton("Start Runner", async delegate
             {
                 await RunUiActionAsync(StartRunnerAsync);
@@ -118,9 +135,9 @@ namespace Vision.Flow.Demo.WinForms
             {
                 await RunUiActionAsync(delegate { return TriggerAsync("ManualStart"); });
             }));
-            buttons.Controls.Add(CreateCommandButton("Trigger Motion Arrived", async delegate
+            buttons.Controls.Add(CreateCommandButton("Trigger Selected Entry", async delegate
             {
-                await RunUiActionAsync(delegate { return TriggerAsync("ManualStart"); });
+                await RunUiActionAsync(delegate { return TriggerAsync(GetSelectedEntryName()); });
             }));
 
             panel.Controls.Add(buttons);
@@ -179,16 +196,15 @@ namespace Vision.Flow.Demo.WinForms
 
             layout.Controls.Add(CreateSectionTitle("Entry Signals"), 0, 6);
 
-            var entryList = new ListBox
+            _entrySelector = new ComboBox
             {
                 Dock = DockStyle.Fill,
-                BorderStyle = BorderStyle.None,
+                DropDownStyle = ComboBoxStyle.DropDownList,
                 BackColor = Color.FromArgb(248, 250, 252),
-                ForeColor = Color.FromArgb(55, 65, 81)
+                ForeColor = Color.FromArgb(55, 65, 81),
+                FlatStyle = FlatStyle.Flat
             };
-            entryList.Items.Add("ManualStart");
-            entryList.Items.Add("MotionArrived -> ManualStart");
-            layout.Controls.Add(entryList, 0, 7);
+            layout.Controls.Add(_entrySelector, 0, 7);
 
             panel.Controls.Add(layout);
             return panel;
@@ -400,6 +416,43 @@ namespace Vision.Flow.Demo.WinForms
             _outputSummary.Text = "Image: waiting\r\nFrameId: -\r\nRecipeResult: -\r\nDatabaseSave: -";
         }
 
+        private void ResetEntrySelector()
+        {
+            if (_entrySelector == null)
+            {
+                return;
+            }
+
+            _entrySelector.Items.Clear();
+            _entrySelector.Items.Add("ManualStart");
+            _entrySelector.SelectedIndex = 0;
+        }
+
+        private void PopulateEntrySelector(RuntimeFlowDefinition runtime)
+        {
+            ResetEntrySelector();
+            if (runtime == null || runtime.Entries == null || runtime.Entries.Count == 0)
+            {
+                return;
+            }
+
+            _entrySelector.Items.Clear();
+            foreach (var entry in runtime.Entries)
+            {
+                if (entry != null && !string.IsNullOrWhiteSpace(entry.EntryName))
+                {
+                    _entrySelector.Items.Add(entry.EntryName);
+                }
+            }
+
+            if (_entrySelector.Items.Count == 0)
+            {
+                _entrySelector.Items.Add("ManualStart");
+            }
+
+            _entrySelector.SelectedIndex = 0;
+        }
+
         private void AddEvent(string source, string eventName, string detail)
         {
             _eventSequence++;
@@ -460,14 +513,47 @@ namespace Vision.Flow.Demo.WinForms
             }
         }
 
-        private async Task LoadRuntimeFlowAsync()
+        private async Task BrowseRuntimeFlowAsync()
         {
-            _runtimePath = ResolveRuntimePath();
+            using (var dialog = new OpenFileDialog())
+            {
+                dialog.Filter = "Flow runtime (*.flowruntime)|*.flowruntime|All files (*.*)|*.*";
+                dialog.Title = "Load production runtime flow";
+                dialog.InitialDirectory = GetSampleFlowDirectory();
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    await LoadRuntimeFlowAsync(dialog.FileName).ConfigureAwait(true);
+                }
+            }
+        }
+
+        private Task LoadRuntimeFlowAsync()
+        {
+            return LoadRuntimeFlowAsync(_requestedRuntimePath);
+        }
+
+        private async Task LoadRuntimeFlowAsync(string runtimePath)
+        {
+            if (_runner != null && _runner.IsRunning)
+            {
+                await _runner.StopAsync(CancellationToken.None).ConfigureAwait(true);
+            }
+
+            _runtimePath = string.IsNullOrWhiteSpace(runtimePath) ? ResolveRuntimePath() : runtimePath;
             _runtimeFlow = RuntimeFlowSerializer.Load(_runtimePath);
+            var validation = new FlowValidator(_nodes).Validate(_runtimeFlow);
+            if (!validation.IsValid)
+            {
+                throw new InvalidOperationException("Runtime validation failed: " + string.Join("; ", validation.Errors.Select(x => x.Code + " " + x.Message).ToArray()));
+            }
+
+            _eventSink.Clear();
             _runner = new FlowEngine(_nodes, _eventSink, _devices).CreateRunner(_runtimeFlow);
             _runtimeStatusValue.Text = _runtimeFlow.FlowName + " (" + _runtimeFlow.Nodes.Count + " nodes)";
             _runtimeFileValue.Text = _runtimePath;
             _runnerStateValue.Text = "Loaded";
+            PopulateEntrySelector(_runtimeFlow);
+            _requestedRuntimePath = _runtimePath;
             AddEvent("Runtime", "Loaded", _runtimeFlow.FlowId);
             await Task.FromResult(0);
         }
@@ -494,22 +580,98 @@ namespace Vision.Flow.Demo.WinForms
         private async Task TriggerAsync(string entryName)
         {
             await EnsureRunnerLoadedAsync().ConfigureAwait(true);
+            entryName = string.IsNullOrWhiteSpace(entryName) ? GetSelectedEntryName() : entryName;
             if (!_runner.IsRunning)
             {
                 await _runner.StartAsync(CancellationToken.None).ConfigureAwait(true);
                 _runnerStateValue.Text = "Running";
             }
 
-            _lastToken = new FlowToken
-            {
-                TokenId = Guid.NewGuid().ToString("N"),
-                ProductId = "DemoProduct",
-                WorkpieceId = DateTime.Now.ToString("yyyyMMddHHmmss"),
-                PositionId = "Manual"
-            };
+            _lastToken = CreateProductionToken(entryName);
 
             await _runner.TriggerAsync(entryName, _lastToken, CancellationToken.None).ConfigureAwait(true);
             RefreshTokenSummary(entryName);
+        }
+
+        private string GetSelectedEntryName()
+        {
+            if (_entrySelector != null && _entrySelector.SelectedItem != null)
+            {
+                return Convert.ToString(_entrySelector.SelectedItem, CultureInfo.InvariantCulture);
+            }
+
+            return "ManualStart";
+        }
+
+        private FlowToken CreateProductionToken(string entryName)
+        {
+            var token = new FlowToken
+            {
+                TokenId = Guid.NewGuid().ToString("N"),
+                ProductId = "DemoProduct",
+                WorkpieceId = DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
+                PositionId = entryName
+            };
+
+            if (!string.IsNullOrWhiteSpace(entryName) &&
+                entryName.StartsWith("Position", StringComparison.OrdinalIgnoreCase))
+            {
+                var shotIndex = entryName.IndexOf("2", StringComparison.OrdinalIgnoreCase) >= 0 ? 2 : 1;
+                if (shotIndex == 1 || string.IsNullOrWhiteSpace(_activeCaptureGroupId))
+                {
+                    _activeCaptureGroupId = "capture-" + DateTime.Now.ToString("HHmmss", CultureInfo.InvariantCulture);
+                }
+
+                var frame = CreateDemoFrame(_activeCaptureGroupId, shotIndex);
+                token.CaptureGroupId = _activeCaptureGroupId;
+                token.FrameId = frame.FrameId;
+                token.Set("ShotIndex", shotIndex);
+                token.Set("Frame", frame);
+                token.Set("Image", frame.Image);
+            }
+
+            if (string.Equals(entryName, "CameraFrameStream", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_scanFrameIndex == 0 || string.IsNullOrWhiteSpace(_activeScanGroupId))
+                {
+                    _activeScanGroupId = "scan-" + DateTime.Now.ToString("HHmmss", CultureInfo.InvariantCulture);
+                }
+
+                var image = new FakeVisionImage(
+                    "scan-frame-" + _activeScanGroupId + "-" + _scanFrameIndex.ToString(CultureInfo.InvariantCulture),
+                    640,
+                    160,
+                    "Mono8",
+                    null);
+                token.ScanGroupId = _activeScanGroupId;
+                token.FrameId = image.ImageId;
+                token.Set("FrameIndex", _scanFrameIndex);
+                token.Set("Image", image);
+                _scanFrameIndex = (_scanFrameIndex + 1) % 3;
+            }
+
+            return token;
+        }
+
+        private static CameraFrameData CreateDemoFrame(string captureGroupId, int shotIndex)
+        {
+            var image = new FakeVisionImage(
+                "position-frame-" + captureGroupId + "-" + shotIndex.ToString(CultureInfo.InvariantCulture),
+                320,
+                240,
+                "Mono8",
+                null);
+            var frame = new CameraFrameData
+            {
+                CameraId = "Camera01",
+                TriggerId = "position-" + shotIndex.ToString(CultureInfo.InvariantCulture),
+                FrameId = image.ImageId,
+                GrabTime = DateTime.UtcNow,
+                Image = image
+            };
+            frame.Metadata["CaptureGroupId"] = captureGroupId;
+            frame.Metadata["ShotIndex"] = shotIndex;
+            return frame;
         }
 
         private async Task EnsureRunnerLoadedAsync()
@@ -536,6 +698,24 @@ namespace Vision.Flow.Demo.WinForms
             }
 
             return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\samples\flows\single-shot.flowruntime"));
+        }
+
+        private static string GetSampleFlowDirectory()
+        {
+            var root = AppDomain.CurrentDomain.BaseDirectory;
+            for (var depth = 0; depth < 8 && !string.IsNullOrWhiteSpace(root); depth++)
+            {
+                var candidate = Path.Combine(root, "samples", "flows");
+                if (Directory.Exists(candidate))
+                {
+                    return candidate;
+                }
+
+                var parent = Directory.GetParent(root);
+                root = parent == null ? null : parent.FullName;
+            }
+
+            return AppDomain.CurrentDomain.BaseDirectory;
         }
 
         private void HandleRuntimeEvent(FlowRuntimeEvent runtimeEvent)
@@ -708,6 +888,14 @@ namespace Vision.Flow.Demo.WinForms
                 {
                     object value;
                     return _outputs.TryGetValue(variableName, out value) ? value : null;
+                }
+            }
+
+            public void Clear()
+            {
+                lock (_gate)
+                {
+                    _outputs.Clear();
                 }
             }
         }
