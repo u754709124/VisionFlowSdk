@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Motion node tests exercise adapter-mediated motion behavior with fake devices.
+    // 运控节点测试通过 Fake 设备覆盖适配器转接的运动行为。
     internal static class MotionNodeTests
     {
         public static async Task MotionNotifyWithFakeMotion()

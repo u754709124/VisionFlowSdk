@@ -291,7 +291,7 @@ namespace Vision.Flow.Core
             {
                 var linkedToken = linkedCancellation.Token;
                 var sourceNode = FindNode(continuation.SourceNodeId);
-                var outputPort = string.IsNullOrWhiteSpace(continuation.OutputPort) ? "Next" : continuation.OutputPort;
+                var outputPort = string.IsNullOrWhiteSpace(continuation.OutputPort) ? FlowPortNames.Next : continuation.OutputPort;
                 var result = NodeExecutionResult.Success(outputPort, continuation.Outputs);
                 var flowRunId = string.IsNullOrWhiteSpace(continuation.FlowRunId)
                     ? Guid.NewGuid().ToString("N")
@@ -310,7 +310,7 @@ namespace Vision.Flow.Core
                         0),
                     linkedToken).ConfigureAwait(false);
 
-                if (result.Outputs != null && result.Outputs.ContainsKey("Image"))
+                if (result.Outputs != null && result.Outputs.ContainsKey(FlowOutputNames.Image))
                 {
                     await PublishAsync(
                         CreateRuntimeEvent(
@@ -355,7 +355,7 @@ namespace Vision.Flow.Core
             {
                 var node = FindNode(nodeId);
                 var result = await ExecuteNodeAsync(node, token, variables, cancellationToken, flowRunId).ConfigureAwait(false);
-                var outputPort = string.IsNullOrWhiteSpace(result.OutputPort) ? "Next" : result.OutputPort;
+                var outputPort = string.IsNullOrWhiteSpace(result.OutputPort) ? FlowPortNames.Next : result.OutputPort;
                 await ExecuteOutgoingEdgesAsync(node, outputPort, token, variables, cancellationToken, currentPath, flowRunId)
                     .ConfigureAwait(false);
             }
@@ -505,7 +505,7 @@ namespace Vision.Flow.Core
                         node,
                         NodeRuntimeState.Timeout,
                         result.ErrorMessage,
-                        string.IsNullOrWhiteSpace(result.OutputPort) ? "Error" : result.OutputPort,
+                        string.IsNullOrWhiteSpace(result.OutputPort) ? FlowPortNames.Error : result.OutputPort,
                         flowRunId,
                         stopwatch.ElapsedMilliseconds),
                     cancellationToken).ConfigureAwait(false);
@@ -522,7 +522,7 @@ namespace Vision.Flow.Core
                         node,
                         NodeRuntimeState.Failed,
                         result.ErrorMessage,
-                        string.IsNullOrWhiteSpace(result.OutputPort) ? "Error" : result.OutputPort,
+                        string.IsNullOrWhiteSpace(result.OutputPort) ? FlowPortNames.Error : result.OutputPort,
                         flowRunId,
                         stopwatch.ElapsedMilliseconds),
                     cancellationToken).ConfigureAwait(false);
@@ -538,7 +538,7 @@ namespace Vision.Flow.Core
                     node,
                     NodeRuntimeState.Completed,
                     null,
-                    string.IsNullOrWhiteSpace(result.OutputPort) ? "Next" : result.OutputPort,
+                    string.IsNullOrWhiteSpace(result.OutputPort) ? FlowPortNames.Next : result.OutputPort,
                     flowRunId,
                     stopwatch.ElapsedMilliseconds),
                 cancellationToken).ConfigureAwait(false);
@@ -572,8 +572,8 @@ namespace Vision.Flow.Core
                     result.OutputPort,
                     flowRunId,
                     0);
-                runtimeEvent.Data["VariableName"] = variableName;
-                runtimeEvent.Data["Value"] = output.Value;
+                runtimeEvent.Data[FlowRuntimeDataKeys.VariableName] = variableName;
+                runtimeEvent.Data[FlowRuntimeDataKeys.Value] = output.Value;
                 await PublishAsync(runtimeEvent, cancellationToken).ConfigureAwait(false);
             }
         }
@@ -649,7 +649,7 @@ namespace Vision.Flow.Core
             runtimeEvent.ElapsedMs = elapsedMs;
             if (elapsedMs > 0)
             {
-                runtimeEvent.Data["ElapsedMs"] = elapsedMs;
+                runtimeEvent.Data[FlowRuntimeDataKeys.ElapsedMs] = elapsedMs;
             }
 
             return runtimeEvent;

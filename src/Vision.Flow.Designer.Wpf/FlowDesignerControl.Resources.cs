@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Resource helpers centralize shared colors and WPF control templates.
+    // 资源辅助方法集中管理共享颜色和 WPF 控件模板。
     public sealed partial class FlowDesignerControl
     {
         private static NodeRegistry CreateDefaultNodeRegistry()

@@ -7,7 +7,7 @@ using Vision.Flow.Core;
 
 namespace Vision.DeviceAdapters
 {
-    // Fake lights capture requested channel state for deterministic node tests.
+    // 模拟光源捕获请求的通道状态，服务确定性节点测试。
     public sealed class FakeLightAdapter : ILightAdapter
     {
         private readonly object _gate = new object();

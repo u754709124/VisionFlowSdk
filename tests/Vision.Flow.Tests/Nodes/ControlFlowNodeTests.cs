@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Control-flow node tests cover branch and join semantics without involving device adapters.
+    // 控制流节点测试覆盖分支和汇合语义，不引入设备适配器。
     internal static class ControlFlowNodeTests
     {
         public static async Task AndJoinTwoInputsSameJoinKey()
@@ -179,9 +179,9 @@ namespace Vision.Flow.Tests
             var variableName = nodeId + "." + outputName;
             var runtimeEvent = sink.Events.LastOrDefault(x =>
                 x.EventType == FlowRuntimeEventType.OutputProduced &&
-                string.Equals(Convert.ToString(x.Data["VariableName"]), variableName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]), variableName, StringComparison.OrdinalIgnoreCase));
             AssertEx.NotNull(runtimeEvent, "Expected output was not produced: " + variableName);
-            return runtimeEvent.Data["Value"];
+            return runtimeEvent.Data[FlowRuntimeDataKeys.Value];
         }
 
         private static int CountOutputValues(InMemoryFlowEventSink sink, string nodeId, string outputName, object expectedValue)
@@ -189,8 +189,8 @@ namespace Vision.Flow.Tests
             var variableName = nodeId + "." + outputName;
             return sink.Events.Count(x =>
                 x.EventType == FlowRuntimeEventType.OutputProduced &&
-                string.Equals(Convert.ToString(x.Data["VariableName"]), variableName, StringComparison.OrdinalIgnoreCase) &&
-                object.Equals(x.Data["Value"], expectedValue));
+                string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]), variableName, StringComparison.OrdinalIgnoreCase) &&
+                object.Equals(x.Data[FlowRuntimeDataKeys.Value], expectedValue));
         }
     }
 }

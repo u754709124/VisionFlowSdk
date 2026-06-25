@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Minimal assertions keep the console test harness dependency-free.
+    // 最小断言工具让控制台测试框架保持无外部依赖。
     internal static class AssertEx
     {
         public static void True(bool condition, string message)

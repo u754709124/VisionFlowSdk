@@ -43,7 +43,7 @@ namespace Vision.Flow.Core
                 return new List<EdgeDefinition>();
             }
 
-            var effectivePort = string.IsNullOrWhiteSpace(outputPort) ? "Next" : outputPort;
+            var effectivePort = string.IsNullOrWhiteSpace(outputPort) ? FlowPortNames.Next : outputPort;
             List<EdgeDefinition> edges;
             if (!edgesByPort.TryGetValue(effectivePort, out edges))
             {
@@ -131,7 +131,7 @@ namespace Vision.Flow.Core
                 _outgoingEdgesByNodeAndPort[edge.FromNodeId] = edgesByPort;
             }
 
-            var port = string.IsNullOrWhiteSpace(edge.FromPort) ? "Next" : edge.FromPort;
+            var port = string.IsNullOrWhiteSpace(edge.FromPort) ? FlowPortNames.Next : edge.FromPort;
             List<EdgeDefinition> edges;
             if (!edgesByPort.TryGetValue(port, out edges))
             {

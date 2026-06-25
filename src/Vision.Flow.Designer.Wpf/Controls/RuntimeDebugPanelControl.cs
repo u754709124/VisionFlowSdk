@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Runtime debug panel displays flow events and exposes node navigation requests.
+    // 运行调试面板显示流程事件，并暴露节点导航请求。
     public sealed class RuntimeDebugPanelControl : Border
     {
         private readonly ListBox _events;

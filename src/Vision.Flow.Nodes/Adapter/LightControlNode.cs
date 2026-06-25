@@ -10,7 +10,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Light control nodes translate flow settings into adapter channel commands.
+    // 光源控制节点将流程设置转换为适配器通道命令。
     public sealed class LightChannelControlConfig
     {
         public LightChannelControlConfig()
@@ -43,7 +43,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class LightControlNodeFactory : BaseNodeFactory<LightControlNodeConfig>
     {
-        public const string TypeName = "light.control";
+        public const string TypeName = FlowNodeTypes.LightControl;
 
         public override string NodeType
         {

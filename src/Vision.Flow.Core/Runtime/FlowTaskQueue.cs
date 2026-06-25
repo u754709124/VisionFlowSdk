@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 
 namespace Vision.Flow.Core
 {
+    /// <summary>
+    /// 队列满载时的处理策略，供长耗时算法或保存类节点使用。
+    /// </summary>
     public enum FlowTaskQueueFullMode
     {
         Wait = 0,
@@ -14,11 +17,14 @@ namespace Vision.Flow.Core
         NotifyOnly = 4
     }
 
+    /// <summary>
+    /// 运行任务队列配置，控制容量、并发度和满载策略。
+    /// </summary>
     public sealed class FlowTaskQueueOptions
     {
         public FlowTaskQueueOptions()
         {
-            QueueName = "default";
+            QueueName = FlowQueueNames.Default;
             Capacity = 16;
             MaxDegreeOfParallelism = 1;
             FullMode = FlowTaskQueueFullMode.Wait;
@@ -33,6 +39,9 @@ namespace Vision.Flow.Core
         public FlowTaskQueueFullMode FullMode { get; set; }
     }
 
+    /// <summary>
+    /// 队列任务上下文，发布队列事件时用于定位流程、节点和 Token。
+    /// </summary>
     public sealed class FlowTaskQueueItemContext
     {
         public string FlowId { get; set; }
@@ -48,6 +57,9 @@ namespace Vision.Flow.Core
         public IDictionary<string, object> Data { get; set; }
     }
 
+    /// <summary>
+    /// 队列入队结果，表达任务是否被接受、拒绝、丢弃或仅通知。
+    /// </summary>
     public class FlowTaskQueueResult
     {
         public bool IsAccepted { get; set; }
@@ -65,11 +77,17 @@ namespace Vision.Flow.Core
         public string ErrorMessage { get; set; }
     }
 
+    /// <summary>
+    /// 带返回值的队列执行结果。
+    /// </summary>
     public sealed class FlowTaskQueueResult<T> : FlowTaskQueueResult
     {
         public T Value { get; set; }
     }
 
+    /// <summary>
+    /// 队列注册表接口，用于在多个节点之间复用具名运行队列。
+    /// </summary>
     public interface IFlowTaskQueueRegistry
     {
         FlowTaskQueue GetOrCreate(string queueName, FlowTaskQueueOptions options = null);
@@ -77,6 +95,9 @@ namespace Vision.Flow.Core
         bool TryGetQueue(string queueName, out FlowTaskQueue queue);
     }
 
+    /// <summary>
+    /// 默认队列注册表，按队列名惰性创建并复用运行队列。
+    /// </summary>
     public sealed class FlowTaskQueueRegistry : IFlowTaskQueueRegistry
     {
         private readonly object _gate = new object();
@@ -133,7 +154,7 @@ namespace Vision.Flow.Core
                 return options.QueueName;
             }
 
-            return "default";
+            return FlowQueueNames.Default;
         }
 
         private static FlowTaskQueueOptions CloneOptions(FlowTaskQueueOptions options)
@@ -149,6 +170,9 @@ namespace Vision.Flow.Core
         }
     }
 
+    /// <summary>
+    /// 有界异步任务队列，用于让保存、算法等长耗时节点控制并发和背压。
+    /// </summary>
     public sealed class FlowTaskQueue
     {
         private readonly SemaphoreSlim _capacity;
@@ -163,7 +187,7 @@ namespace Vision.Flow.Core
                 options = new FlowTaskQueueOptions();
             }
 
-            QueueName = string.IsNullOrWhiteSpace(options.QueueName) ? "default" : options.QueueName;
+            QueueName = string.IsNullOrWhiteSpace(options.QueueName) ? FlowQueueNames.Default : options.QueueName;
             Capacity = options.Capacity <= 0 ? 1 : options.Capacity;
             MaxDegreeOfParallelism = options.MaxDegreeOfParallelism <= 0 ? 1 : options.MaxDegreeOfParallelism;
             FullMode = options.FullMode;
@@ -473,12 +497,12 @@ namespace Vision.Flow.Core
                 Message = message,
                 State = NodeRuntimeState.Running
             };
-            runtimeEvent.Data["QueueName"] = QueueName;
-            runtimeEvent.Data["OperationName"] = context.OperationName;
-            runtimeEvent.Data["Depth"] = CurrentDepth;
-            runtimeEvent.Data["Capacity"] = Capacity;
-            runtimeEvent.Data["MaxDegreeOfParallelism"] = MaxDegreeOfParallelism;
-            runtimeEvent.Data["FullMode"] = FullMode.ToString();
+            runtimeEvent.Data[FlowRuntimeDataKeys.QueueName] = QueueName;
+            runtimeEvent.Data[FlowRuntimeDataKeys.OperationName] = context.OperationName;
+            runtimeEvent.Data[FlowRuntimeDataKeys.Depth] = CurrentDepth;
+            runtimeEvent.Data[FlowRuntimeDataKeys.Capacity] = Capacity;
+            runtimeEvent.Data[FlowRuntimeDataKeys.MaxDegreeOfParallelism] = MaxDegreeOfParallelism;
+            runtimeEvent.Data[FlowRuntimeDataKeys.FullMode] = FullMode.ToString();
 
             foreach (var item in context.Data)
             {

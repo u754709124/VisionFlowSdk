@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Document helpers manage design templates, node editing, selection, and property refresh.
+    // 文档辅助方法负责设计模板、节点编辑、选择状态和属性刷新。
     public sealed partial class FlowDesignerControl
     {
         private void CreateNewDesign()
@@ -37,41 +37,41 @@ namespace Vision.Flow.Designer.Wpf
             _document = CreateDocument("designer-single-shot", "Single Shot Inspection");
             var flow = _document.Runtime;
 
-            AddTemplateNode("light_1", "light.control", "Light Control", 70, 90, new Dictionary<string, object>
+            AddTemplateNode("light_1", FlowNodeTypes.LightControl, "Light Control", 70, 90, new Dictionary<string, object>
             {
-                { "LightId", "Light01" },
-                { "Channels", CreateLightChannels("Main", 85) },
-                { "StableDelayMs", 0 }
+                { FlowSettingNames.LightId, "Light01" },
+                { FlowSettingNames.Channels, CreateLightChannels("Main", 85) },
+                { FlowSettingNames.StableDelayMs, 0 }
             });
-            AddTemplateNode("trigger_1", "camera.soft_trigger", "Camera Trigger", 360, 90, new Dictionary<string, object>
+            AddTemplateNode("trigger_1", FlowNodeTypes.CameraSoftTrigger, "Camera Trigger", 360, 90, new Dictionary<string, object>
             {
-                { "CameraId", "Camera01" },
-                { "TimeoutMs", 1000 }
+                { FlowSettingNames.CameraId, "Camera01" },
+                { FlowSettingNames.TimeoutMs, 1000 }
             });
-            AddTemplateNode("callback_1", "camera.image_callback", "Image Callback", 650, 90, new Dictionary<string, object>
+            AddTemplateNode("callback_1", FlowNodeTypes.CameraImageCallback, "Image Callback", 650, 90, new Dictionary<string, object>
             {
-                { "CameraId", "Camera01" },
-                { "MatchMode", "TriggerId" },
-                { "TimeoutMs", 1500 }
+                { FlowSettingNames.CameraId, "Camera01" },
+                { FlowSettingNames.MatchMode, CameraFrameMatchModes.TriggerId },
+                { FlowSettingNames.TimeoutMs, 1500 }
             });
-            AddTemplateNode("recipe_1", "recipe.run", "Recipe Run", 940, 90, new Dictionary<string, object>
+            AddTemplateNode("recipe_1", FlowNodeTypes.RecipeRun, "Recipe Run", 940, 90, new Dictionary<string, object>
             {
-                { "RecipeId", "Recipe01" },
-                { "InputImageBinding", "{{ callback_1.Image }}" },
-                { "TimeoutMs", 5000 }
+                { FlowSettingNames.RecipeId, "Recipe01" },
+                { FlowSettingNames.InputImageBinding, "{{ callback_1.Image }}" },
+                { FlowSettingNames.TimeoutMs, 5000 }
             });
-            AddTemplateNode("save_1", "image.save", "Save Image", 1230, 90, new Dictionary<string, object>
+            AddTemplateNode("save_1", FlowNodeTypes.ImageSave, "Save Image", 1230, 90, new Dictionary<string, object>
             {
-                { "SaverId", "ImageSave01" },
-                { "ImageBinding", "{{ callback_1.Image }}" },
-                { "ResultImageBinding", "{{ recipe_1.ResultImage }}" },
-                { "FileNameTemplate", "{TokenId}_{ImageId}.png" }
+                { FlowSettingNames.SaverId, "ImageSave01" },
+                { FlowSettingNames.ImageBinding, "{{ callback_1.Image }}" },
+                { FlowSettingNames.ResultImageBinding, "{{ recipe_1.ResultImage }}" },
+                { FlowSettingNames.FileNameTemplate, "{TokenId}_{ImageId}.png" }
             });
-            AddTemplateNode("db_1", "database.save", "Save Result", 1230, 300, new Dictionary<string, object>
+            AddTemplateNode("db_1", FlowNodeTypes.DatabaseSave, "Save Result", 1230, 300, new Dictionary<string, object>
             {
-                { "DatabaseId", "VisionDb" },
-                { "TableName", "InspectionResults" },
-                { "FieldMappings", CreateFieldMappings("IsOk={{ recipe_1.IsOk }};FrameId={{ callback_1.FrameId }};ImagePath={{ save_1.ImagePath }}") }
+                { FlowSettingNames.DatabaseId, "VisionDb" },
+                { FlowSettingNames.TableName, "InspectionResults" },
+                { FlowSettingNames.FieldMappings, CreateFieldMappings("IsOk={{ recipe_1.IsOk }};FrameId={{ callback_1.FrameId }};ImagePath={{ save_1.ImagePath }}") }
             });
 
             flow.Entries.Add(new FlowEntryDefinition { EntryName = DefaultEntryName, TargetNodeId = "light_1" });
@@ -184,29 +184,29 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
-            if (string.Equals(node.Type, "recipe.run", StringComparison.OrdinalIgnoreCase) &&
+            if (string.Equals(node.Type, FlowNodeTypes.RecipeRun, StringComparison.OrdinalIgnoreCase) &&
                 previous != null &&
-                string.Equals(previous.Type, "camera.image_callback", StringComparison.OrdinalIgnoreCase))
+                string.Equals(previous.Type, FlowNodeTypes.CameraImageCallback, StringComparison.OrdinalIgnoreCase))
             {
-                node.Settings["InputImageBinding"] = "{{ " + previous.Id + ".Image }}";
+                node.Settings[FlowSettingNames.InputImageBinding] = "{{ " + previous.Id + "." + FlowOutputNames.Image + " }}";
             }
 
-            if (string.Equals(node.Type, "image.save", StringComparison.OrdinalIgnoreCase) && previous != null)
+            if (string.Equals(node.Type, FlowNodeTypes.ImageSave, StringComparison.OrdinalIgnoreCase) && previous != null)
             {
-                if (string.Equals(previous.Type, "camera.image_callback", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(previous.Type, FlowNodeTypes.CameraImageCallback, StringComparison.OrdinalIgnoreCase))
                 {
-                    node.Settings["ImageBinding"] = "{{ " + previous.Id + ".Image }}";
+                    node.Settings[FlowSettingNames.ImageBinding] = "{{ " + previous.Id + "." + FlowOutputNames.Image + " }}";
                 }
 
-                if (string.Equals(previous.Type, "recipe.run", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(previous.Type, FlowNodeTypes.RecipeRun, StringComparison.OrdinalIgnoreCase))
                 {
-                    node.Settings["ResultImageBinding"] = "{{ " + previous.Id + ".ResultImage }}";
+                    node.Settings[FlowSettingNames.ResultImageBinding] = "{{ " + previous.Id + "." + FlowOutputNames.ResultImage + " }}";
                 }
             }
 
-            if (string.Equals(node.Type, "database.save", StringComparison.OrdinalIgnoreCase) && previous != null)
+            if (string.Equals(node.Type, FlowNodeTypes.DatabaseSave, StringComparison.OrdinalIgnoreCase) && previous != null)
             {
-                node.Settings["FieldMappings"] = CreateFieldMappings("PreviousNode=" + previous.Id);
+                node.Settings[FlowSettingNames.FieldMappings] = CreateFieldMappings("PreviousNode=" + previous.Id);
             }
         }
 
@@ -222,47 +222,47 @@ namespace Vision.Flow.Designer.Wpf
                 return setting.DefaultValue;
             }
 
-            if (StringEquals(setting.Name, "CameraId"))
+            if (StringEquals(setting.Name, FlowSettingNames.CameraId))
             {
                 return "Camera01";
             }
 
-            if (StringEquals(setting.Name, "LightId"))
+            if (StringEquals(setting.Name, FlowSettingNames.LightId))
             {
                 return "Light01";
             }
 
-            if (StringEquals(setting.Name, "RecipeId"))
+            if (StringEquals(setting.Name, FlowSettingNames.RecipeId))
             {
                 return "Recipe01";
             }
 
-            if (StringEquals(setting.Name, "DatabaseId"))
+            if (StringEquals(setting.Name, FlowSettingNames.DatabaseId))
             {
                 return "VisionDb";
             }
 
-            if (StringEquals(setting.Name, "TableName"))
+            if (StringEquals(setting.Name, FlowSettingNames.TableName))
             {
                 return "InspectionResults";
             }
 
-            if (StringEquals(setting.Name, "Channels"))
+            if (StringEquals(setting.Name, FlowSettingNames.Channels))
             {
                 return CreateLightChannels("Main", 80);
             }
 
-            if (StringEquals(setting.Name, "Parameters"))
+            if (StringEquals(setting.Name, FlowSettingNames.Parameters))
             {
                 return CreateCameraParameters("ExposureTime=1000;Gain=1");
             }
 
-            if (StringEquals(setting.Name, "FieldMappings"))
+            if (StringEquals(setting.Name, FlowSettingNames.FieldMappings))
             {
                 return CreateFieldMappings("TokenId={{ token.TokenId }}");
             }
 
-            if (StringEquals(setting.Name, "Message"))
+            if (StringEquals(setting.Name, FlowSettingNames.Message))
             {
                 return "Debug node executed.";
             }
@@ -272,7 +272,7 @@ namespace Vision.Flow.Designer.Wpf
 
         private void AddEdge(string fromNodeId, string toNodeId)
         {
-            AddEdge(fromNodeId, "Next", toNodeId, "In");
+            AddEdge(fromNodeId, FlowPortNames.Next, toNodeId, FlowPortNames.In);
         }
 
         private void AddEdge(string fromNodeId, string fromPort, string toNodeId, string toPort)
@@ -295,9 +295,9 @@ namespace Vision.Flow.Designer.Wpf
             _document.Runtime.Edges.Add(new EdgeDefinition
             {
                 FromNodeId = fromNodeId,
-                FromPort = string.IsNullOrWhiteSpace(fromPort) ? "Next" : fromPort,
+                FromPort = string.IsNullOrWhiteSpace(fromPort) ? FlowPortNames.Next : fromPort,
                 ToNodeId = toNodeId,
-                ToPort = string.IsNullOrWhiteSpace(toPort) ? "In" : toPort
+                ToPort = string.IsNullOrWhiteSpace(toPort) ? FlowPortNames.In : toPort
             });
         }
 
@@ -658,7 +658,7 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
-            node.Settings["Disabled"] = !IsNodeDisabled(node);
+            node.Settings[FlowSettingNames.Disabled] = !IsNodeDisabled(node);
             RenderCanvas();
             SelectNode(node);
         }
@@ -668,7 +668,7 @@ namespace Vision.Flow.Designer.Wpf
             object value;
             return node != null &&
                 node.Settings != null &&
-                node.Settings.TryGetValue("Disabled", out value) &&
+                node.Settings.TryGetValue(FlowSettingNames.Disabled, out value) &&
                 value != null &&
                 Convert.ToBoolean(value, CultureInfo.InvariantCulture);
         }

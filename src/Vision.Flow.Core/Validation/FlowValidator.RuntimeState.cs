@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -7,7 +7,7 @@ using System.Reflection;
 
 namespace Vision.Flow.Core
 {
-    // Runtime-state checks prevent designer-only view state from leaking into .flowruntime files.
+    // 运行态检查防止设计器专用视图状态泄漏到 .flowruntime 文件。
     public sealed partial class FlowValidator
     {
         private static void ValidateNoDesignerState(RuntimeFlowDefinition definition, FlowValidationResult result)
@@ -53,7 +53,7 @@ namespace Vision.Flow.Core
             if (value is FlowDesignDocument || value is FlowViewState || value is NodeViewState)
             {
                 result.AddError(
-                    "RuntimeContainsViewState",
+                    FlowValidationIssueCodes.RuntimeContainsViewState,
                     "Runtime flow must not contain designer view state.",
                     field: field);
                 return;

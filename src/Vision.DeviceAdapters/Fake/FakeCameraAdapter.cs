@@ -7,7 +7,7 @@ using Vision.Flow.Core;
 
 namespace Vision.DeviceAdapters
 {
-    // Fake cameras simulate parameter storage, soft triggers, and frame callbacks without vendor SDKs.
+    // 模拟相机在不依赖厂商 SDK 的情况下模拟参数存储、软触发和帧回调。
     public sealed class FakeCameraAdapter : ICameraAdapter
     {
         private readonly object _gate = new object();
@@ -211,7 +211,7 @@ namespace Vision.DeviceAdapters
             var grabTime = DateTime.UtcNow;
             var frameId = CameraId + "-" + frameNumber.ToString(CultureInfo.InvariantCulture);
             var image = new FakeVisionImage(frameId, ImageWidth, ImageHeight, PixelFormat, null);
-            image.Metadata["ImageKind"] = image.ImageKind;
+            image.Metadata[FlowMetadataKeys.ImageKind] = image.ImageKind;
 
             var frame = new CameraFrameData
             {
@@ -223,10 +223,10 @@ namespace Vision.DeviceAdapters
             };
 
             CopyMetadata(triggerMetadata, frame.Metadata);
-            frame.Metadata["CameraId"] = CameraId;
-            frame.Metadata["TriggerId"] = triggerId;
-            frame.Metadata["FrameId"] = frameId;
-            frame.Metadata["GrabTime"] = grabTime;
+            frame.Metadata[FlowMetadataKeys.CameraId] = CameraId;
+            frame.Metadata[FlowMetadataKeys.TriggerId] = triggerId;
+            frame.Metadata[FlowMetadataKeys.FrameId] = frameId;
+            frame.Metadata[FlowMetadataKeys.GrabTime] = grabTime;
 
             CopyMetadata(frame.Metadata, image.Metadata);
             return frame;

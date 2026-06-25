@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Small test case wrapper shared by the console-based test harness.
+    // 小型测试用例包装器，供控制台测试框架复用。
     internal sealed class TestCase
     {
         private readonly Func<Task> _runAsync;

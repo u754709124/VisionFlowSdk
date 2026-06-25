@@ -13,7 +13,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // Main form state and construction stay in the root file; workflow details live in partial files.
+    // 主窗体状态和构造留在根文件，具体工作流细节放在 partial 文件中。
     public sealed partial class MainForm : Form
     {
         private readonly UiFlowEventSink _eventSink;

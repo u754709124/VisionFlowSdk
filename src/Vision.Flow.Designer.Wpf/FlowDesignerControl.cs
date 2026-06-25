@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Core designer state, construction, and public integration points stay in the root file.
+    // 设计器核心状态、构造逻辑和公开集成点保留在根文件。
     public sealed class FlowDesignerOptions
     {
         public FlowDesignerOptions()

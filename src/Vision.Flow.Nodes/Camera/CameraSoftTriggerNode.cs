@@ -8,7 +8,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Soft-trigger nodes create trigger context without waiting for image callback completion.
+    // 软触发节点创建触发上下文，不等待图像回调完成。
     public sealed class CameraSoftTriggerNodeConfig
     {
         public CameraSoftTriggerNodeConfig()
@@ -23,7 +23,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class CameraSoftTriggerNodeFactory : BaseNodeFactory<CameraSoftTriggerNodeConfig>
     {
-        public const string TypeName = "camera.soft_trigger";
+        public const string TypeName = FlowNodeTypes.CameraSoftTrigger;
 
         public override string NodeType
         {
@@ -84,9 +84,9 @@ namespace Vision.Flow.Nodes
                 TriggerId = triggerId,
                 Token = context.Token
             };
-            triggerContext.Metadata["CameraId"] = cameraId;
-            triggerContext.Metadata["TriggerId"] = triggerId;
-            triggerContext.Metadata["TriggerTime"] = triggerTime;
+            triggerContext.Metadata[FlowMetadataKeys.CameraId] = cameraId;
+            triggerContext.Metadata[FlowMetadataKeys.TriggerId] = triggerId;
+            triggerContext.Metadata[FlowMetadataKeys.TriggerTime] = triggerTime;
 
             context.CameraFrames.EnsureCamera(camera, cameraId);
 

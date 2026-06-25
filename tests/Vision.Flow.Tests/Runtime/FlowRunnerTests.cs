@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Flow runner tests cover scheduling, routing, cancellation, and runtime event behavior.
+    // 流程运行器测试覆盖调度、路由、取消和运行事件行为。
     internal static class FlowRunnerTests
     {
         public static async Task LinearOrderAndVariables()
@@ -25,8 +25,8 @@ namespace Vision.Flow.Tests
             await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-linear" }).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "A", "B", "C" }, executionLog, "Nodes should execute in A -> B -> C order.");
-            AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data["VariableName"]) == "A.Value"), "A.Value output should be written.");
-            AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data["VariableName"]) == "B.Value"), "B.Value output should be written.");
+            AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]) == "A.Value"), "A.Value output should be written.");
+            AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]) == "B.Value"), "B.Value output should be written.");
         }
 
         public static async Task FanOutExecutesAllOutgoingEdges()
@@ -159,7 +159,7 @@ namespace Vision.Flow.Tests
 
             AssertEx.SequenceEqual(new[] { "A", "B" }, executionLog, "Continuation should route A.Frame to B.");
             AssertEx.True(
-                sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data["VariableName"]) == "A.Value"),
+                sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]) == "A.Value"),
                 "Continuation outputs should be written through the source node namespace.");
         }
 

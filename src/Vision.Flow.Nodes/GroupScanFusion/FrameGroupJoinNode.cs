@@ -9,7 +9,7 @@ using static Vision.Flow.Nodes.GroupScanFusionNodeHelpers;
 
 namespace Vision.Flow.Nodes
 {
-    // Frame group join nodes collect multi-position shots into one ordered capture group.
+    // 图像组汇合节点将多点位拍照结果收集为有序采集组。
     public sealed class FrameGroupJoinNodeConfig
     {
         public FrameGroupJoinNodeConfig()
@@ -45,7 +45,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class FrameGroupJoinNodeFactory : BaseNodeFactory<FrameGroupJoinNodeConfig>
     {
-        public const string TypeName = "group.frame_join";
+        public const string TypeName = FlowNodeTypes.GroupFrameJoin;
 
         public override string NodeType
         {
@@ -231,9 +231,9 @@ namespace Vision.Flow.Nodes
                 CopyDictionary(frame.Metadata, item.Metadata);
             }
 
-            item.Metadata["CaptureGroupId"] = captureGroupId;
-            item.Metadata["ShotIndex"] = shotIndex;
-            item.Metadata["FrameId"] = item.FrameId;
+            item.Metadata[FlowMetadataKeys.CaptureGroupId] = captureGroupId;
+            item.Metadata[FlowMetadataKeys.ShotIndex] = shotIndex;
+            item.Metadata[FlowMetadataKeys.FrameId] = item.FrameId;
             return item;
         }
     }
@@ -329,10 +329,10 @@ namespace Vision.Flow.Nodes
                 Frames = frames
             };
 
-            result.Metadata["CaptureGroupId"] = CaptureGroupId;
-            result.Metadata["ExpectedShotCount"] = ExpectedCount;
-            result.Metadata["ActualShotCount"] = frames.Count;
-            result.Metadata["ShotIndexes"] = string.Join(",", frames.Select(x => x.ShotIndex.ToString(CultureInfo.InvariantCulture)).ToArray());
+            result.Metadata[FlowMetadataKeys.CaptureGroupId] = CaptureGroupId;
+            result.Metadata[FlowMetadataKeys.ExpectedShotCount] = ExpectedCount;
+            result.Metadata[FlowMetadataKeys.ActualShotCount] = frames.Count;
+            result.Metadata[FlowMetadataKeys.ShotIndexes] = string.Join(",", frames.Select(x => x.ShotIndex.ToString(CultureInfo.InvariantCulture)).ToArray());
             return result;
         }
     }

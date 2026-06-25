@@ -10,7 +10,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Image save nodes resolve images and path templates before calling the save adapter.
+    // 图片保存节点在调用保存适配器前解析图像和路径模板。
     public sealed class ImageSaveNodeConfig
     {
         public ImageSaveNodeConfig()
@@ -19,7 +19,7 @@ namespace Vision.Flow.Nodes
             FileNameTemplate = "{ImageId}.png";
             Queue = new AdapterNodeQueueConfig
             {
-                QueueName = "image-save"
+                QueueName = FlowQueueNames.ImageSave
             };
         }
 
@@ -40,7 +40,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class ImageSaveNodeFactory : BaseNodeFactory<ImageSaveNodeConfig>
     {
-        public const string TypeName = "image.save";
+        public const string TypeName = FlowNodeTypes.ImageSave;
 
         public override string NodeType
         {
@@ -68,7 +68,7 @@ namespace Vision.Flow.Nodes
                 RootDirectory = GetStringSetting(definition, "RootDirectory", null),
                 DirectoryTemplate = GetStringSetting(definition, "DirectoryTemplate", null),
                 FileNameTemplate = GetStringSetting(definition, "FileNameTemplate", "{ImageId}.png"),
-                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "image-save")
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, FlowQueueNames.ImageSave)
             };
         }
 
@@ -87,7 +87,7 @@ namespace Vision.Flow.Nodes
             _config = config ?? new ImageSaveNodeConfig();
             if (_config.Queue == null)
             {
-                _config.Queue = new AdapterNodeQueueConfig { QueueName = "image-save" };
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = FlowQueueNames.ImageSave };
             }
         }
 
@@ -183,15 +183,15 @@ namespace Vision.Flow.Nodes
                 FileName = fileName,
                 Format = AdapterNodeHelpers.GetFileFormat(fileName)
             };
-            request.Metadata["TokenId"] = context.Token.TokenId;
-            request.Metadata["NodeId"] = context.Node.Id;
-            request.Metadata["Role"] = role;
+            request.Metadata[FlowMetadataKeys.TokenId] = context.Token.TokenId;
+            request.Metadata[FlowMetadataKeys.NodeId] = context.Node.Id;
+            request.Metadata[FlowMetadataKeys.Role] = role;
 
             var queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync(
                 context,
                 _config.Queue,
-                "image-save",
-                "image.save." + role,
+                FlowQueueNames.ImageSave,
+                FlowNodeTypes.ImageSave + "." + role,
                 async delegate(CancellationToken token)
                 {
                     try
@@ -330,7 +330,7 @@ namespace Vision.Flow.Nodes
                         Description = "File name template for saved images."
                     },
                     AdapterNodeDescriptors.QueueUseSetting(),
-                    AdapterNodeDescriptors.QueueNameSetting("image-save"),
+                    AdapterNodeDescriptors.QueueNameSetting(FlowQueueNames.ImageSave),
                     AdapterNodeDescriptors.QueueCapacitySetting(),
                     AdapterNodeDescriptors.QueueMaxDegreeSetting(),
                     AdapterNodeDescriptors.QueueFullModeSetting(),

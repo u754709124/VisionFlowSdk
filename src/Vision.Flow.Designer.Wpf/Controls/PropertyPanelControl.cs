@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Property panel controls edit node settings and variable bindings.
+    // 属性面板控件负责编辑节点设置和变量绑定。
     public sealed class PropertyPanelControl : Border
     {
         private readonly StackPanel _rows;
@@ -301,54 +301,54 @@ namespace Vision.Flow.Designer.Wpf
             {
                 items.Add("VisionDb");
             }
-            else if (string.Equals(setting.Name, "SaverId", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(setting.Name, "ImageSaverId", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(setting.Name, FlowSettingNames.SaverId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(setting.Name, FlowSettingNames.ImageSaverId, StringComparison.OrdinalIgnoreCase))
             {
                 items.Add("ImageSave01");
             }
-            else if (string.Equals(setting.Name, "MatchMode", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(setting.Name, FlowSettingNames.MatchMode, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add("TriggerId");
-                items.Add("Any");
-                items.Add("ScanGroupId");
-                items.Add("TimeWindow");
+                items.Add(CameraFrameMatchModes.TriggerId);
+                items.Add(CameraFrameMatchModes.Any);
+                items.Add(CameraFrameMatchModes.ScanGroupId);
+                items.Add(CameraFrameMatchModes.TimeWindow);
             }
-            else if (string.Equals(setting.Name, "CallbackMode", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(setting.Name, FlowSettingNames.CallbackMode, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add("WaitNextFrame");
-                items.Add("StreamFrames");
+                items.Add(CameraCallbackModes.WaitNextFrame);
+                items.Add(CameraCallbackModes.StreamFrames);
             }
-            else if (string.Equals(setting.Name, "StreamOutputMode", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(setting.Name, FlowSettingNames.StreamOutputMode, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add("Batch");
-                items.Add("PerFrame");
+                items.Add(CameraStreamOutputModes.Batch);
+                items.Add(CameraStreamOutputModes.PerFrame);
             }
-            else if (string.Equals(setting.Name, "FrameIndexSource", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(setting.Name, FlowSettingNames.FrameIndexSource, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add("Increment");
-                items.Add("Metadata");
+                items.Add(FrameIndexSources.Increment);
+                items.Add(FrameIndexSources.Metadata);
             }
-            else if (string.Equals(setting.Name, "DuplicatePolicy", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(setting.Name, FlowSettingNames.DuplicatePolicy, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add("Error");
-                items.Add("Ignore");
-                items.Add("Replace");
+                items.Add(FlowDuplicatePolicies.Error);
+                items.Add(FlowDuplicatePolicies.Ignore);
+                items.Add(FlowDuplicatePolicies.Replace);
             }
-            else if (string.Equals(setting.Name, "QueueFullMode", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(setting.Name, FlowSettingNames.QueueFullMode, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add("Wait");
-                items.Add("Reject");
-                items.Add("Drop");
-                items.Add("StopFlow");
-                items.Add("NotifyOnly");
+                items.Add(FlowQueueFullModeNames.Wait);
+                items.Add(FlowQueueFullModeNames.Reject);
+                items.Add(FlowQueueFullModeNames.Drop);
+                items.Add(FlowQueueFullModeNames.StopFlow);
+                items.Add(FlowQueueFullModeNames.NotifyOnly);
             }
-            else if (string.Equals(setting.Name, "QueueName", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(setting.Name, FlowSettingNames.QueueName, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add("recipe");
-                items.Add("image-save");
-                items.Add("database-save");
-                items.Add("frame-preprocess");
-                items.Add("fusion");
+                items.Add(FlowQueueNames.Recipe);
+                items.Add(FlowQueueNames.ImageSave);
+                items.Add(FlowQueueNames.DatabaseSave);
+                items.Add(FlowQueueNames.FramePreprocess);
+                items.Add(FlowQueueNames.Fusion);
             }
 
             return items;

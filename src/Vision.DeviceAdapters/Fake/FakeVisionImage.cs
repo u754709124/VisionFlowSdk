@@ -7,7 +7,7 @@ using Vision.Flow.Core;
 
 namespace Vision.DeviceAdapters
 {
-    // Fake images provide cloneable in-memory image references for offline tests and demos.
+    // 模拟图像为离线测试和演示程序提供可克隆的内存图像引用。
     public sealed class FakeVisionImage : IVisionImage
     {
         private readonly bool _ownsNativeImage;

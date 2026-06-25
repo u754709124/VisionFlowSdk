@@ -6,18 +6,27 @@ using System.Threading.Tasks;
 
 namespace Vision.Flow.Core
 {
+    /// <summary>
+    /// 输出端口扇出执行模式，控制一个输出端口连接多条边时的调度方式。
+    /// </summary>
     public enum FlowFanOutMode
     {
         Sequential = 0,
         Parallel = 1
     }
 
+    /// <summary>
+    /// 分支 Token 处理模式，决定并行分支共享还是克隆运行上下文。
+    /// </summary>
     public enum FlowBranchTokenMode
     {
         Shared = 0,
         Clone = 1
     }
 
+    /// <summary>
+    /// 流程执行选项，由生产运行时或设计器调试运行传入。
+    /// </summary>
     public sealed class FlowExecutionOptions
     {
         public FlowExecutionOptions()
@@ -38,11 +47,14 @@ namespace Vision.Flow.Core
         public int DefaultNodeTimeoutMs { get; set; }
     }
 
+    /// <summary>
+    /// 后台或流式节点向运行引擎请求继续调度指定输出端口的上下文。
+    /// </summary>
     public sealed class FlowContinuation
     {
         public FlowContinuation()
         {
-            OutputPort = "Next";
+            OutputPort = FlowPortNames.Next;
             Outputs = new Dictionary<string, object>();
         }
 
@@ -59,21 +71,30 @@ namespace Vision.Flow.Core
         public string FlowRunId { get; set; }
     }
 
+    /// <summary>
+    /// 继续执行调度器接口，由流程运行器实现以支持流式逐帧输出。
+    /// </summary>
     public interface IFlowContinuationDispatcher
     {
         Task DispatchAsync(FlowContinuation continuation, CancellationToken cancellationToken);
     }
 
+    /// <summary>
+    /// 运行时节点接口，所有公共节点通过该契约接入执行引擎。
+    /// </summary>
     public interface IFlowNode
     {
         Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken);
     }
 
+    /// <summary>
+    /// 节点执行结果，包含路由端口、输出变量和错误/超时状态。
+    /// </summary>
     public sealed class NodeExecutionResult
     {
         public NodeExecutionResult()
         {
-            OutputPort = "Next";
+            OutputPort = FlowPortNames.Next;
             Outputs = new Dictionary<string, object>();
         }
 
@@ -87,40 +108,43 @@ namespace Vision.Flow.Core
 
         public Dictionary<string, object> Outputs { get; set; }
 
-        public static NodeExecutionResult Success(string outputPort = "Next", IDictionary<string, object> outputs = null)
+        public static NodeExecutionResult Success(string outputPort = FlowPortNames.Next, IDictionary<string, object> outputs = null)
         {
             return new NodeExecutionResult
             {
                 IsSuccess = true,
-                OutputPort = string.IsNullOrWhiteSpace(outputPort) ? "Next" : outputPort,
+                OutputPort = string.IsNullOrWhiteSpace(outputPort) ? FlowPortNames.Next : outputPort,
                 Outputs = outputs == null ? new Dictionary<string, object>() : new Dictionary<string, object>(outputs)
             };
         }
 
-        public static NodeExecutionResult Failure(string errorMessage, string outputPort = "Error")
+        public static NodeExecutionResult Failure(string errorMessage, string outputPort = FlowPortNames.Error)
         {
             return new NodeExecutionResult
             {
                 IsSuccess = false,
-                OutputPort = string.IsNullOrWhiteSpace(outputPort) ? "Error" : outputPort,
+                OutputPort = string.IsNullOrWhiteSpace(outputPort) ? FlowPortNames.Error : outputPort,
                 ErrorMessage = errorMessage,
                 Outputs = new Dictionary<string, object>()
             };
         }
 
-        public static NodeExecutionResult Timeout(string errorMessage = null, string outputPort = "Error")
+        public static NodeExecutionResult Timeout(string errorMessage = null, string outputPort = FlowPortNames.Error)
         {
             return new NodeExecutionResult
             {
                 IsSuccess = false,
                 IsTimeout = true,
-                OutputPort = string.IsNullOrWhiteSpace(outputPort) ? "Error" : outputPort,
+                OutputPort = string.IsNullOrWhiteSpace(outputPort) ? FlowPortNames.Error : outputPort,
                 ErrorMessage = errorMessage,
                 Outputs = new Dictionary<string, object>()
             };
         }
     }
 
+    /// <summary>
+    /// 单次节点执行上下文，聚合流程定义、Token、变量池、设备、队列和事件出口。
+    /// </summary>
     public sealed class FlowExecutionContext
     {
         public FlowExecutionContext(

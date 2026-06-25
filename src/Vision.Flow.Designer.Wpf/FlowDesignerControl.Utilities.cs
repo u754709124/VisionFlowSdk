@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Utility helpers normalize sample paths, binding text, edge labels, and visual tree lookups.
+    // 工具辅助方法统一处理示例路径、绑定文本、连线标签和可视树查找。
     public sealed partial class FlowDesignerControl
     {
         private static List<Dictionary<string, object>> CreateLightChannels(string channelName, double intensity)

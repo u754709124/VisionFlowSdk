@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Serialization tests protect flow file round-tripping and designer/runtime separation.
+    // 序列化测试保护流程文件往返和设计态/运行态分离。
     internal static class SerializationTests
     {
         public static Task RuntimeRoundTrip()
@@ -23,7 +23,7 @@ namespace Vision.Flow.Tests
 
             AssertEx.Equal("Station01_Main", restored.FlowId, "Runtime FlowId should round-trip.");
             AssertEx.Equal(2, restored.Nodes.Count, "Runtime nodes should round-trip.");
-            AssertEx.Equal("camera.soft_trigger", restored.Nodes[0].Type, "Node type should round-trip.");
+            AssertEx.Equal(FlowNodeTypes.CameraSoftTrigger, restored.Nodes[0].Type, "Node type should round-trip.");
             AssertEx.Equal("Camera01", Convert.ToString(restored.Nodes[0].Settings["CameraId"]), "Node settings should round-trip.");
             AssertEx.Equal("camera_trigger_1.Image", restored.Nodes[1].InputBindings["Image"].GetVariableName(), "Input binding should round-trip.");
             AssertEx.Equal(1, restored.Edges.Count, "Runtime edges should round-trip.");
@@ -78,7 +78,7 @@ namespace Vision.Flow.Tests
             runtime.Nodes.Add(new NodeDefinition
             {
                 Id = "camera_trigger_1",
-                Type = "camera.soft_trigger",
+                Type = FlowNodeTypes.CameraSoftTrigger,
                 Name = "Camera Soft Trigger",
                 Version = "1.0.0",
                 Settings =
@@ -91,7 +91,7 @@ namespace Vision.Flow.Tests
             runtime.Nodes.Add(new NodeDefinition
             {
                 Id = "image_save_1",
-                Type = "image.save",
+                Type = FlowNodeTypes.ImageSave,
                 Name = "Save Image",
                 Version = "1.0.0",
                 InputBindings =

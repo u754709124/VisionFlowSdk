@@ -10,7 +10,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Queue settings are shared by heavy adapter nodes that can accept work before completion.
+    // 队列设置供可先接收任务再完成工作的重型适配器节点共享。
     public sealed class AdapterNodeQueueConfig
     {
         public AdapterNodeQueueConfig()

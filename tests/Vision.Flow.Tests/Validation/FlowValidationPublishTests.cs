@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Validation and publishing tests keep compiler-like checks near runtime publishing coverage.
+    // 校验与发布测试把类似编译器的检查和运行态发布覆盖放在一起。
     internal static class FlowValidationPublishTests
     {
         public static Task DuplicateNodeIdReturnsError()
@@ -32,7 +32,7 @@ namespace Vision.Flow.Tests
 
             var result = CreateValidator().Validate(flow);
 
-            AssertHasIssue(result, "NodeIdDuplicate", "Duplicate NodeId should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.NodeIdDuplicate, "Duplicate NodeId should be reported.");
             return Task.FromResult(0);
         }
 
@@ -49,7 +49,7 @@ namespace Vision.Flow.Tests
 
             var result = CreateValidator().Validate(flow);
 
-            AssertHasIssue(result, "EdgeTargetMissing", "Dangling edge target should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.EdgeTargetMissing, "Dangling edge target should be reported.");
             return Task.FromResult(0);
         }
 
@@ -60,7 +60,7 @@ namespace Vision.Flow.Tests
 
             var result = CreateValidator().Validate(flow);
 
-            AssertHasIssue(result, "RequiredSettingMissing", "Missing required DelayMs should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.RequiredSettingMissing, "Missing required DelayMs should be reported.");
             return Task.FromResult(0);
         }
 
@@ -71,7 +71,7 @@ namespace Vision.Flow.Tests
 
             var result = CreateValidator().Validate(flow);
 
-            AssertHasIssue(result, "BindingOutputMissing", "Missing source output should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.BindingOutputMissing, "Missing source output should be reported.");
             return Task.FromResult(0);
         }
 
@@ -103,7 +103,7 @@ namespace Vision.Flow.Tests
 
             var result = CreateValidator().Validate(flow);
 
-            AssertHasIssue(result, "SettingValueInvalid", "Invalid StreamFrames numeric settings should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.SettingValueInvalid, "Invalid StreamFrames numeric settings should be reported.");
             AssertEx.True(
                 result.Issues.Any(x => string.Equals(x.Field, "Nodes[0].Settings.ExpectedFrameCount", StringComparison.OrdinalIgnoreCase)),
                 "ExpectedFrameCount field should be reported.");
@@ -156,10 +156,10 @@ namespace Vision.Flow.Tests
 
             var result = CreateValidator().Validate(flow);
 
-            AssertHasIssue(result, "QueueFullModeInvalid", "Invalid QueueFullMode should be reported.");
-            AssertHasIssue(result, "DuplicatePolicyInvalid", "Invalid DuplicatePolicy should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.QueueFullModeInvalid, "Invalid QueueFullMode should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.DuplicatePolicyInvalid, "Invalid DuplicatePolicy should be reported.");
             AssertEx.True(
-                result.Issues.Count(x => string.Equals(x.Code, "SettingValueInvalid", StringComparison.OrdinalIgnoreCase)) >= 4,
+                result.Issues.Count(x => string.Equals(x.Code, FlowValidationIssueCodes.SettingValueInvalid, StringComparison.OrdinalIgnoreCase)) >= 4,
                 "Invalid queue/group numeric settings should be reported.");
             return Task.FromResult(0);
         }

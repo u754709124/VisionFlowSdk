@@ -9,7 +9,10 @@ using static Vision.Flow.Nodes.GroupScanFusionNodeHelpers;
 
 namespace Vision.Flow.Nodes
 {
-    // Shared scan and fusion models carry grouped frame data between industrial vision nodes.
+    // 共享扫描与融合模型在工业视觉节点之间传递已分组的帧数据。
+    /// <summary>
+    /// 由公共视觉节点生成的内存图像引用，用于 Demo、测试和占位算法输出。
+    /// </summary>
     public sealed class GeneratedVisionImage : IVisionImage
     {
         public GeneratedVisionImage(string imageId, int width, int height, string pixelFormat, byte[] data)
@@ -27,7 +30,7 @@ namespace Vision.Flow.Nodes
             CreatedUtc = DateTime.UtcNow;
             Data = data ?? new byte[0];
             Metadata = new Dictionary<string, object>();
-            Metadata["ImageKind"] = ImageKind;
+            Metadata[FlowMetadataKeys.ImageKind] = ImageKind;
         }
 
         public string ImageId { get; private set; }
@@ -105,6 +108,9 @@ namespace Vision.Flow.Nodes
         }
     }
 
+    /// <summary>
+    /// 图像组中的单次拍照结果，保留帧、图像和采集索引上下文。
+    /// </summary>
     public sealed class FrameGroupItem
     {
         public FrameGroupItem()
@@ -127,6 +133,9 @@ namespace Vision.Flow.Nodes
         public IDictionary<string, object> Metadata { get; set; }
     }
 
+    /// <summary>
+    /// 多点位拍照汇合后的图像组结果，供拼图和后续算法节点使用。
+    /// </summary>
     public sealed class FrameGroupResult
     {
         public FrameGroupResult()
@@ -152,6 +161,9 @@ namespace Vision.Flow.Nodes
         public IDictionary<string, object> Metadata { get; set; }
     }
 
+    /// <summary>
+    /// 单帧预处理结果，连接相机流式帧和扫描组汇合节点。
+    /// </summary>
     public sealed class FramePreprocessResult
     {
         public FramePreprocessResult()
@@ -176,6 +188,9 @@ namespace Vision.Flow.Nodes
         public IDictionary<string, object> Metadata { get; set; }
     }
 
+    /// <summary>
+    /// 扫描组汇合结果，包含有序预处理帧及扫描级元数据。
+    /// </summary>
     public sealed class ScanGroupResult
     {
         public ScanGroupResult()

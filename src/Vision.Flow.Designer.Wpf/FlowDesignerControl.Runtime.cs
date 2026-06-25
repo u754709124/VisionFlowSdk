@@ -17,14 +17,14 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Runtime helpers compile, publish, debug-run, and surface FlowRunner events back to the designer.
+    // 运行辅助方法负责编译、发布、调试运行，并将 FlowRunner 事件回传到设计器。
     public sealed partial class FlowDesignerControl
     {
         private void OpenDesign()
         {
             var dialog = new OpenFileDialog
             {
-                Filter = "Flow design (*.flowdesign)|*.flowdesign|All files (*.*)|*.*",
+                Filter = "Flow design (*" + FlowFileExtensions.FlowDesign + ")|*" + FlowFileExtensions.FlowDesign + "|All files (*.*)|*.*",
                 InitialDirectory = GetSampleFlowDirectory()
             };
 
@@ -63,9 +63,9 @@ namespace Vision.Flow.Designer.Wpf
         {
             var dialog = new SaveFileDialog
             {
-                Filter = "Flow design (*.flowdesign)|*.flowdesign|All files (*.*)|*.*",
+                Filter = "Flow design (*" + FlowFileExtensions.FlowDesign + ")|*" + FlowFileExtensions.FlowDesign + "|All files (*.*)|*.*",
                 InitialDirectory = GetSampleFlowDirectory(),
-                FileName = (_document.FlowId ?? "designer-flow") + ".flowdesign"
+                FileName = (_document.FlowId ?? "designer-flow") + FlowFileExtensions.FlowDesign
             };
 
             if (dialog.ShowDialog() != true)
@@ -90,9 +90,9 @@ namespace Vision.Flow.Designer.Wpf
         {
             var dialog = new SaveFileDialog
             {
-                Filter = "Flow runtime (*.flowruntime)|*.flowruntime|All files (*.*)|*.*",
+                Filter = "Flow runtime (*" + FlowFileExtensions.FlowRuntime + ")|*" + FlowFileExtensions.FlowRuntime + "|All files (*.*)|*.*",
                 InitialDirectory = GetSampleFlowDirectory(),
-                FileName = (_document.Runtime.FlowId ?? "designer-flow") + ".flowruntime"
+                FileName = (_document.Runtime.FlowId ?? "designer-flow") + FlowFileExtensions.FlowRuntime
             };
 
             if (dialog.ShowDialog() != true)

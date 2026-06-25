@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Camera node tests keep trigger, callback, and stream-frame scenarios in one focused file.
+    // 相机节点测试集中覆盖触发、回调和流式帧场景。
     internal static class CameraNodeTests
     {
         public static async Task SetTriggerCallbackFlow()
@@ -80,7 +80,7 @@ namespace Vision.Flow.Tests
             AssertEx.False(
                 sink.Events.Any(x =>
                     x.EventType == FlowRuntimeEventType.OutputProduced &&
-                    string.Equals(Convert.ToString(x.Data["VariableName"]), "callback1.Image", StringComparison.OrdinalIgnoreCase)),
+                    string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]), "callback1.Image", StringComparison.OrdinalIgnoreCase)),
                 "Timed out callback should not publish image outputs.");
         }
 
@@ -179,8 +179,8 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(2, executionLog.Count(x => string.Equals(x, "recordFrame", StringComparison.OrdinalIgnoreCase)), "PerFrame stream mode should dispatch every frame to downstream nodes.");
             var frameIndexes = sink.Events
                 .Where(x => x.EventType == FlowRuntimeEventType.OutputProduced && string.Equals(x.NodeId, "callback1", StringComparison.OrdinalIgnoreCase))
-                .Where(x => string.Equals(Convert.ToString(x.Data["VariableName"]), "callback1.FrameIndex", StringComparison.OrdinalIgnoreCase))
-                .Select(x => Convert.ToInt32(x.Data["Value"], CultureInfo.InvariantCulture))
+                .Where(x => string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]), "callback1.FrameIndex", StringComparison.OrdinalIgnoreCase))
+                .Select(x => Convert.ToInt32(x.Data[FlowRuntimeDataKeys.Value], CultureInfo.InvariantCulture))
                 .ToList();
             AssertEx.SequenceEqual(new[] { 0, 1 }, frameIndexes, "PerFrame stream mode should produce incrementing FrameIndex values.");
 
@@ -459,10 +459,10 @@ namespace Vision.Flow.Tests
             var variableName = nodeId + "." + outputName;
             var runtimeEvent = sink.Events.FirstOrDefault(x =>
                 x.EventType == FlowRuntimeEventType.OutputProduced &&
-                string.Equals(Convert.ToString(x.Data["VariableName"]), variableName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]), variableName, StringComparison.OrdinalIgnoreCase));
 
             AssertEx.NotNull(runtimeEvent, "Expected output was not produced: " + variableName);
-            return runtimeEvent.Data["Value"];
+            return runtimeEvent.Data[FlowRuntimeDataKeys.Value];
         }
     }
 }

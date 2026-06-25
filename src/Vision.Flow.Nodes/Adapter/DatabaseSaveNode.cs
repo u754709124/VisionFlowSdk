@@ -10,7 +10,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Database save nodes map flow variables into adapter field values.
+    // 数据库保存节点将流程变量映射为适配器字段值。
     public sealed class DatabaseFieldMappingConfig
     {
         public string FieldName { get; set; }
@@ -29,7 +29,7 @@ namespace Vision.Flow.Nodes
             FieldMappings = new List<DatabaseFieldMappingConfig>();
             Queue = new AdapterNodeQueueConfig
             {
-                QueueName = "database-save"
+                QueueName = FlowQueueNames.DatabaseSave
             };
         }
 
@@ -44,7 +44,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class DatabaseSaveNodeFactory : BaseNodeFactory<DatabaseSaveNodeConfig>
     {
-        public const string TypeName = "database.save";
+        public const string TypeName = FlowNodeTypes.DatabaseSave;
 
         public override string NodeType
         {
@@ -62,7 +62,7 @@ namespace Vision.Flow.Nodes
             {
                 DatabaseId = GetStringSetting(definition, "DatabaseId", null),
                 TableName = GetStringSetting(definition, "TableName", null),
-                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "database-save")
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, FlowQueueNames.DatabaseSave)
             };
             AdapterNodeHelpers.AddFieldMappings(config.FieldMappings, GetSetting(definition, "FieldMappings", null));
             return config;
@@ -88,7 +88,7 @@ namespace Vision.Flow.Nodes
 
             if (_config.Queue == null)
             {
-                _config.Queue = new AdapterNodeQueueConfig { QueueName = "database-save" };
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = FlowQueueNames.DatabaseSave };
             }
         }
 
@@ -117,13 +117,13 @@ namespace Vision.Flow.Nodes
                 Values = values
             };
             AdapterNodeHelpers.AddTokenMetadata(context.Token, request.Metadata);
-            request.Metadata["NodeId"] = context.Node.Id;
+            request.Metadata[FlowMetadataKeys.NodeId] = context.Node.Id;
 
             var queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync<object>(
                 context,
                 _config.Queue,
-                "database-save",
-                "database.save",
+                FlowQueueNames.DatabaseSave,
+                FlowNodeTypes.DatabaseSave,
                 async delegate(CancellationToken token)
                 {
                     await database.SaveAsync(request, token).ConfigureAwait(false);
@@ -221,7 +221,7 @@ namespace Vision.Flow.Nodes
                         Description = "Field mappings with FieldName and Value, ValueBinding, or InputName."
                     },
                     AdapterNodeDescriptors.QueueUseSetting(),
-                    AdapterNodeDescriptors.QueueNameSetting("database-save"),
+                    AdapterNodeDescriptors.QueueNameSetting(FlowQueueNames.DatabaseSave),
                     AdapterNodeDescriptors.QueueCapacitySetting(),
                     AdapterNodeDescriptors.QueueMaxDegreeSetting(),
                     AdapterNodeDescriptors.QueueFullModeSetting(),

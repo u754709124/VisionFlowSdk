@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Queue tests cover bounded background execution behavior used by heavy adapter nodes.
+    // 队列测试覆盖重型适配器节点使用的有界后台执行行为。
     internal static class FlowTaskQueueTests
     {
         public static async Task CapacityRejectsAndPublishesEvents()
@@ -73,7 +73,7 @@ namespace Vision.Flow.Tests
             AssertEx.True(events.Contains(FlowRuntimeEventType.QueueRejected), "QueueRejected event should be published.");
             AssertEx.True(events.Contains(FlowRuntimeEventType.QueueCompleted), "QueueCompleted event should be published.");
             AssertEx.True(
-                sink.Events.Any(x => string.Equals(Convert.ToString(x.Data["QueueName"]), "save", StringComparison.OrdinalIgnoreCase)),
+                sink.Events.Any(x => string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.QueueName]), "save", StringComparison.OrdinalIgnoreCase)),
                 "Queue events should include queue name.");
         }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
@@ -27,7 +27,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class AndJoinNodeFactory : BaseNodeFactory<AndJoinNodeConfig>
     {
-        public const string TypeName = "join.and";
+        public const string TypeName = FlowNodeTypes.JoinAnd;
 
         public override string NodeType
         {
@@ -188,7 +188,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class ConditionNodeFactory : BaseNodeFactory<ConditionNodeConfig>
     {
-        public const string TypeName = "condition.if";
+        public const string TypeName = FlowNodeTypes.ConditionIf;
 
         public override string NodeType
         {

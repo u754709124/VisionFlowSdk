@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Common node tests stay together because they validate shared registration and simple node behavior.
+    // 通用节点测试放在一起，覆盖共享注册和简单节点行为。
     internal static class CommonNodeTests
     {
         public static Task RegisterAllResolvesFactories()
@@ -64,12 +64,12 @@ namespace Vision.Flow.Tests
             var logEvent = sink.Events.FirstOrDefault(x =>
                 x.EventType == FlowRuntimeEventType.NodeCompleted &&
                 string.Equals(x.NodeId, "log1", StringComparison.OrdinalIgnoreCase) &&
-                x.Data.ContainsKey("Kind") &&
-                string.Equals(Convert.ToString(x.Data["Kind"]), "Log", StringComparison.OrdinalIgnoreCase));
+                x.Data.ContainsKey(FlowRuntimeDataKeys.Kind) &&
+                string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.Kind]), "Log", StringComparison.OrdinalIgnoreCase));
 
             AssertEx.NotNull(logEvent, "LogNode should publish a runtime event marked as a log.");
             AssertEx.Equal("Part reached station.", logEvent.Message, "Log event message should match the configured message.");
-            AssertEx.Equal("Info", Convert.ToString(logEvent.Data["LogLevel"]), "Log event should include the configured log level.");
+            AssertEx.Equal("Info", Convert.ToString(logEvent.Data[FlowRuntimeDataKeys.LogLevel]), "Log event should include the configured log level.");
         }
 
         public static async Task DelayNodeExecutes()
@@ -96,8 +96,8 @@ namespace Vision.Flow.Tests
             AssertEx.True(
                 sink.Events.Any(x =>
                     x.EventType == FlowRuntimeEventType.OutputProduced &&
-                    string.Equals(Convert.ToString(x.Data["VariableName"]), "delay1.DelayMs", StringComparison.OrdinalIgnoreCase) &&
-                    object.Equals(1, x.Data["Value"])),
+                    string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]), "delay1.DelayMs", StringComparison.OrdinalIgnoreCase) &&
+                    object.Equals(1, x.Data[FlowRuntimeDataKeys.Value])),
                 "DelayNode should publish the resolved DelayMs output.");
         }
 
@@ -161,8 +161,8 @@ namespace Vision.Flow.Tests
             AssertEx.True(
                 sink.Events.Any(x =>
                     x.EventType == FlowRuntimeEventType.OutputProduced &&
-                    string.Equals(Convert.ToString(x.Data["VariableName"]), "set1.Value", StringComparison.OrdinalIgnoreCase) &&
-                    object.Equals("station-ok", x.Data["Value"])),
+                    string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]), "set1.Value", StringComparison.OrdinalIgnoreCase) &&
+                    object.Equals("station-ok", x.Data[FlowRuntimeDataKeys.Value])),
                 "VariableSetNode should also publish the written value as a node output.");
         }
 

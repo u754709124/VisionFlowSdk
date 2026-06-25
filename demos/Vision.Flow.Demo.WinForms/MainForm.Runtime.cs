@@ -13,7 +13,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // Runtime helpers load flowruntime files, manage FlowRunner lifecycle, and trigger entries.
+    // 运行辅助方法负责加载 flowruntime 文件、管理 FlowRunner 生命周期并触发入口。
     public sealed partial class MainForm
     {
         private void SeedSummaryData()
@@ -106,7 +106,7 @@ namespace Vision.Flow.Demo.WinForms
         {
             using (var dialog = new OpenFileDialog())
             {
-                dialog.Filter = "Flow runtime (*.flowruntime)|*.flowruntime|All files (*.*)|*.*";
+                dialog.Filter = "Flow runtime (*" + FlowFileExtensions.FlowRuntime + ")|*" + FlowFileExtensions.FlowRuntime + "|All files (*.*)|*.*";
                 dialog.Title = "Load production runtime flow";
                 dialog.InitialDirectory = GetSampleFlowDirectory();
                 if (dialog.ShowDialog(this) == DialogResult.OK)
@@ -258,8 +258,8 @@ namespace Vision.Flow.Demo.WinForms
                 GrabTime = DateTime.UtcNow,
                 Image = image
             };
-            frame.Metadata["CaptureGroupId"] = captureGroupId;
-            frame.Metadata["ShotIndex"] = shotIndex;
+            frame.Metadata[FlowMetadataKeys.CaptureGroupId] = captureGroupId;
+            frame.Metadata[FlowMetadataKeys.ShotIndex] = shotIndex;
             return frame;
         }
 
@@ -276,7 +276,7 @@ namespace Vision.Flow.Demo.WinForms
             var root = AppDomain.CurrentDomain.BaseDirectory;
             for (var depth = 0; depth < 8 && !string.IsNullOrWhiteSpace(root); depth++)
             {
-                var candidate = Path.Combine(root, "samples", "flows", "single-shot.flowruntime");
+                var candidate = Path.Combine(root, "samples", "flows", "single-shot" + FlowFileExtensions.FlowRuntime);
                 if (File.Exists(candidate))
                 {
                     return candidate;
@@ -286,7 +286,7 @@ namespace Vision.Flow.Demo.WinForms
                 root = parent == null ? null : parent.FullName;
             }
 
-            return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\samples\flows\single-shot.flowruntime"));
+            return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\samples\flows\single-shot" + FlowFileExtensions.FlowRuntime));
         }
 
         private static string GetSampleFlowDirectory()

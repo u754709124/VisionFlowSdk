@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +21,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class LogNodeFactory : BaseNodeFactory<LogNodeConfig>
     {
-        public const string TypeName = "log.write";
+        public const string TypeName = FlowNodeTypes.LogWrite;
 
         public override string NodeType
         {
@@ -81,9 +81,9 @@ namespace Vision.Flow.Nodes
                 NodeRuntimeState.Completed,
                 message,
                 "Next");
-            runtimeEvent.Data["Kind"] = "Log";
-            runtimeEvent.Data["LogLevel"] = level;
-            runtimeEvent.Data["Message"] = message;
+            runtimeEvent.Data[FlowRuntimeDataKeys.Kind] = "Log";
+            runtimeEvent.Data[FlowRuntimeDataKeys.LogLevel] = level;
+            runtimeEvent.Data[FlowRuntimeDataKeys.Message] = message;
             await context.Events.PublishAsync(runtimeEvent, cancellationToken).ConfigureAwait(false);
 
             return NodeExecutionResult.Success(

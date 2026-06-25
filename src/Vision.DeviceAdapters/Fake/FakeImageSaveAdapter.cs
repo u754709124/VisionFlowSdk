@@ -7,7 +7,7 @@ using Vision.Flow.Core;
 
 namespace Vision.DeviceAdapters
 {
-    // Fake image savers snapshot save requests and generate predictable output paths.
+    // 模拟图片保存器快照保存请求，并生成可预测的输出路径。
     public sealed class FakeImageSaveAdapter : IImageSaveAdapter
     {
         private readonly object _gate = new object();
@@ -71,12 +71,12 @@ namespace Vision.DeviceAdapters
                 Path = CombinePath(directory, fileName),
                 Message = "Fake image saved."
             };
-            result.Metadata["SaverId"] = SaverId;
-            result.Metadata["ImageId"] = request.Image.ImageId;
-            result.Metadata["ByteLength"] = hasBytes && imageBytes != null ? imageBytes.Length : 0;
-            result.Metadata["HasNativeImage"] = request.Image.NativeImage != null;
-            result.Metadata["PixelFormat"] = request.Image.PixelFormat;
-            result.Metadata["ImageKind"] = request.Image.ImageKind;
+            result.Metadata[FlowMetadataKeys.SaverId] = SaverId;
+            result.Metadata[FlowMetadataKeys.ImageId] = request.Image.ImageId;
+            result.Metadata[FlowMetadataKeys.ByteLength] = hasBytes && imageBytes != null ? imageBytes.Length : 0;
+            result.Metadata[FlowMetadataKeys.HasNativeImage] = request.Image.NativeImage != null;
+            result.Metadata[FlowMetadataKeys.PixelFormat] = request.Image.PixelFormat;
+            result.Metadata[FlowMetadataKeys.ImageKind] = request.Image.ImageKind;
 
             lock (_gate)
             {

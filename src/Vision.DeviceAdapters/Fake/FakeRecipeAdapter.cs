@@ -7,7 +7,7 @@ using Vision.Flow.Core;
 
 namespace Vision.DeviceAdapters
 {
-    // Fake recipes return deterministic algorithm results while preserving adapter request metadata.
+    // 模拟配方在保留适配器请求元数据的同时返回确定性算法结果。
     public sealed class FakeRecipeAdapter : IRecipeAdapter
     {
         private readonly object _gate = new object();

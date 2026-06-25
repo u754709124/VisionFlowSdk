@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 namespace Vision.Flow.Core
 {
+    /// <summary>
+    /// 运行时事件类型，生产上位机和设计器调试面板通过它观察流程状态。
+    /// </summary>
     public enum FlowRuntimeEventType
     {
         FlowStarted = 0,
@@ -23,6 +26,9 @@ namespace Vision.Flow.Core
         QueueRejected = 15
     }
 
+    /// <summary>
+    /// 节点在运行事件中的状态快照。
+    /// </summary>
     public enum NodeRuntimeState
     {
         Waiting = 0,
@@ -33,6 +39,9 @@ namespace Vision.Flow.Core
         Stopped = 5
     }
 
+    /// <summary>
+    /// 流程运行事件模型，用于 Runtime 向 UI、日志或生产上位机发布状态变化。
+    /// </summary>
     public sealed class FlowRuntimeEvent
     {
         public FlowRuntimeEvent()
@@ -63,6 +72,9 @@ namespace Vision.Flow.Core
 
         public long ElapsedMs { get; set; }
 
+        /// <summary>
+        /// 附加事件数据，键名应优先使用 `FlowRuntimeDataKeys` 常量。
+        /// </summary>
         public Dictionary<string, object> Data { get; set; }
 
         public static FlowRuntimeEvent Create(

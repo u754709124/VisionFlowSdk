@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,6 +6,9 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
+    /// <summary>
+    /// 变量写入节点配置，描述要写入变量池的名称和值。
+    /// </summary>
     public sealed class VariableSetNodeConfig
     {
         public string VariableName { get; set; }
@@ -15,7 +18,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class VariableSetNodeFactory : BaseNodeFactory<VariableSetNodeConfig>
     {
-        public const string TypeName = "variable.set";
+        public const string TypeName = FlowNodeTypes.VariableSet;
 
         public override string NodeType
         {
@@ -31,8 +34,8 @@ namespace Vision.Flow.Nodes
         {
             return new VariableSetNodeConfig
             {
-                VariableName = GetStringSetting(definition, "VariableName", null),
-                Value = GetSetting(definition, "Value", null)
+                VariableName = GetStringSetting(definition, FlowSettingNames.VariableName, null),
+                Value = GetSetting(definition, FlowSettingNames.Value, null)
             };
         }
 
@@ -55,7 +58,7 @@ namespace Vision.Flow.Nodes
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var variableName = ResolveString(context, "VariableName", _config.VariableName);
+            var variableName = ResolveString(context, FlowSettingNames.VariableName, _config.VariableName);
             if (string.IsNullOrWhiteSpace(variableName))
             {
                 return Task.FromResult(NodeExecutionResult.Failure("VariableName is required."));
@@ -66,11 +69,11 @@ namespace Vision.Flow.Nodes
             context.Variables.Set(variableName, value);
             return Task.FromResult(
                 NodeExecutionResult.Success(
-                    "Next",
+                    FlowPortNames.Next,
                     new Dictionary<string, object>
                     {
-                        { "VariableName", variableName },
-                        { "Value", value }
+                        { FlowOutputNames.VariableName, variableName },
+                        { FlowOutputNames.Value, value }
                     }));
         }
 
@@ -82,14 +85,14 @@ namespace Vision.Flow.Nodes
 
         private object ResolveValue(FlowExecutionContext context)
         {
-            if (context.Node.InputBindings != null && context.Node.InputBindings.ContainsKey("Value"))
+            if (context.Node.InputBindings != null && context.Node.InputBindings.ContainsKey(FlowSettingNames.Value))
             {
-                return context.GetInputValue("Value");
+                return context.GetInputValue(FlowSettingNames.Value);
             }
 
-            if (context.Node.Settings != null && context.Node.Settings.ContainsKey("Value"))
+            if (context.Node.Settings != null && context.Node.Settings.ContainsKey(FlowSettingNames.Value))
             {
-                return context.GetInputValue("Value");
+                return context.GetInputValue(FlowSettingNames.Value);
             }
 
             return _config.Value;
@@ -111,10 +114,10 @@ namespace Vision.Flow.Nodes
                 {
                     new NodePortDescriptor
                     {
-                        Name = "In",
-                        DisplayName = "In",
-                        Direction = "Input",
-                        DataType = "Control",
+                        Name = FlowPortNames.In,
+                        DisplayName = FlowPortNames.In,
+                        Direction = FlowPortDirections.Input,
+                        DataType = FlowDataTypes.Control,
                         IsRequired = true,
                         Description = "Execution input."
                     }
@@ -123,18 +126,18 @@ namespace Vision.Flow.Nodes
                 {
                     new NodePortDescriptor
                     {
-                        Name = "Next",
-                        DisplayName = "Next",
-                        Direction = "Output",
-                        DataType = "Control",
+                        Name = FlowPortNames.Next,
+                        DisplayName = FlowPortNames.Next,
+                        Direction = FlowPortDirections.Output,
+                        DataType = FlowDataTypes.Control,
                         Description = "Continues after writing the variable."
                     },
                     new NodePortDescriptor
                     {
-                        Name = "Error",
-                        DisplayName = "Error",
-                        Direction = "Output",
-                        DataType = "Control",
+                        Name = FlowPortNames.Error,
+                        DisplayName = FlowPortNames.Error,
+                        Direction = FlowPortDirections.Output,
+                        DataType = FlowDataTypes.Control,
                         Description = "Routes missing variable names."
                     }
                 },
@@ -142,18 +145,18 @@ namespace Vision.Flow.Nodes
                 {
                     new NodeSettingDescriptor
                     {
-                        Name = "VariableName",
+                        Name = FlowSettingNames.VariableName,
                         DisplayName = "Variable Name",
-                        DataType = "String",
+                        DataType = FlowDataTypes.String,
                         DefaultValue = null,
                         IsRequired = true,
                         Description = "Name of the variable to write."
                     },
                     new NodeSettingDescriptor
                     {
-                        Name = "Value",
+                        Name = FlowSettingNames.Value,
                         DisplayName = "Value",
-                        DataType = "Object",
+                        DataType = FlowDataTypes.Object,
                         DefaultValue = null,
                         IsRequired = false,
                         Description = "Value to store. This can also be provided by an input binding."
@@ -163,16 +166,16 @@ namespace Vision.Flow.Nodes
                 {
                     new NodeOutputDescriptor
                     {
-                        Name = "VariableName",
+                        Name = FlowOutputNames.VariableName,
                         DisplayName = "Variable Name",
-                        DataType = "String",
+                        DataType = FlowDataTypes.String,
                         Description = "The variable name that was written."
                     },
                     new NodeOutputDescriptor
                     {
-                        Name = "Value",
+                        Name = FlowOutputNames.Value,
                         DisplayName = "Value",
-                        DataType = "Object",
+                        DataType = FlowDataTypes.Object,
                         Description = "The value that was written."
                     }
                 }

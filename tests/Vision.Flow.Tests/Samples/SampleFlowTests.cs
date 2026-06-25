@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Sample flow tests ensure checked-in demo assets still deserialize, validate, and publish.
+    // 示例流程测试确保仓库内 Demo 资产仍能反序列化、校验和发布。
     internal static class SampleFlowTests
     {
         public static Task SampleFlowFilesDeserializeAndValidate()
@@ -22,13 +22,13 @@ namespace Vision.Flow.Tests
             var validator = new FlowValidator(registry);
             var publisher = new FlowPublishService(registry);
 
-            ValidateRuntimeFile(Path.Combine(sampleDirectory, "single-shot.flowruntime"), validator);
+            ValidateRuntimeFile(Path.Combine(sampleDirectory, "single-shot" + FlowFileExtensions.FlowRuntime), validator);
 
             var designFiles = new[]
             {
-                "single-shot.flowdesign",
-                "two-position-stitch.flowdesign",
-                "continuous-scan.flowdesign"
+                "single-shot" + FlowFileExtensions.FlowDesign,
+                "two-position-stitch" + FlowFileExtensions.FlowDesign,
+                "continuous-scan" + FlowFileExtensions.FlowDesign
             };
 
             for (var index = 0; index < designFiles.Length; index++)
@@ -56,7 +56,7 @@ namespace Vision.Flow.Tests
         public static Task ContinuousScanPublishesRuntimeWithEnhancedRules()
         {
             var sampleDirectory = GetSampleDirectory();
-            var path = Path.Combine(sampleDirectory, "continuous-scan.flowdesign");
+            var path = Path.Combine(sampleDirectory, "continuous-scan" + FlowFileExtensions.FlowDesign);
             var document = FlowDesignSerializer.Load(path);
             var result = new FlowPublishService(CreateRegistry()).Publish(document);
 
@@ -77,7 +77,7 @@ namespace Vision.Flow.Tests
         public static Task SampleRuntimeExcludesViewState()
         {
             var sampleDirectory = GetSampleDirectory();
-            var runtimePath = Path.Combine(sampleDirectory, "single-shot.flowruntime");
+            var runtimePath = Path.Combine(sampleDirectory, "single-shot" + FlowFileExtensions.FlowRuntime);
             AssertEx.True(File.Exists(runtimePath), "Sample runtime should exist: " + runtimePath);
 
             var runtime = RuntimeFlowSerializer.Load(runtimePath);

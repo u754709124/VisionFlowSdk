@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Test harness entry point: keep only registration and execution orchestration here.
+    // 测试框架入口仅保留注册和执行编排。
     internal static class Program
     {
         private static int Main()
@@ -34,6 +34,7 @@ namespace Vision.Flow.Tests
             var tests = new List<TestCase>
             {
                 new TestCase("FlowToken supports Set/Get/TryGet", FlowTokenTests.SetGetTryGet),
+                new TestCase("Flow protocol constants keep existing wire values", FlowProtocolConstantsTests.ConstantsKeepExistingWireValues),
                 new TestCase("Runtime serialization round-trips without view state", SerializationTests.RuntimeRoundTrip),
                 new TestCase("Design serialization round-trips runtime and view state", SerializationTests.DesignRoundTrip),
                 new TestCase("FlowValidator rejects duplicate NodeId", FlowValidationPublishTests.DuplicateNodeIdReturnsError),

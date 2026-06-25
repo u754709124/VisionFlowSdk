@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Edge layer control renders bezier connections and connection previews.
+    // 连线层控件渲染贝塞尔连线和连线预览。
     public sealed class EdgeLayerControl : Canvas
     {
         private const double NodeCardWidth = 190;

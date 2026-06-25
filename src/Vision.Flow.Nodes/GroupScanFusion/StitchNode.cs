@@ -9,7 +9,7 @@ using static Vision.Flow.Nodes.GroupScanFusionNodeHelpers;
 
 namespace Vision.Flow.Nodes
 {
-    // Stitch nodes convert a completed frame group into a generated stitched image.
+    // 拼图节点将已完成的图像组转换为生成的拼接图像。
     public sealed class StitchNodeConfig
     {
         public string FrameGroupBinding { get; set; }
@@ -17,7 +17,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class StitchNodeFactory : BaseNodeFactory<StitchNodeConfig>
     {
-        public const string TypeName = "image.stitch";
+        public const string TypeName = FlowNodeTypes.ImageStitch;
 
         public override string NodeType
         {
@@ -103,10 +103,10 @@ namespace Vision.Flow.Nodes
             var imageId = "stitch-" + SafeId(frameGroup.CaptureGroupId);
             var image = new GeneratedVisionImage(imageId, width, height, pixelFormat, null, "Stitched");
 
-            image.Metadata["Algorithm"] = "FakeStitch";
-            image.Metadata["CaptureGroupId"] = frameGroup.CaptureGroupId;
-            image.Metadata["SourceFrameCount"] = frameGroup.Frames.Count;
-            image.Metadata["ShotIndexes"] = string.Join(",", frameGroup.Frames.Select(x => x.ShotIndex.ToString(CultureInfo.InvariantCulture)).ToArray());
+            image.Metadata[FlowMetadataKeys.Algorithm] = "FakeStitch";
+            image.Metadata[FlowMetadataKeys.CaptureGroupId] = frameGroup.CaptureGroupId;
+            image.Metadata[FlowMetadataKeys.SourceFrameCount] = frameGroup.Frames.Count;
+            image.Metadata[FlowMetadataKeys.ShotIndexes] = string.Join(",", frameGroup.Frames.Select(x => x.ShotIndex.ToString(CultureInfo.InvariantCulture)).ToArray());
             return image;
         }
     }

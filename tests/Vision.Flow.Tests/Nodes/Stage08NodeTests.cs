@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Stage 08 tests cover frame grouping, scan grouping, stitching, and fusion behavior.
+    // 第 08 阶段测试覆盖组帧、扫描组汇合、拼接和融合行为。
     internal static class Stage08NodeTests
     {
         public static async Task FrameGroupJoinSortsAndStitches()
@@ -34,8 +34,8 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(2, group.ActualShotCount, "FrameGroupResult should include both frames.");
             AssertEx.SequenceEqual(new[] { 1, 2 }, group.Frames.Select(x => x.ShotIndex), "FrameGroupResult should be sorted by ShotIndex.");
             AssertEx.NotNull(stitched, "StitchNode should output a stitched image.");
-            AssertEx.Equal("capture-A", Convert.ToString(stitched.Metadata["CaptureGroupId"]), "Stitched image should carry CaptureGroupId metadata.");
-            AssertEx.Equal(2, Convert.ToInt32(stitched.Metadata["SourceFrameCount"]), "Stitched image should record source frame count.");
+            AssertEx.Equal("capture-A", Convert.ToString(stitched.Metadata[FlowMetadataKeys.CaptureGroupId]), "Stitched image should carry CaptureGroupId metadata.");
+            AssertEx.Equal(2, Convert.ToInt32(stitched.Metadata[FlowMetadataKeys.SourceFrameCount]), "Stitched image should record source frame count.");
         }
 
         public static async Task FrameGroupJoinDetectsDuplicateShotIndex()
@@ -138,10 +138,10 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("HeightMap", heightMap.ImageKind, "HeightMap output should carry ImageKind.");
             AssertEx.Equal("TextureImage", textureImage.ImageKind, "TextureImage output should carry ImageKind.");
             AssertEx.Equal("ConfidenceMap", confidenceMap.ImageKind, "ConfidenceMap output should carry ImageKind.");
-            AssertEx.Equal("scan-A", Convert.ToString(final3D.Metadata["ScanGroupId"]), "Final3DImage should carry ScanGroupId metadata.");
-            AssertEx.Equal("scan-A", Convert.ToString(final2D.Metadata["ScanGroupId"]), "Final2DImage should carry ScanGroupId metadata.");
-            AssertEx.Equal(3, Convert.ToInt32(final3D.Metadata["SourceFrameCount"]), "Final3DImage should record source frame count.");
-            AssertEx.Equal(3, Convert.ToInt32(final2D.Metadata["SourceFrameCount"]), "Final2DImage should record source frame count.");
+            AssertEx.Equal("scan-A", Convert.ToString(final3D.Metadata[FlowMetadataKeys.ScanGroupId]), "Final3DImage should carry ScanGroupId metadata.");
+            AssertEx.Equal("scan-A", Convert.ToString(final2D.Metadata[FlowMetadataKeys.ScanGroupId]), "Final2DImage should carry ScanGroupId metadata.");
+            AssertEx.Equal(3, Convert.ToInt32(final3D.Metadata[FlowMetadataKeys.SourceFrameCount]), "Final3DImage should record source frame count.");
+            AssertEx.Equal(3, Convert.ToInt32(final2D.Metadata[FlowMetadataKeys.SourceFrameCount]), "Final2DImage should record source frame count.");
         }
 
         public static async Task ScanGroupJoinBindingsReplaceAndFusionBinding()
@@ -162,7 +162,7 @@ namespace Vision.Flow.Tests
             AssertEx.NotNull(scanGroup, "ScanGroupJoinNode should complete through PreprocessResultBinding.");
             AssertEx.SequenceEqual(new[] { 0, 1 }, scanGroup.Frames.Select(x => x.FrameIndex), "ScanGroupJoinNode should keep continuous FrameIndexes from settings.");
             AssertEx.NotNull(final3D, "Final3D2DFusionNode should resolve ScanGroupResultBinding.");
-            AssertEx.Equal("scan-bind", Convert.ToString(final3D.Metadata["ScanGroupId"]), "Fusion output should carry the bound scan group id.");
+            AssertEx.Equal("scan-bind", Convert.ToString(final3D.Metadata[FlowMetadataKeys.ScanGroupId]), "Fusion output should carry the bound scan group id.");
         }
 
         public static async Task ScanGroupJoinDetectsNonContinuousFrameIndex()
@@ -441,8 +441,8 @@ namespace Vision.Flow.Tests
                 GrabTime = DateTime.UtcNow,
                 Image = image
             };
-            frame.Metadata["CaptureGroupId"] = captureGroupId;
-            frame.Metadata["ShotIndex"] = shotIndex;
+            frame.Metadata[FlowMetadataKeys.CaptureGroupId] = captureGroupId;
+            frame.Metadata[FlowMetadataKeys.ShotIndex] = shotIndex;
             return frame;
         }
 
@@ -462,10 +462,10 @@ namespace Vision.Flow.Tests
             var variableName = nodeId + "." + outputName;
             var runtimeEvent = sink.Events.FirstOrDefault(x =>
                 x.EventType == FlowRuntimeEventType.OutputProduced &&
-                string.Equals(Convert.ToString(x.Data["VariableName"]), variableName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]), variableName, StringComparison.OrdinalIgnoreCase));
 
             AssertEx.NotNull(runtimeEvent, "Expected output was not produced: " + variableName);
-            return runtimeEvent.Data["Value"];
+            return runtimeEvent.Data[FlowRuntimeDataKeys.Value];
         }
     }
 }

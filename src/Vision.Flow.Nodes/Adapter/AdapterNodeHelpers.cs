@@ -10,7 +10,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Shared adapter node helpers centralize binding resolution, queue execution, and template rendering.
+    // 共享适配器节点辅助方法集中处理绑定解析、队列执行和模板渲染。
     internal static class AdapterNodeHelpers
     {
         private static readonly Regex TemplateTokenRegex = new Regex(@"\{(?<name>[A-Za-z0-9_.]+)(:(?<format>[^}]+))?\}", RegexOptions.Compiled);

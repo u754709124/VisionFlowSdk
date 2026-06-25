@@ -10,7 +10,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Recipe nodes marshal token and image inputs into recipe adapter requests.
+    // 配方节点将 Token 和图像输入组织为配方适配器请求。
     public sealed class RecipeRunNodeConfig
     {
         public RecipeRunNodeConfig()
@@ -18,7 +18,7 @@ namespace Vision.Flow.Nodes
             TimeoutMs = 5000;
             Queue = new AdapterNodeQueueConfig
             {
-                QueueName = "recipe"
+                QueueName = FlowQueueNames.Recipe
             };
         }
 
@@ -33,7 +33,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class RecipeRunNodeFactory : BaseNodeFactory<RecipeRunNodeConfig>
     {
-        public const string TypeName = "recipe.run";
+        public const string TypeName = FlowNodeTypes.RecipeRun;
 
         public override string NodeType
         {
@@ -52,7 +52,7 @@ namespace Vision.Flow.Nodes
                 RecipeId = GetStringSetting(definition, "RecipeId", null),
                 InputImageBinding = GetStringSetting(definition, "InputImageBinding", null),
                 TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 5000),
-                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "recipe")
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, FlowQueueNames.Recipe)
             };
         }
 
@@ -71,7 +71,7 @@ namespace Vision.Flow.Nodes
             _config = config ?? new RecipeRunNodeConfig();
             if (_config.Queue == null)
             {
-                _config.Queue = new AdapterNodeQueueConfig { QueueName = "recipe" };
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = FlowQueueNames.Recipe };
             }
         }
 
@@ -107,8 +107,8 @@ namespace Vision.Flow.Nodes
                 queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync(
                     context,
                     _config.Queue,
-                    "recipe",
-                    "recipe.run",
+                    FlowQueueNames.Recipe,
+                    FlowNodeTypes.RecipeRun,
                     delegate(CancellationToken token)
                     {
                         return RunRecipeWithTimeoutAsync(recipe, request, timeoutMs, token);
@@ -260,7 +260,7 @@ namespace Vision.Flow.Nodes
                         Description = "Maximum time for recipe execution. Zero disables the node timeout."
                     },
                     AdapterNodeDescriptors.QueueUseSetting(),
-                    AdapterNodeDescriptors.QueueNameSetting("recipe"),
+                    AdapterNodeDescriptors.QueueNameSetting(FlowQueueNames.Recipe),
                     AdapterNodeDescriptors.QueueCapacitySetting(),
                     AdapterNodeDescriptors.QueueMaxDegreeSetting(),
                     AdapterNodeDescriptors.QueueFullModeSetting(),

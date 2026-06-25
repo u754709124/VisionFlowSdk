@@ -9,7 +9,7 @@ using static Vision.Flow.Nodes.GroupScanFusionNodeHelpers;
 
 namespace Vision.Flow.Nodes
 {
-    // Frame preprocess nodes prepare streaming frames for later scan grouping.
+    // 帧预处理节点为后续扫描组汇合准备流式帧。
     public sealed class FramePreprocessNodeConfig
     {
         public FramePreprocessNodeConfig()
@@ -17,7 +17,7 @@ namespace Vision.Flow.Nodes
             FrameIndex = -1;
             Queue = new AdapterNodeQueueConfig
             {
-                QueueName = "frame-preprocess"
+                QueueName = FlowQueueNames.FramePreprocess
             };
         }
 
@@ -40,7 +40,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class FramePreprocessNodeFactory : BaseNodeFactory<FramePreprocessNodeConfig>
     {
-        public const string TypeName = "frame.preprocess";
+        public const string TypeName = FlowNodeTypes.FramePreprocess;
 
         public override string NodeType
         {
@@ -63,7 +63,7 @@ namespace Vision.Flow.Nodes
                 ImageBinding = GetStringSetting(definition, "ImageBinding", null),
                 FrameIdBinding = GetStringSetting(definition, "FrameIdBinding", null),
                 FrameIndex = GetInt32Setting(definition, "FrameIndex", -1),
-                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "frame-preprocess")
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, FlowQueueNames.FramePreprocess)
             };
         }
 
@@ -82,7 +82,7 @@ namespace Vision.Flow.Nodes
             _config = config ?? new FramePreprocessNodeConfig();
             if (_config.Queue == null)
             {
-                _config.Queue = new AdapterNodeQueueConfig { QueueName = "frame-preprocess" };
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = FlowQueueNames.FramePreprocess };
             }
         }
 
@@ -117,8 +117,8 @@ namespace Vision.Flow.Nodes
             var queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync(
                 context,
                 _config.Queue,
-                "frame-preprocess",
-                "frame.preprocess",
+                FlowQueueNames.FramePreprocess,
+                FlowNodeTypes.FramePreprocess,
                 delegate(CancellationToken token)
                 {
                     token.ThrowIfCancellationRequested();
@@ -178,11 +178,11 @@ namespace Vision.Flow.Nodes
                 sourceImage == null ? "Mono8" : sourceImage.PixelFormat,
                 null,
                 "Preprocessed");
-            preprocessedImage.Metadata["Algorithm"] = "FakeFramePreprocess";
-            preprocessedImage.Metadata["ScanGroupId"] = scanGroupId;
-            preprocessedImage.Metadata["FrameIndex"] = frameIndex;
-            preprocessedImage.Metadata["SourceImageId"] = sourceImageId;
-            preprocessedImage.Metadata["FrameId"] = frameId;
+            preprocessedImage.Metadata[FlowMetadataKeys.Algorithm] = "FakeFramePreprocess";
+            preprocessedImage.Metadata[FlowMetadataKeys.ScanGroupId] = scanGroupId;
+            preprocessedImage.Metadata[FlowMetadataKeys.FrameIndex] = frameIndex;
+            preprocessedImage.Metadata[FlowMetadataKeys.SourceImageId] = sourceImageId;
+            preprocessedImage.Metadata[FlowMetadataKeys.FrameId] = frameId;
 
             var result = new FramePreprocessResult
             {
@@ -201,11 +201,11 @@ namespace Vision.Flow.Nodes
                 CopyDictionary(frame.Metadata, result.Metadata);
             }
 
-            result.Metadata["Algorithm"] = "FakeFramePreprocess";
-            result.Metadata["ScanGroupId"] = scanGroupId;
-            result.Metadata["FrameIndex"] = frameIndex;
-            result.Metadata["SourceImageId"] = sourceImageId;
-            result.Metadata["FrameId"] = frameId;
+            result.Metadata[FlowMetadataKeys.Algorithm] = "FakeFramePreprocess";
+            result.Metadata[FlowMetadataKeys.ScanGroupId] = scanGroupId;
+            result.Metadata[FlowMetadataKeys.FrameIndex] = frameIndex;
+            result.Metadata[FlowMetadataKeys.SourceImageId] = sourceImageId;
+            result.Metadata[FlowMetadataKeys.FrameId] = frameId;
             return result;
         }
     }
@@ -240,7 +240,7 @@ namespace Vision.Flow.Nodes
                     CreateStringSetting("FrameIdBinding", "Frame Id Binding", null, false, "Optional binding expression for FrameId."),
                     CreateIntSetting("FrameIndex", "Frame Index", -1, false, "Frame index. Values less than zero require an input or token value."),
                     AdapterNodeDescriptors.QueueUseSetting(),
-                    AdapterNodeDescriptors.QueueNameSetting("frame-preprocess"),
+                    AdapterNodeDescriptors.QueueNameSetting(FlowQueueNames.FramePreprocess),
                     AdapterNodeDescriptors.QueueCapacitySetting(),
                     AdapterNodeDescriptors.QueueMaxDegreeSetting(),
                     AdapterNodeDescriptors.QueueFullModeSetting(),

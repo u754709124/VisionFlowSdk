@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Node palette control owns palette item rendering and add-node requests.
+    // 节点库控件负责节点库条目渲染和新增节点请求。
     public sealed class NodePaletteControl : Border
     {
         private readonly StackPanel _items;

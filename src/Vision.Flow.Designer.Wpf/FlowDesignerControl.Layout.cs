@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Layout helpers build the static shell, toolbar, canvas host, and common chrome.
+    // 布局辅助方法构建静态外壳、工具栏、画布宿主和通用界面框架。
     public sealed partial class FlowDesignerControl
     {
         private UIElement CreateShell()

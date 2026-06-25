@@ -8,7 +8,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Timeout helper links node-level timeout with the flow cancellation token.
+    // 超时辅助对象将节点级超时与流程取消 Token 关联。
     internal sealed class CameraNodeTimeout : IDisposable
     {
         private readonly CancellationTokenSource _source;

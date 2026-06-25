@@ -7,7 +7,7 @@ using System.Reflection;
 
 namespace Vision.Flow.Core
 {
-    // Shared helper methods keep setting, binding, and scalar validation behavior consistent.
+    // 共享辅助方法保证设置、绑定和标量校验行为一致。
     public sealed partial class FlowValidator
     {
         private static bool HasConfiguredValue(NodeDefinition node, string settingName)
@@ -182,7 +182,7 @@ namespace Vision.Flow.Core
             if (value <= 0)
             {
                 result.AddError(
-                    "SettingValueInvalid",
+                    FlowValidationIssueCodes.SettingValueInvalid,
                     name + " must be greater than zero.",
                     nodeId: node.Id,
                     field: fieldPrefix + name);
@@ -205,7 +205,7 @@ namespace Vision.Flow.Core
             if (value < 0)
             {
                 result.AddError(
-                    "SettingValueInvalid",
+                    FlowValidationIssueCodes.SettingValueInvalid,
                     name + " must be greater than or equal to zero.",
                     nodeId: node.Id,
                     field: fieldPrefix + name);
@@ -235,7 +235,7 @@ namespace Vision.Flow.Core
             catch (Exception)
             {
                 value = defaultValue;
-                result.AddError("SettingValueInvalid", name + " must be an Int32 value.", nodeId: node.Id, field: field);
+                result.AddError(FlowValidationIssueCodes.SettingValueInvalid, name + " must be an Int32 value.", nodeId: node.Id, field: field);
                 return false;
             }
         }
@@ -262,7 +262,7 @@ namespace Vision.Flow.Core
             catch (Exception)
             {
                 value = false;
-                result.AddError("SettingValueInvalid", name + " must be a Boolean value.", nodeId: node.Id, field: field);
+                result.AddError(FlowValidationIssueCodes.SettingValueInvalid, name + " must be a Boolean value.", nodeId: node.Id, field: field);
                 return false;
             }
         }

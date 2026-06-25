@@ -7,7 +7,7 @@ using Vision.Flow.Core;
 
 namespace Vision.DeviceAdapters
 {
-    // Fake motion adapters simulate move, wait, and motion message behavior for flow tests.
+    // 模拟运控适配器为流程测试模拟移动、等待和运控消息行为。
     public sealed class FakeMotionAdapter : IMotionAdapter
     {
         private readonly object _gate = new object();

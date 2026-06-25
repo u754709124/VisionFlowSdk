@@ -10,17 +10,17 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Shared descriptor builders keep adapter node ports and queue settings uniform.
+    // 共享 Descriptor 构建器保持适配器节点端口和队列设置一致。
     internal static class AdapterNodeDescriptors
     {
         public static NodePortDescriptor ControlIn()
         {
             return new NodePortDescriptor
             {
-                Name = "In",
-                DisplayName = "In",
-                Direction = "Input",
-                DataType = "Control",
+                Name = FlowPortNames.In,
+                DisplayName = FlowPortNames.In,
+                Direction = FlowPortDirections.Input,
+                DataType = FlowDataTypes.Control,
                 IsRequired = true,
                 Description = "Execution input."
             };
@@ -30,10 +30,10 @@ namespace Vision.Flow.Nodes
         {
             return new NodePortDescriptor
             {
-                Name = "Next",
-                DisplayName = "Next",
-                Direction = "Output",
-                DataType = "Control",
+                Name = FlowPortNames.Next,
+                DisplayName = FlowPortNames.Next,
+                Direction = FlowPortDirections.Output,
+                DataType = FlowDataTypes.Control,
                 Description = "Continues after successful execution."
             };
         }
@@ -42,10 +42,10 @@ namespace Vision.Flow.Nodes
         {
             return new NodePortDescriptor
             {
-                Name = "Error",
-                DisplayName = "Error",
-                Direction = "Output",
-                DataType = "Control",
+                Name = FlowPortNames.Error,
+                DisplayName = FlowPortNames.Error,
+                Direction = FlowPortDirections.Output,
+                DataType = FlowDataTypes.Control,
                 Description = description
             };
         }
@@ -54,10 +54,10 @@ namespace Vision.Flow.Nodes
         {
             return new NodePortDescriptor
             {
-                Name = "Timeout",
-                DisplayName = "Timeout",
-                Direction = "Output",
-                DataType = "Control",
+                Name = FlowPortNames.Timeout,
+                DisplayName = FlowPortNames.Timeout,
+                Direction = FlowPortDirections.Output,
+                DataType = FlowDataTypes.Control,
                 Description = description
             };
         }
@@ -66,9 +66,9 @@ namespace Vision.Flow.Nodes
         {
             return new NodeSettingDescriptor
             {
-                Name = "UseQueue",
+                Name = FlowSettingNames.UseQueue,
                 DisplayName = "Use Queue",
-                DataType = "Boolean",
+                DataType = FlowDataTypes.Boolean,
                 DefaultValue = false,
                 IsRequired = false,
                 Description = "When true, runs adapter work through a bounded runtime queue."
@@ -79,9 +79,9 @@ namespace Vision.Flow.Nodes
         {
             return new NodeSettingDescriptor
             {
-                Name = "QueueName",
+                Name = FlowSettingNames.QueueName,
                 DisplayName = "Queue Name",
-                DataType = "String",
+                DataType = FlowDataTypes.String,
                 DefaultValue = defaultValue,
                 IsRequired = false,
                 Description = "Runtime queue name used when UseQueue is enabled."
@@ -92,9 +92,9 @@ namespace Vision.Flow.Nodes
         {
             return new NodeSettingDescriptor
             {
-                Name = "QueueCapacity",
+                Name = FlowSettingNames.QueueCapacity,
                 DisplayName = "Queue Capacity",
-                DataType = "Int32",
+                DataType = FlowDataTypes.Int32,
                 DefaultValue = 16,
                 IsRequired = false,
                 Description = "Maximum number of running and waiting items in the queue."
@@ -105,9 +105,9 @@ namespace Vision.Flow.Nodes
         {
             return new NodeSettingDescriptor
             {
-                Name = "QueueMaxDegreeOfParallelism",
+                Name = FlowSettingNames.QueueMaxDegreeOfParallelism,
                 DisplayName = "Queue Parallelism",
-                DataType = "Int32",
+                DataType = FlowDataTypes.Int32,
                 DefaultValue = 1,
                 IsRequired = false,
                 Description = "Maximum concurrent adapter calls for this queue."
@@ -118,10 +118,10 @@ namespace Vision.Flow.Nodes
         {
             return new NodeSettingDescriptor
             {
-                Name = "QueueFullMode",
+                Name = FlowSettingNames.QueueFullMode,
                 DisplayName = "Queue Full Mode",
-                DataType = "String",
-                DefaultValue = "Wait",
+                DataType = FlowDataTypes.String,
+                DefaultValue = FlowQueueFullModeNames.Wait,
                 IsRequired = false,
                 Description = "Queue behavior when full. Supported values: Wait, Reject, Drop, StopFlow, NotifyOnly."
             };
@@ -131,9 +131,9 @@ namespace Vision.Flow.Nodes
         {
             return new NodeSettingDescriptor
             {
-                Name = "WaitForCompletion",
+                Name = FlowSettingNames.WaitForCompletion,
                 DisplayName = "Wait For Completion",
-                DataType = "Boolean",
+                DataType = FlowDataTypes.Boolean,
                 DefaultValue = true,
                 IsRequired = false,
                 Description = "When false, returns after queued work is accepted and lets queue events report background completion."

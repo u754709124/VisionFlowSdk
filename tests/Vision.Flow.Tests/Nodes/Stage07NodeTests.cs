@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Stage 07 tests cover recipe, save, database, and queue-enabled adapter node chains.
+    // 第 07 阶段测试覆盖配方、保存、数据库以及启用队列的适配器节点链路。
     internal static class Stage07NodeTests
     {
         public static async Task CallbackRecipeSaveDatabaseFlow()
@@ -78,9 +78,9 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(2, savedImages.Count, "ImageSaveNode should call the image saver for raw and result images.");
             AssertEx.Equal(expectedDirectory, savedImages[0].DirectoryPath, "Raw image save request should use the rendered directory.");
             AssertEx.Equal(frameId + ".png", savedImages[0].FileName, "Raw image save request should use the rendered file name.");
-            AssertEx.Equal("Image", Convert.ToString(savedImages[0].Metadata["Role"]), "Raw image save request should be marked as Image.");
+            AssertEx.Equal("Image", Convert.ToString(savedImages[0].Metadata[FlowMetadataKeys.Role]), "Raw image save request should be marked as Image.");
             AssertEx.Equal(frameId + "_result.png", savedImages[1].FileName, "Result image save request should use a result file name.");
-            AssertEx.Equal("ResultImage", Convert.ToString(savedImages[1].Metadata["Role"]), "Result image save request should be marked as ResultImage.");
+            AssertEx.Equal("ResultImage", Convert.ToString(savedImages[1].Metadata[FlowMetadataKeys.Role]), "Result image save request should be marked as ResultImage.");
 
             var dbSaved = Convert.ToBoolean(FindOutput(sink, "db1", "Saved"));
             var savedRows = database.SnapshotSavedRequests();
@@ -128,10 +128,10 @@ namespace Vision.Flow.Tests
                     WorkpieceId = "W-007"
                 }).ConfigureAwait(false);
 
-            AssertQueueCompleted(sink, "recipe1", "recipe", "recipe.run", 1);
-            AssertQueueCompleted(sink, "save1", "image-save", "image.save.Image", 1);
-            AssertQueueCompleted(sink, "save1", "image-save", "image.save.ResultImage", 1);
-            AssertQueueCompleted(sink, "db1", "database-save", "database.save", 1);
+            AssertQueueCompleted(sink, "recipe1", FlowQueueNames.Recipe, FlowNodeTypes.RecipeRun, 1);
+            AssertQueueCompleted(sink, "save1", FlowQueueNames.ImageSave, FlowNodeTypes.ImageSave + "." + FlowOutputNames.Image, 1);
+            AssertQueueCompleted(sink, "save1", FlowQueueNames.ImageSave, FlowNodeTypes.ImageSave + "." + FlowOutputNames.ResultImage, 1);
+            AssertQueueCompleted(sink, "db1", FlowQueueNames.DatabaseSave, FlowNodeTypes.DatabaseSave, 1);
 
             AssertEx.NotNull(FindOutput(sink, "recipe1", "Result"), "Queued RecipeRunNode should still output Result.");
             AssertEx.NotNull(FindOutput(sink, "save1", "ImagePath"), "Queued ImageSaveNode should still output ImagePath.");
@@ -174,8 +174,8 @@ namespace Vision.Flow.Tests
             AssertEx.True(Convert.ToBoolean(FindOutput(sink, "db1", "Queued"), CultureInfo.InvariantCulture), "DatabaseSaveNode should output Queued=true.");
             AssertEx.False(Convert.ToBoolean(FindOutput(sink, "db1", "Saved"), CultureInfo.InvariantCulture), "DatabaseSaveNode should output Saved=false before background completion.");
 
-            await WaitForQueueCompletedAsync(sink, "save1", "image-save", "image.save.Image", 1).ConfigureAwait(false);
-            await WaitForQueueCompletedAsync(sink, "db1", "database-save", "database.save", 1).ConfigureAwait(false);
+            await WaitForQueueCompletedAsync(sink, "save1", FlowQueueNames.ImageSave, FlowNodeTypes.ImageSave + "." + FlowOutputNames.Image, 1).ConfigureAwait(false);
+            await WaitForQueueCompletedAsync(sink, "db1", FlowQueueNames.DatabaseSave, FlowNodeTypes.DatabaseSave, 1).ConfigureAwait(false);
 
             AssertEx.Equal(1, saver.SnapshotSavedRequests().Count, "Non-blocking ImageSaveNode should eventually save one image.");
             AssertEx.Equal(1, database.SnapshotSavedRequests().Count, "Non-blocking DatabaseSaveNode should eventually save one row.");
@@ -204,7 +204,7 @@ namespace Vision.Flow.Tests
             AssertEx.True(Convert.ToBoolean(FindOutput(sink, "recipe1", "Queued"), CultureInfo.InvariantCulture), "RecipeRunNode should output Queued=true.");
             AssertEx.False(Convert.ToBoolean(FindOutput(sink, "recipe1", "QueueCompleted"), CultureInfo.InvariantCulture), "RecipeRunNode should output QueueCompleted=false before background completion.");
 
-            await WaitForQueueCompletedAsync(sink, "recipe1", "recipe", "recipe.run", 1).ConfigureAwait(false);
+            await WaitForQueueCompletedAsync(sink, "recipe1", FlowQueueNames.Recipe, FlowNodeTypes.RecipeRun, 1).ConfigureAwait(false);
         }
 
         private static RuntimeFlowDefinition CreateStage07Flow()
@@ -361,9 +361,9 @@ namespace Vision.Flow.Tests
         private static RuntimeFlowDefinition CreateQueuedStage07Flow()
         {
             var flow = CreateStage07Flow();
-            EnableQueue(flow, "recipe1", "recipe");
-            EnableQueue(flow, "save1", "image-save");
-            EnableQueue(flow, "db1", "database-save");
+            EnableQueue(flow, "recipe1", FlowQueueNames.Recipe);
+            EnableQueue(flow, "save1", FlowQueueNames.ImageSave);
+            EnableQueue(flow, "db1", FlowQueueNames.DatabaseSave);
             return flow;
         }
 
@@ -387,7 +387,7 @@ namespace Vision.Flow.Tests
                     { "SaverId", "ImageSave01" },
                     { "FileNameTemplate", "{ImageId}.png" },
                     { "UseQueue", true },
-                    { "QueueName", "image-save" },
+                    { FlowSettingNames.QueueName, FlowQueueNames.ImageSave },
                     { "QueueCapacity", 4 },
                     { "QueueMaxDegreeOfParallelism", 1 },
                     { "QueueFullMode", "Reject" },
@@ -410,7 +410,7 @@ namespace Vision.Flow.Tests
                     { "DatabaseId", "VisionDb" },
                     { "TableName", "InspectionResult" },
                     { "UseQueue", true },
-                    { "QueueName", "database-save" },
+                    { FlowSettingNames.QueueName, FlowQueueNames.DatabaseSave },
                     { "QueueCapacity", 4 },
                     { "QueueMaxDegreeOfParallelism", 1 },
                     { "QueueFullMode", "Reject" },
@@ -453,7 +453,7 @@ namespace Vision.Flow.Tests
                 {
                     { "RecipeId", "Recipe01" },
                     { "UseQueue", true },
-                    { "QueueName", "recipe" },
+                    { FlowSettingNames.QueueName, FlowQueueNames.Recipe },
                     { "QueueCapacity", 4 },
                     { "QueueMaxDegreeOfParallelism", 1 },
                     { "QueueFullMode", "Reject" },
@@ -486,8 +486,8 @@ namespace Vision.Flow.Tests
             var count = sink.Events.Count(x =>
                 x.EventType == FlowRuntimeEventType.QueueCompleted &&
                 string.Equals(x.NodeId, nodeId, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(Convert.ToString(x.Data["QueueName"], CultureInfo.InvariantCulture), queueName, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(Convert.ToString(x.Data["OperationName"], CultureInfo.InvariantCulture), operationName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.QueueName], CultureInfo.InvariantCulture), queueName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.OperationName], CultureInfo.InvariantCulture), operationName, StringComparison.OrdinalIgnoreCase));
 
             AssertEx.Equal(expectedCount, count, "QueueCompleted event count should match for " + nodeId + " / " + operationName + ".");
         }
@@ -504,8 +504,8 @@ namespace Vision.Flow.Tests
                 var count = sink.Events.Count(x =>
                     x.EventType == FlowRuntimeEventType.QueueCompleted &&
                     string.Equals(x.NodeId, nodeId, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(Convert.ToString(x.Data["QueueName"], CultureInfo.InvariantCulture), queueName, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(Convert.ToString(x.Data["OperationName"], CultureInfo.InvariantCulture), operationName, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.QueueName], CultureInfo.InvariantCulture), queueName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.OperationName], CultureInfo.InvariantCulture), operationName, StringComparison.OrdinalIgnoreCase));
 
                 if (count >= expectedCount)
                 {
@@ -534,10 +534,10 @@ namespace Vision.Flow.Tests
             var variableName = nodeId + "." + outputName;
             var runtimeEvent = sink.Events.FirstOrDefault(x =>
                 x.EventType == FlowRuntimeEventType.OutputProduced &&
-                string.Equals(Convert.ToString(x.Data["VariableName"]), variableName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]), variableName, StringComparison.OrdinalIgnoreCase));
 
             AssertEx.NotNull(runtimeEvent, "Expected output was not produced: " + variableName);
-            return runtimeEvent.Data["Value"];
+            return runtimeEvent.Data[FlowRuntimeDataKeys.Value];
         }
     }
 }

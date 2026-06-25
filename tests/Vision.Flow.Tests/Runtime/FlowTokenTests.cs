@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Runtime token tests focus on variable storage behavior shared across flow execution.
+    // 运行时令牌测试聚焦流程执行共享的变量存取行为。
     internal static class FlowTokenTests
     {
         public static Task SetGetTryGet()

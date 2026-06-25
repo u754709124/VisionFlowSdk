@@ -13,7 +13,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // Event helpers keep runtime event display, token summaries, and output previews together.
+    // 事件辅助方法集中处理运行事件显示、Token 摘要和输出预览。
     public sealed partial class MainForm
     {
         private void AddEvent(string source, string eventName, string detail)
@@ -58,13 +58,13 @@ namespace Vision.Flow.Demo.WinForms
         {
             if (runtimeEvent.EventType != FlowRuntimeEventType.OutputProduced ||
                 runtimeEvent.Data == null ||
-                !runtimeEvent.Data.ContainsKey("VariableName"))
+                !runtimeEvent.Data.ContainsKey(FlowRuntimeDataKeys.VariableName))
             {
                 return;
             }
 
-            var variableName = Convert.ToString(runtimeEvent.Data["VariableName"]);
-            object value = runtimeEvent.Data.ContainsKey("Value") ? runtimeEvent.Data["Value"] : null;
+            var variableName = Convert.ToString(runtimeEvent.Data[FlowRuntimeDataKeys.VariableName]);
+            object value = runtimeEvent.Data.ContainsKey(FlowRuntimeDataKeys.Value) ? runtimeEvent.Data[FlowRuntimeDataKeys.Value] : null;
 
             var image = value as IVisionImage;
             if (image != null)
@@ -140,7 +140,7 @@ namespace Vision.Flow.Demo.WinForms
         {
             for (var row = 0; row < _eventGrid.Rows.Count; row++)
             {
-                // The event grid is for humans; runtime output values are easier to capture directly.
+                // 事件表格面向人工查看，运行输出值直接从事件负载采集更可靠。
             }
 
             return _eventSink.TryGetOutput(variableName);
@@ -167,12 +167,12 @@ namespace Vision.Flow.Demo.WinForms
 
                 if (runtimeEvent.EventType == FlowRuntimeEventType.OutputProduced &&
                     runtimeEvent.Data != null &&
-                    runtimeEvent.Data.ContainsKey("VariableName"))
+                    runtimeEvent.Data.ContainsKey(FlowRuntimeDataKeys.VariableName))
                 {
                     lock (_gate)
                     {
-                        _outputs[Convert.ToString(runtimeEvent.Data["VariableName"])] =
-                            runtimeEvent.Data.ContainsKey("Value") ? runtimeEvent.Data["Value"] : null;
+                        _outputs[Convert.ToString(runtimeEvent.Data[FlowRuntimeDataKeys.VariableName])] =
+                            runtimeEvent.Data.ContainsKey(FlowRuntimeDataKeys.Value) ? runtimeEvent.Data[FlowRuntimeDataKeys.Value] : null;
                     }
                 }
 

@@ -10,7 +10,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Timeout helper links adapter operation timeout with the flow cancellation token.
+    // 超时辅助对象将适配器操作超时与流程取消 Token 关联。
     internal sealed class AdapterNodeTimeout : IDisposable
     {
         private readonly CancellationTokenSource _source;

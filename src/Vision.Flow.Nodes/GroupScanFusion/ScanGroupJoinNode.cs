@@ -9,7 +9,7 @@ using static Vision.Flow.Nodes.GroupScanFusionNodeHelpers;
 
 namespace Vision.Flow.Nodes
 {
-    // Scan group join nodes collect preprocessed frames into an ordered scan group.
+    // 扫描组汇合节点将预处理帧收集为有序扫描组。
     public sealed class ScanGroupJoinNodeConfig
     {
         public ScanGroupJoinNodeConfig()
@@ -35,7 +35,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class ScanGroupJoinNodeFactory : BaseNodeFactory<ScanGroupJoinNodeConfig>
     {
-        public const string TypeName = "scan.group_join";
+        public const string TypeName = FlowNodeTypes.ScanGroupJoin;
 
         public override string NodeType
         {
@@ -285,10 +285,10 @@ namespace Vision.Flow.Nodes
                 Frames = frames
             };
 
-            result.Metadata["ScanGroupId"] = ScanGroupId;
-            result.Metadata["ExpectedFrameCount"] = ExpectedCount;
-            result.Metadata["ActualFrameCount"] = frames.Count;
-            result.Metadata["FrameIndexes"] = string.Join(",", frames.Select(x => x.FrameIndex.ToString(CultureInfo.InvariantCulture)).ToArray());
+            result.Metadata[FlowMetadataKeys.ScanGroupId] = ScanGroupId;
+            result.Metadata[FlowMetadataKeys.ExpectedFrameCount] = ExpectedCount;
+            result.Metadata[FlowMetadataKeys.ActualFrameCount] = frames.Count;
+            result.Metadata[FlowMetadataKeys.FrameIndexes] = string.Join(",", frames.Select(x => x.FrameIndex.ToString(CultureInfo.InvariantCulture)).ToArray());
             return result;
         }
     }

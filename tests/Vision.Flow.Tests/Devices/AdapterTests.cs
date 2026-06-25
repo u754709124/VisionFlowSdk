@@ -12,7 +12,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Fake adapter tests verify device-facing contracts used by runtime and node tests.
+    // 模拟适配器测试验证运行时和节点测试使用的设备侧契约。
     internal static class AdapterTests
     {
         public static Task RegistryGetsFakeCamera()
@@ -59,8 +59,8 @@ namespace Vision.Flow.Tests
             AssertEx.NotNull(frame.Image, "Frame data should include a fake image.");
             AssertEx.Equal("Camera01", frame.CameraId, "Frame camera id should match the adapter.");
             AssertEx.Equal("trigger-001", frame.TriggerId, "Frame trigger id should match the trigger context.");
-            AssertEx.Equal("Camera01", Convert.ToString(frame.Metadata["CameraId"]), "Frame metadata should include CameraId.");
-            AssertEx.Equal("trigger-001", Convert.ToString(frame.Metadata["TriggerId"]), "Frame metadata should include TriggerId.");
+            AssertEx.Equal("Camera01", Convert.ToString(frame.Metadata[FlowMetadataKeys.CameraId]), "Frame metadata should include CameraId.");
+            AssertEx.Equal("trigger-001", Convert.ToString(frame.Metadata[FlowMetadataKeys.TriggerId]), "Frame metadata should include TriggerId.");
             AssertEx.True(frame.Metadata.ContainsKey("FrameId"), "Frame metadata should include FrameId.");
             AssertEx.True(frame.Metadata.ContainsKey("GrabTime"), "Frame metadata should include GrabTime.");
         }
@@ -269,7 +269,7 @@ namespace Vision.Flow.Tests
         {
             var native = new DisposableNativeImage();
             var image = new VisionImageReference("image-native", 10, 20, "Mono8", new byte[] { 1, 2, 3 }, native, true, "HeightMap");
-            image.Metadata["CameraId"] = "Camera01";
+            image.Metadata[FlowMetadataKeys.CameraId] = "Camera01";
 
             byte[] bytes;
             AssertEx.True(image.TryGetBytes(out bytes), "VisionImageReference should expose bytes before disposal.");
@@ -285,7 +285,7 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("image-native", clone.ImageId, "CloneReference should preserve ImageId.");
             AssertEx.Equal("HeightMap", clone.ImageKind, "CloneReference should preserve ImageKind.");
             AssertEx.True(object.ReferenceEquals(image.NativeImage, clone.NativeImage), "CloneReference should preserve native image reference.");
-            AssertEx.Equal("Camera01", Convert.ToString(clone.Metadata["CameraId"]), "CloneReference should copy metadata.");
+            AssertEx.Equal("Camera01", Convert.ToString(clone.Metadata[FlowMetadataKeys.CameraId]), "CloneReference should copy metadata.");
 
             image.Dispose();
 
@@ -303,13 +303,13 @@ namespace Vision.Flow.Tests
         {
             var native = new DisposableNativeImage();
             var image = new FakeVisionImage("fake-native", 5, 6, "RGB24", new byte[] { 7, 8 }, native, true, "TextureImage");
-            image.Metadata["FrameId"] = "frame-001";
+            image.Metadata[FlowMetadataKeys.FrameId] = "frame-001";
 
             var clone = image.CloneReference();
             AssertEx.False(object.ReferenceEquals(image, clone), "FakeVisionImage CloneReference should create a distinct reference.");
             AssertEx.Equal("TextureImage", clone.ImageKind, "FakeVisionImage clone should preserve ImageKind.");
             AssertEx.True(object.ReferenceEquals(image.NativeImage, clone.NativeImage), "FakeVisionImage clone should preserve native image reference.");
-            AssertEx.Equal("frame-001", Convert.ToString(clone.Metadata["FrameId"]), "FakeVisionImage clone should copy metadata.");
+            AssertEx.Equal("frame-001", Convert.ToString(clone.Metadata[FlowMetadataKeys.FrameId]), "FakeVisionImage clone should copy metadata.");
 
             image.Dispose();
 
@@ -370,9 +370,9 @@ namespace Vision.Flow.Tests
                 },
                 CancellationToken.None).ConfigureAwait(false);
 
-            AssertEx.Equal(4, Convert.ToInt32(result.Metadata["ByteLength"], CultureInfo.InvariantCulture), "Fake saver should record byte length.");
-            AssertEx.Equal(false, Convert.ToBoolean(result.Metadata["HasNativeImage"], CultureInfo.InvariantCulture), "Fake saver should record native image state.");
-            AssertEx.Equal("Raw", Convert.ToString(result.Metadata["ImageKind"], CultureInfo.InvariantCulture), "Fake saver should record image kind.");
+            AssertEx.Equal(4, Convert.ToInt32(result.Metadata[FlowMetadataKeys.ByteLength], CultureInfo.InvariantCulture), "Fake saver should record byte length.");
+            AssertEx.Equal(false, Convert.ToBoolean(result.Metadata[FlowMetadataKeys.HasNativeImage], CultureInfo.InvariantCulture), "Fake saver should record native image state.");
+            AssertEx.Equal("Raw", Convert.ToString(result.Metadata[FlowMetadataKeys.ImageKind], CultureInfo.InvariantCulture), "Fake saver should record image kind.");
 
             var savedRequests = saver.SnapshotSavedRequests();
             AssertEx.Equal(1, savedRequests.Count, "Fake saver should snapshot one request.");

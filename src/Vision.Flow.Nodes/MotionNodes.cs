@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
@@ -31,7 +31,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class MotionNotifyNodeFactory : BaseNodeFactory<MotionNotifyNodeConfig>
     {
-        public const string TypeName = "motion.notify";
+        public const string TypeName = FlowNodeTypes.MotionNotify;
 
         public override string NodeType
         {
@@ -104,7 +104,7 @@ namespace Vision.Flow.Nodes
                 ScanGroupId = MotionNodeHelpers.ResolveStringBinding(context, _config.ScanGroupIdBinding, context.Token.ScanGroupId),
                 Result = MotionNodeHelpers.ResolveObjectBinding(context, _config.ResultBinding, null)
             };
-            message.Metadata["TokenId"] = context.Token.TokenId;
+            message.Metadata[FlowMetadataKeys.TokenId] = context.Token.TokenId;
 
             var motion = context.Devices.GetMotion(motionId);
             var completed = await MotionNodeHelpers.ExecuteWithTimeoutAsync(
@@ -151,7 +151,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class MotionMoveToNodeFactory : BaseNodeFactory<MotionMoveToNodeConfig>
     {
-        public const string TypeName = "motion.move_to";
+        public const string TypeName = FlowNodeTypes.MotionMoveTo;
 
         public override string NodeType
         {
@@ -250,7 +250,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class MotionWaitInPositionNodeFactory : BaseNodeFactory<MotionWaitInPositionNodeConfig>
     {
-        public const string TypeName = "motion.wait_in_position";
+        public const string TypeName = FlowNodeTypes.MotionWaitInPosition;
 
         public override string NodeType
         {

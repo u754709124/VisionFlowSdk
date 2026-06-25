@@ -8,7 +8,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Shared camera node helpers keep binding and scalar resolution consistent across camera nodes.
+    // 共享相机节点辅助方法保持相机节点间的绑定和标量解析一致。
     internal static class CameraNodeHelpers
     {
         public static string ResolveString(FlowExecutionContext context, string name, string defaultValue)

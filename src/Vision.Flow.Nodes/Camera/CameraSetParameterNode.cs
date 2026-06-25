@@ -8,7 +8,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Camera parameter nodes resolve configured values and apply them through ICameraAdapter.
+    // 相机参数节点解析配置值并通过 ICameraAdapter 应用到设备。
     public sealed class CameraParameterSetConfig
     {
         public string Name { get; set; }
@@ -35,7 +35,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class CameraSetParameterNodeFactory : BaseNodeFactory<CameraSetParameterNodeConfig>
     {
-        public const string TypeName = "camera.set_parameters";
+        public const string TypeName = FlowNodeTypes.CameraSetParameters;
 
         public override string NodeType
         {

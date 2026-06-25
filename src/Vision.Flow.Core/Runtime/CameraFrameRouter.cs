@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 
 namespace Vision.Flow.Core
 {
+    /// <summary>
+    /// 相机帧匹配模式常量，用于相机回调节点和帧路由器之间协同过滤帧。
+    /// </summary>
     public static class CameraFrameMatchModes
     {
         public const string TriggerId = "TriggerId";
@@ -97,7 +100,7 @@ namespace Vision.Flow.Core
 
             if (string.Equals(mode, CameraFrameMatchModes.ScanGroupId, StringComparison.OrdinalIgnoreCase))
             {
-                var frameScanGroupId = GetMetadataString(frame, "ScanGroupId");
+                var frameScanGroupId = GetMetadataString(frame, FlowMetadataKeys.ScanGroupId);
                 return !string.IsNullOrWhiteSpace(ScanGroupId) &&
                     string.Equals(frameScanGroupId, ScanGroupId, StringComparison.OrdinalIgnoreCase);
             }

@@ -8,7 +8,7 @@ using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
-    // Image callback nodes wait for routed frames and publish frame/image variables for downstream nodes.
+    // 图像回调节点等待路由后的帧，并为下游节点发布帧和图像变量。
     public sealed class CameraImageCallbackNodeConfig
     {
         public CameraImageCallbackNodeConfig()
@@ -50,7 +50,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class CameraImageCallbackNodeFactory : BaseNodeFactory<CameraImageCallbackNodeConfig>
     {
-        public const string TypeName = "camera.image_callback";
+        public const string TypeName = FlowNodeTypes.CameraImageCallback;
 
         public override string NodeType
         {
@@ -410,18 +410,18 @@ namespace Vision.Flow.Nodes
                 frame.Metadata = new Dictionary<string, object>();
             }
 
-            frame.Metadata["FrameIndex"] = frameIndex;
+            frame.Metadata[FlowMetadataKeys.FrameIndex] = frameIndex;
             if (!string.IsNullOrWhiteSpace(scanGroupId))
             {
-                frame.Metadata["ScanGroupId"] = scanGroupId;
+                frame.Metadata[FlowMetadataKeys.ScanGroupId] = scanGroupId;
             }
 
             if (frame.Image != null && frame.Image.Metadata != null)
             {
-                frame.Image.Metadata["FrameIndex"] = frameIndex;
+                frame.Image.Metadata[FlowMetadataKeys.FrameIndex] = frameIndex;
                 if (!string.IsNullOrWhiteSpace(scanGroupId))
                 {
-                    frame.Image.Metadata["ScanGroupId"] = scanGroupId;
+                    frame.Image.Metadata[FlowMetadataKeys.ScanGroupId] = scanGroupId;
                 }
             }
         }

@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Node card and port controls render canvas nodes and connection handles.
+    // 节点卡片和端口控件渲染画布节点及连线手柄。
     public sealed class NodeCardControl : Border
     {
         private readonly TextBlock _title;
@@ -395,25 +395,25 @@ namespace Vision.Flow.Designer.Wpf
         private static Brush GetNodeAccentBrush(string nodeType)
         {
             var type = nodeType ?? string.Empty;
-            if (type.StartsWith("camera.", StringComparison.OrdinalIgnoreCase))
+            if (type.StartsWith(FlowNodeTypePrefixes.Camera, StringComparison.OrdinalIgnoreCase))
             {
                 return FlowDesignerControl.BrushFromRgb(59, 130, 246);
             }
 
-            if (type.StartsWith("light.", StringComparison.OrdinalIgnoreCase))
+            if (type.StartsWith(FlowNodeTypePrefixes.Light, StringComparison.OrdinalIgnoreCase))
             {
                 return FlowDesignerControl.BrushFromRgb(245, 158, 11);
             }
 
-            if (type.StartsWith("database.", StringComparison.OrdinalIgnoreCase))
+            if (type.StartsWith(FlowNodeTypePrefixes.Database, StringComparison.OrdinalIgnoreCase))
             {
                 return FlowDesignerControl.BrushFromRgb(20, 184, 166);
             }
 
-            if (type.StartsWith("join.", StringComparison.OrdinalIgnoreCase) ||
-                type.StartsWith("group.", StringComparison.OrdinalIgnoreCase) ||
-                type.StartsWith("scan.", StringComparison.OrdinalIgnoreCase) ||
-                type.StartsWith("fusion.", StringComparison.OrdinalIgnoreCase))
+            if (type.StartsWith(FlowNodeTypePrefixes.Join, StringComparison.OrdinalIgnoreCase) ||
+                type.StartsWith(FlowNodeTypePrefixes.Group, StringComparison.OrdinalIgnoreCase) ||
+                type.StartsWith(FlowNodeTypePrefixes.Scan, StringComparison.OrdinalIgnoreCase) ||
+                type.StartsWith(FlowNodeTypePrefixes.Fusion, StringComparison.OrdinalIgnoreCase))
             {
                 return FlowDesignerControl.BrushFromRgb(14, 165, 233);
             }
@@ -440,12 +440,12 @@ namespace Vision.Flow.Designer.Wpf
                 return "GET";
             }
 
-            if (type.StartsWith("camera.", StringComparison.OrdinalIgnoreCase))
+            if (type.StartsWith(FlowNodeTypePrefixes.Camera, StringComparison.OrdinalIgnoreCase))
             {
                 return "CAM";
             }
 
-            if (type.StartsWith("database.", StringComparison.OrdinalIgnoreCase))
+            if (type.StartsWith(FlowNodeTypePrefixes.Database, StringComparison.OrdinalIgnoreCase))
             {
                 return "DB";
             }

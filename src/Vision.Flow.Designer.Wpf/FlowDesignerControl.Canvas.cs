@@ -17,7 +17,7 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
-    // Canvas helpers manage zoom, pan, node dragging, port anchors, and edge rendering.
+    // 画布辅助方法管理缩放、平移、节点拖拽、端口锚点和连线渲染。
     public sealed partial class FlowDesignerControl
     {
         private void ApplyCanvasViewState()

@@ -9,7 +9,7 @@ using static Vision.Flow.Nodes.GroupScanFusionNodeHelpers;
 
 namespace Vision.Flow.Nodes
 {
-    // Shared grouping helpers keep binding, metadata, and index validation behavior consistent.
+    // 共享分组辅助方法保持绑定、元数据和索引校验行为一致。
     internal enum DuplicateItemPolicy
     {
         Error = 0,

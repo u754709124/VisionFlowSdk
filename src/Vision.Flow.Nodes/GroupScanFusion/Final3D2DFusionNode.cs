@@ -9,14 +9,14 @@ using static Vision.Flow.Nodes.GroupScanFusionNodeHelpers;
 
 namespace Vision.Flow.Nodes
 {
-    // Final fusion nodes create the final 3D/2D image set from a completed scan group.
+    // 最终融合节点基于已完成的扫描组生成最终 3D/2D 图像集合。
     public sealed class Final3D2DFusionNodeConfig
     {
         public Final3D2DFusionNodeConfig()
         {
             Queue = new AdapterNodeQueueConfig
             {
-                QueueName = "fusion"
+                QueueName = FlowQueueNames.Fusion
             };
         }
 
@@ -27,7 +27,7 @@ namespace Vision.Flow.Nodes
 
     public sealed class Final3D2DFusionNodeFactory : BaseNodeFactory<Final3D2DFusionNodeConfig>
     {
-        public const string TypeName = "fusion.final_3d_2d";
+        public const string TypeName = FlowNodeTypes.FusionFinal3D2D;
 
         public override string NodeType
         {
@@ -44,7 +44,7 @@ namespace Vision.Flow.Nodes
             return new Final3D2DFusionNodeConfig
             {
                 ScanGroupResultBinding = GetStringSetting(definition, "ScanGroupResultBinding", null),
-                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, "fusion")
+                Queue = AdapterNodeHelpers.CreateQueueConfig(definition, FlowQueueNames.Fusion)
             };
         }
 
@@ -63,7 +63,7 @@ namespace Vision.Flow.Nodes
             _config = config ?? new Final3D2DFusionNodeConfig();
             if (_config.Queue == null)
             {
-                _config.Queue = new AdapterNodeQueueConfig { QueueName = "fusion" };
+                _config.Queue = new AdapterNodeQueueConfig { QueueName = FlowQueueNames.Fusion };
             }
         }
 
@@ -85,8 +85,8 @@ namespace Vision.Flow.Nodes
             var queueResult = await AdapterNodeHelpers.ExecuteWithOptionalQueueResultAsync(
                 context,
                 _config.Queue,
-                "fusion",
-                "fusion.final_3d_2d",
+                FlowQueueNames.Fusion,
+                FlowNodeTypes.FusionFinal3D2D,
                 delegate(CancellationToken token)
                 {
                     token.ThrowIfCancellationRequested();
@@ -164,10 +164,10 @@ namespace Vision.Flow.Nodes
                 null,
                 imageKind);
 
-            image.Metadata["Algorithm"] = algorithm;
-            image.Metadata["ScanGroupId"] = scanGroup.ScanGroupId;
-            image.Metadata["SourceFrameCount"] = scanGroup.Frames.Count;
-            image.Metadata["FrameIndexes"] = string.Join(",", scanGroup.Frames.Select(x => x.FrameIndex.ToString(CultureInfo.InvariantCulture)).ToArray());
+            image.Metadata[FlowMetadataKeys.Algorithm] = algorithm;
+            image.Metadata[FlowMetadataKeys.ScanGroupId] = scanGroup.ScanGroupId;
+            image.Metadata[FlowMetadataKeys.SourceFrameCount] = scanGroup.Frames.Count;
+            image.Metadata[FlowMetadataKeys.FrameIndexes] = string.Join(",", scanGroup.Frames.Select(x => x.FrameIndex.ToString(CultureInfo.InvariantCulture)).ToArray());
             return image;
         }
     }
@@ -196,7 +196,7 @@ namespace Vision.Flow.Nodes
                 {
                     CreateStringSetting("ScanGroupResultBinding", "Scan Group Binding", null, false, "Optional binding expression used when ScanGroupResult is not bound directly."),
                     AdapterNodeDescriptors.QueueUseSetting(),
-                    AdapterNodeDescriptors.QueueNameSetting("fusion"),
+                    AdapterNodeDescriptors.QueueNameSetting(FlowQueueNames.Fusion),
                     AdapterNodeDescriptors.QueueCapacitySetting(),
                     AdapterNodeDescriptors.QueueMaxDegreeSetting(),
                     AdapterNodeDescriptors.QueueFullModeSetting(),

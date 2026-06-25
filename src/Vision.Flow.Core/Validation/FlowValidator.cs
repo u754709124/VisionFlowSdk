@@ -7,7 +7,7 @@ using System.Reflection;
 
 namespace Vision.Flow.Core
 {
-    // Entry-point validation keeps the high-level runtime checks in execution order.
+    // 入口校验按运行时执行顺序组织高层检查。
     public sealed partial class FlowValidator
     {
         private readonly NodeRegistry _nodeRegistry;
@@ -27,13 +27,13 @@ namespace Vision.Flow.Core
             var result = new FlowValidationResult();
             if (document == null)
             {
-                result.AddError("FlowDesignMissing", "Flow design document is required.");
+                result.AddError(FlowValidationIssueCodes.FlowDesignMissing, "Flow design document is required.");
                 return result;
             }
 
             if (document.Runtime == null)
             {
-                result.AddError("RuntimeMissing", "Flow design document must contain a runtime definition.");
+                result.AddError(FlowValidationIssueCodes.RuntimeMissing, "Flow design document must contain a runtime definition.");
                 return result;
             }
 
@@ -45,13 +45,13 @@ namespace Vision.Flow.Core
             var result = new FlowValidationResult();
             if (definition == null)
             {
-                result.AddError("RuntimeMissing", "Runtime flow definition is required.");
+                result.AddError(FlowValidationIssueCodes.RuntimeMissing, "Runtime flow definition is required.");
                 return result;
             }
 
             if (string.IsNullOrWhiteSpace(definition.FlowId))
             {
-                result.AddError("FlowIdMissing", "FlowId is required.", field: "FlowId");
+                result.AddError(FlowValidationIssueCodes.FlowIdMissing, "FlowId is required.", field: "FlowId");
             }
 
             var nodes = definition.Nodes ?? new List<NodeDefinition>();
@@ -60,7 +60,7 @@ namespace Vision.Flow.Core
 
             if (nodes.Count == 0)
             {
-                result.AddError("NodesMissing", "Runtime flow must contain at least one node.", field: "Nodes");
+                result.AddError(FlowValidationIssueCodes.NodesMissing, "Runtime flow must contain at least one node.", field: "Nodes");
             }
 
             ValidateEdges(definition.Edges ?? new List<EdgeDefinition>(), nodeMap, descriptorsByNodeId, result);
@@ -83,20 +83,20 @@ namespace Vision.Flow.Core
                 var node = nodes[index];
                 if (node == null)
                 {
-                    result.AddError("NodeMissing", "Node definition must not be null.", field: "Nodes[" + index + "]");
+                    result.AddError(FlowValidationIssueCodes.NodeMissing, "Node definition must not be null.", field: "Nodes[" + index + "]");
                     continue;
                 }
 
                 if (string.IsNullOrWhiteSpace(node.Id))
                 {
-                    result.AddError("NodeIdMissing", "NodeId is required.", field: "Nodes[" + index + "].Id");
+                    result.AddError(FlowValidationIssueCodes.NodeIdMissing, "NodeId is required.", field: "Nodes[" + index + "].Id");
                     continue;
                 }
 
                 if (nodeMap.ContainsKey(node.Id))
                 {
                     result.AddError(
-                        "NodeIdDuplicate",
+                        FlowValidationIssueCodes.NodeIdDuplicate,
                         "NodeId must be unique: " + node.Id,
                         nodeId: node.Id,
                         field: "Nodes[" + index + "].Id");
@@ -124,7 +124,7 @@ namespace Vision.Flow.Core
 
                 if (string.IsNullOrWhiteSpace(node.Type))
                 {
-                    result.AddError("NodeTypeMissing", "Node type is required.", nodeId: node.Id, field: "Nodes[" + index + "].Type");
+                    result.AddError(FlowValidationIssueCodes.NodeTypeMissing, "Node type is required.", nodeId: node.Id, field: "Nodes[" + index + "].Type");
                     continue;
                 }
 
@@ -132,7 +132,7 @@ namespace Vision.Flow.Core
                 if (!_nodeRegistry.TryGetFactory(node.Type, out factory))
                 {
                     result.AddError(
-                        "NodeTypeNotRegistered",
+                        FlowValidationIssueCodes.NodeTypeNotRegistered,
                         "Node factory was not registered: " + node.Type,
                         nodeId: node.Id,
                         field: "Nodes[" + index + "].Type");
@@ -143,7 +143,7 @@ namespace Vision.Flow.Core
                 if (descriptor == null)
                 {
                     result.AddError(
-                        "NodeDescriptorMissing",
+                        FlowValidationIssueCodes.NodeDescriptorMissing,
                         "Node factory must provide a descriptor: " + node.Type,
                         nodeId: node.Id,
                         field: "Nodes[" + index + "].Type");
@@ -153,7 +153,7 @@ namespace Vision.Flow.Core
                 if (string.IsNullOrWhiteSpace(descriptor.NodeType))
                 {
                     result.AddError(
-                        "NodeDescriptorTypeMissing",
+                        FlowValidationIssueCodes.NodeDescriptorTypeMissing,
                         "Node descriptor must provide NodeType: " + node.Type,
                         nodeId: node.Id,
                         field: "Nodes[" + index + "].Type");
@@ -161,7 +161,7 @@ namespace Vision.Flow.Core
                 else if (!string.Equals(descriptor.NodeType, node.Type, StringComparison.OrdinalIgnoreCase))
                 {
                     result.AddError(
-                        "NodeDescriptorTypeMismatch",
+                        FlowValidationIssueCodes.NodeDescriptorTypeMismatch,
                         "Node descriptor type does not match node type. Node=" + node.Type + ", Descriptor=" + descriptor.NodeType,
                         nodeId: node.Id,
                         field: "Nodes[" + index + "].Type");
@@ -187,28 +187,28 @@ namespace Vision.Flow.Core
                 var edge = edges[index];
                 if (edge == null)
                 {
-                    result.AddError("EdgeMissing", "Edge definition must not be null.", edgeIndex: index, field: "Edges[" + index + "]");
+                    result.AddError(FlowValidationIssueCodes.EdgeMissing, "Edge definition must not be null.", edgeIndex: index, field: "Edges[" + index + "]");
                     continue;
                 }
 
                 if (string.IsNullOrWhiteSpace(edge.FromNodeId))
                 {
-                    result.AddError("EdgeSourceMissing", "Edge source node id is required.", edgeIndex: index, field: "Edges[" + index + "].FromNodeId");
+                    result.AddError(FlowValidationIssueCodes.EdgeSourceMissing, "Edge source node id is required.", edgeIndex: index, field: "Edges[" + index + "].FromNodeId");
                 }
 
                 if (string.IsNullOrWhiteSpace(edge.ToNodeId))
                 {
-                    result.AddError("EdgeTargetMissing", "Edge target node id is required.", edgeIndex: index, field: "Edges[" + index + "].ToNodeId");
+                    result.AddError(FlowValidationIssueCodes.EdgeTargetMissing, "Edge target node id is required.", edgeIndex: index, field: "Edges[" + index + "].ToNodeId");
                 }
 
                 if (string.IsNullOrWhiteSpace(edge.FromPort))
                 {
-                    result.AddError("EdgeFromPortMissing", "Edge source port is required.", edgeIndex: index, field: "Edges[" + index + "].FromPort");
+                    result.AddError(FlowValidationIssueCodes.EdgeFromPortMissing, "Edge source port is required.", edgeIndex: index, field: "Edges[" + index + "].FromPort");
                 }
 
                 if (string.IsNullOrWhiteSpace(edge.ToPort))
                 {
-                    result.AddError("EdgeToPortMissing", "Edge target port is required.", edgeIndex: index, field: "Edges[" + index + "].ToPort");
+                    result.AddError(FlowValidationIssueCodes.EdgeToPortMissing, "Edge target port is required.", edgeIndex: index, field: "Edges[" + index + "].ToPort");
                 }
 
                 NodeDefinition fromNode;
@@ -216,7 +216,7 @@ namespace Vision.Flow.Core
                 if (!hasFromNode && !string.IsNullOrWhiteSpace(edge.FromNodeId))
                 {
                     result.AddError(
-                        "EdgeSourceMissing",
+                        FlowValidationIssueCodes.EdgeSourceMissing,
                         "Edge source node does not exist: " + edge.FromNodeId,
                         edgeIndex: index,
                         field: "Edges[" + index + "].FromNodeId");
@@ -227,7 +227,7 @@ namespace Vision.Flow.Core
                 if (!hasToNode && !string.IsNullOrWhiteSpace(edge.ToNodeId))
                 {
                     result.AddError(
-                        "EdgeTargetMissing",
+                        FlowValidationIssueCodes.EdgeTargetMissing,
                         "Edge target node does not exist: " + edge.ToNodeId,
                         edgeIndex: index,
                         field: "Edges[" + index + "].ToNodeId");
@@ -240,7 +240,7 @@ namespace Vision.Flow.Core
                         !ContainsPort(descriptor.OutputPorts, edge.FromPort))
                     {
                         result.AddError(
-                            "EdgeFromPortUnknown",
+                            FlowValidationIssueCodes.EdgeSourcePortUnknown,
                             "Edge source port does not exist on node descriptor. Node=" + edge.FromNodeId + ", Port=" + edge.FromPort,
                             nodeId: edge.FromNodeId,
                             edgeIndex: index,
@@ -255,7 +255,7 @@ namespace Vision.Flow.Core
                         !ContainsPort(descriptor.InputPorts, edge.ToPort))
                     {
                         result.AddError(
-                            "EdgeToPortUnknown",
+                            FlowValidationIssueCodes.EdgeToPortUnknown,
                             "Edge target port does not exist on node descriptor. Node=" + edge.ToNodeId + ", Port=" + edge.ToPort,
                             nodeId: edge.ToNodeId,
                             edgeIndex: index,
@@ -272,7 +272,7 @@ namespace Vision.Flow.Core
         {
             if (entries.Count == 0)
             {
-                result.AddError("EntriesMissing", "Runtime flow must contain at least one entry.", field: "Entries");
+                result.AddError(FlowValidationIssueCodes.EntriesMissing, "Runtime flow must contain at least one entry.", field: "Entries");
                 return;
             }
 
@@ -282,18 +282,18 @@ namespace Vision.Flow.Core
                 var entry = entries[index];
                 if (entry == null)
                 {
-                    result.AddError("EntryMissing", "Entry definition must not be null.", field: "Entries[" + index + "]");
+                    result.AddError(FlowValidationIssueCodes.EntryMissing, "Entry definition must not be null.", field: "Entries[" + index + "]");
                     continue;
                 }
 
                 if (string.IsNullOrWhiteSpace(entry.EntryName))
                 {
-                    result.AddError("EntryNameMissing", "Entry name is required.", field: "Entries[" + index + "].EntryName");
+                    result.AddError(FlowValidationIssueCodes.EntryNameMissing, "Entry name is required.", field: "Entries[" + index + "].EntryName");
                 }
                 else if (!entryNames.Add(entry.EntryName))
                 {
                     result.AddError(
-                        "EntryNameDuplicate",
+                        FlowValidationIssueCodes.EntryNameDuplicate,
                         "Entry name must be unique: " + entry.EntryName,
                         entryName: entry.EntryName,
                         field: "Entries[" + index + "].EntryName");
@@ -302,7 +302,7 @@ namespace Vision.Flow.Core
                 if (string.IsNullOrWhiteSpace(entry.TargetNodeId))
                 {
                     result.AddError(
-                        "EntryTargetMissing",
+                        FlowValidationIssueCodes.EntryTargetMissing,
                         "Entry target node id is required.",
                         entryName: entry.EntryName,
                         field: "Entries[" + index + "].TargetNodeId");
@@ -310,7 +310,7 @@ namespace Vision.Flow.Core
                 else if (!nodeMap.ContainsKey(entry.TargetNodeId))
                 {
                     result.AddError(
-                        "EntryTargetMissing",
+                        FlowValidationIssueCodes.EntryTargetMissing,
                         "Entry target node does not exist: " + entry.TargetNodeId,
                         entryName: entry.EntryName,
                         field: "Entries[" + index + "].TargetNodeId");
@@ -348,7 +348,7 @@ namespace Vision.Flow.Core
                     if (!HasConfiguredValue(node, setting.Name))
                     {
                         result.AddError(
-                            "RequiredSettingMissing",
+                            FlowValidationIssueCodes.RequiredSettingMissing,
                             "Required setting is missing or empty. Node=" + node.Id + ", Setting=" + setting.Name,
                             nodeId: node.Id,
                             field: "Nodes[" + nodeIndex + "].Settings." + setting.Name);
@@ -518,7 +518,7 @@ namespace Vision.Flow.Core
         {
             if (binding == null)
             {
-                result.AddError("BindingInvalid", "Variable binding must not be null.", nodeId: nodeId, field: field);
+                result.AddError(FlowValidationIssueCodes.BindingInvalid, "Variable binding must not be null.", nodeId: nodeId, field: field);
                 return;
             }
 
@@ -534,7 +534,7 @@ namespace Vision.Flow.Core
                 if (!VariableBinding.TryParseVariablePath(binding.Expression, out sourceNodeId, out sourceOutputName))
                 {
                     result.AddError(
-                        "BindingInvalid",
+                        FlowValidationIssueCodes.BindingInvalid,
                         "Variable binding must reference a source node output: " + binding.Expression,
                         nodeId: nodeId,
                         field: field);
@@ -563,7 +563,7 @@ namespace Vision.Flow.Core
             if (!VariableBinding.TryParseVariablePath(expression, out sourceNodeId, out sourceOutputName))
             {
                 result.AddError(
-                    "BindingInvalid",
+                    FlowValidationIssueCodes.BindingInvalid,
                     "Variable binding expression is invalid: " + expression,
                     nodeId: nodeId,
                     field: field);
@@ -584,7 +584,7 @@ namespace Vision.Flow.Core
         {
             if (string.IsNullOrWhiteSpace(sourceNodeId) || string.IsNullOrWhiteSpace(sourceOutputName))
             {
-                result.AddError("BindingInvalid", "Variable binding source node and output are required.", nodeId: nodeId, field: field);
+                result.AddError(FlowValidationIssueCodes.BindingInvalid, "Variable binding source node and output are required.", nodeId: nodeId, field: field);
                 return;
             }
 
@@ -592,7 +592,7 @@ namespace Vision.Flow.Core
             if (!nodeMap.TryGetValue(sourceNodeId, out sourceNode))
             {
                 result.AddError(
-                    "BindingSourceNodeMissing",
+                    FlowValidationIssueCodes.BindingSourceNodeMissing,
                     "Variable binding source node does not exist: " + sourceNodeId,
                     nodeId: nodeId,
                     field: field);
@@ -604,7 +604,7 @@ namespace Vision.Flow.Core
                 !ContainsOutput(descriptor.Outputs, sourceOutputName))
             {
                 result.AddError(
-                    "BindingOutputMissing",
+                    FlowValidationIssueCodes.BindingOutputMissing,
                     "Variable binding source output does not exist. Source=" + sourceNodeId + "." + sourceOutputName,
                     nodeId: nodeId,
                     field: field);

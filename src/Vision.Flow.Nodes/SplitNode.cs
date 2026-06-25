@@ -1,16 +1,19 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Core;
 
 namespace Vision.Flow.Nodes
 {
+    /// <summary>
+    /// 执行流分支节点配置，目前不需要额外参数。
+    /// </summary>
     public sealed class SplitNodeConfig
     {
     }
 
     public sealed class SplitNodeFactory : BaseNodeFactory<SplitNodeConfig>
     {
-        public const string TypeName = "flow.split";
+        public const string TypeName = FlowNodeTypes.FlowSplit;
 
         public override string NodeType
         {
@@ -37,7 +40,7 @@ namespace Vision.Flow.Nodes
         public Task<NodeExecutionResult> ExecuteAsync(FlowExecutionContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(NodeExecutionResult.Success("Next"));
+            return Task.FromResult(NodeExecutionResult.Success(FlowPortNames.Next));
         }
     }
 
@@ -56,10 +59,10 @@ namespace Vision.Flow.Nodes
                 {
                     new NodePortDescriptor
                     {
-                        Name = "In",
-                        DisplayName = "In",
-                        Direction = "Input",
-                        DataType = "Control",
+                        Name = FlowPortNames.In,
+                        DisplayName = FlowPortNames.In,
+                        Direction = FlowPortDirections.Input,
+                        DataType = FlowDataTypes.Control,
                         IsRequired = true,
                         Description = "Execution input."
                     }
@@ -68,10 +71,10 @@ namespace Vision.Flow.Nodes
                 {
                     new NodePortDescriptor
                     {
-                        Name = "Next",
-                        DisplayName = "Next",
-                        Direction = "Output",
-                        DataType = "Control",
+                        Name = FlowPortNames.Next,
+                        DisplayName = FlowPortNames.Next,
+                        Direction = FlowPortDirections.Output,
+                        DataType = FlowDataTypes.Control,
                         Description = "Default output branch."
                     }
                 }

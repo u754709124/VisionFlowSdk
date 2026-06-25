@@ -7,7 +7,7 @@ using Vision.Flow.Core;
 
 namespace Vision.DeviceAdapters
 {
-    // Fake databases capture save requests for assertions without requiring external storage.
+    // 模拟数据库捕获保存请求供断言使用，不依赖外部存储。
     public sealed class FakeDatabaseAdapter : IDatabaseAdapter
     {
         private readonly object _gate = new object();
