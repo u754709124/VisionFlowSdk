@@ -90,13 +90,27 @@ namespace Vision.Flow.Designer.Wpf
             };
             dock.Children.Add(buttons);
 
-            buttons.Children.Add(CreateToolbarButton("New", delegate { CreateNewDesign(); }));
-            buttons.Children.Add(CreateToolbarButton("Sample", delegate { LoadSingleShotTemplate(); }));
-            buttons.Children.Add(CreateToolbarButton("Open", delegate { OpenDesign(); }));
-            buttons.Children.Add(CreateToolbarButton("Save", delegate { SaveDesign(); }));
-            buttons.Children.Add(CreateToolbarButton("Publish", delegate { PublishRuntime(); }));
-            buttons.Children.Add(CreateToolbarButton("Debug Run", async delegate { await RunDebugAsync(); }));
-            buttons.Children.Add(CreateToolbarButton("Stop", async delegate { await StopDebugAsync(); }));
+            _editModeButton = CreateToolbarButton("编辑", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
+            _debugModeButton = CreateToolbarButton("调试运行", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
+            buttons.Children.Add(_editModeButton);
+            buttons.Children.Add(_debugModeButton);
+            buttons.Children.Add(CreateToolbarSpacer());
+
+            _newButton = CreateToolbarButton("New", delegate { CreateNewDesign(); });
+            _sampleButton = CreateToolbarButton("Sample", delegate { LoadSingleShotTemplate(); });
+            _openButton = CreateToolbarButton("Open", delegate { OpenDesign(); });
+            _saveButton = CreateToolbarButton("Save", delegate { SaveDesign(); });
+            _publishButton = CreateToolbarButton("Publish", delegate { PublishRuntime(); });
+            _debugRunButton = CreateToolbarButton("Debug Run", async delegate { await RunDebugAsync(); });
+            _stopButton = CreateToolbarButton("Stop", async delegate { await StopDebugAsync(); });
+
+            buttons.Children.Add(_newButton);
+            buttons.Children.Add(_sampleButton);
+            buttons.Children.Add(_openButton);
+            buttons.Children.Add(_saveButton);
+            buttons.Children.Add(_publishButton);
+            buttons.Children.Add(_debugRunButton);
+            buttons.Children.Add(_stopButton);
 
             return root;
         }
@@ -342,6 +356,17 @@ namespace Vision.Flow.Designer.Wpf
             };
             button.Click += handler;
             return button;
+        }
+
+        private static UIElement CreateToolbarSpacer()
+        {
+            return new Border
+            {
+                Width = 1,
+                Height = 24,
+                Margin = new Thickness(2, 4, 10, 4),
+                Background = BrushFromRgb(51, 65, 85)
+            };
         }
     }
 }

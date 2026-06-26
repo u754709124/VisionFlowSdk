@@ -24,6 +24,7 @@ namespace Vision.Flow.Designer.Wpf
         private NodeDefinition _node;
         private Action _changed;
         private IList<string> _variableExpressions;
+        private bool _isReadOnly;
 
         public PropertyPanelControl()
         {
@@ -44,13 +45,19 @@ namespace Vision.Flow.Designer.Wpf
 
         public void ShowNode(NodeDefinition node, NodeDescriptor descriptor, Action changed)
         {
-            ShowNode(node, descriptor, null, changed);
+            ShowNode(node, descriptor, null, changed, false);
         }
 
         public void ShowNode(NodeDefinition node, NodeDescriptor descriptor, IEnumerable<string> variableExpressions, Action changed)
         {
+            ShowNode(node, descriptor, variableExpressions, changed, false);
+        }
+
+        public void ShowNode(NodeDefinition node, NodeDescriptor descriptor, IEnumerable<string> variableExpressions, Action changed, bool isReadOnly)
+        {
             _node = node;
             _changed = changed;
+            _isReadOnly = isReadOnly;
             _variableExpressions = variableExpressions == null
                 ? new List<string>()
                 : variableExpressions
@@ -129,10 +136,23 @@ namespace Vision.Flow.Designer.Wpf
                 var checkBox = new CheckBox
                 {
                     IsChecked = value != null && Convert.ToBoolean(value, CultureInfo.InvariantCulture),
+                    IsEnabled = !_isReadOnly,
                     Margin = new Thickness(0, 0, 0, 4)
                 };
-                checkBox.Checked += delegate { ApplySetting(setter, true); };
-                checkBox.Unchecked += delegate { ApplySetting(setter, false); };
+                checkBox.Checked += delegate
+                {
+                    if (!_isReadOnly)
+                    {
+                        ApplySetting(setter, true);
+                    }
+                };
+                checkBox.Unchecked += delegate
+                {
+                    if (!_isReadOnly)
+                    {
+                        ApplySetting(setter, false);
+                    }
+                };
                 _rows.Children.Add(checkBox);
                 return;
             }
@@ -153,6 +173,7 @@ namespace Vision.Flow.Designer.Wpf
                 var comboBox = new ComboBox
                 {
                     IsEditable = true,
+                    IsEnabled = !_isReadOnly,
                     Text = ToEditorText(setting, value),
                     MinHeight = 28,
                     Margin = new Thickness(0, 0, 0, 4),
@@ -183,24 +204,36 @@ namespace Vision.Flow.Designer.Wpf
                 Margin = new Thickness(0, 0, 0, 4)
             };
             var selector = new VariableSelectorControl(_variableExpressions);
+            selector.IsEnabled = !_isReadOnly;
             DockPanel.SetDock(selector, Dock.Right);
             dock.Children.Add(selector);
 
             var textBox = new TextBox
             {
                 Text = value ?? string.Empty,
+                IsReadOnly = _isReadOnly,
                 MinHeight = 28,
                 Padding = new Thickness(7, 4, 7, 4),
                 BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
             };
             selector.VariableSelected += delegate(string expression)
             {
+                if (_isReadOnly)
+                {
+                    return;
+                }
+
                 textBox.Text = string.IsNullOrWhiteSpace(textBox.Text) ? expression : textBox.Text + " " + expression;
                 setter(textBox.Text);
                 RaiseChanged();
             };
             textBox.LostFocus += delegate
             {
+                if (_isReadOnly)
+                {
+                    return;
+                }
+
                 setter(textBox.Text);
                 RaiseChanged();
             };
@@ -231,7 +264,7 @@ namespace Vision.Flow.Designer.Wpf
             var textBox = new TextBox
             {
                 Text = value ?? string.Empty,
-                IsReadOnly = !editable,
+                IsReadOnly = !editable || _isReadOnly,
                 MinHeight = 28,
                 Padding = new Thickness(7, 4, 7, 4),
                 TextWrapping = TextWrapping.Wrap,
@@ -241,7 +274,7 @@ namespace Vision.Flow.Designer.Wpf
             };
             textBox.LostFocus += delegate
             {
-                if (setter != null)
+                if (!_isReadOnly && setter != null)
                 {
                     setter(textBox.Text);
                     RaiseChanged();
@@ -262,7 +295,7 @@ namespace Vision.Flow.Designer.Wpf
 
         private void ApplySetting(Action<object> setter, object value)
         {
-            if (setter != null)
+            if (!_isReadOnly && setter != null)
             {
                 setter(value);
                 RaiseChanged();

@@ -21,11 +21,12 @@ namespace Vision.Flow.Designer.Wpf
     public sealed class EdgeLayerControl : Canvas
     {
         private const double NodeCardWidth = 190;
-        private const double PortAnchorY = 43;
+        private const double PortAnchorY = 75;
 
         private bool _hasPreview;
         private Point _previewStart;
         private Point _previewEnd;
+        private bool _isReadOnly;
 
         public EdgeLayerControl()
         {
@@ -37,6 +38,11 @@ namespace Vision.Flow.Designer.Wpf
         public event Action<EdgeDefinition> EdgeSelected;
 
         public event Action<EdgeDefinition> EdgeDeleteRequested;
+
+        public void SetReadOnly(bool isReadOnly)
+        {
+            _isReadOnly = isReadOnly;
+        }
 
         public void SetCanvasSize(double width, double height)
         {
@@ -183,9 +189,14 @@ namespace Vision.Flow.Designer.Wpf
         private ContextMenu CreateEdgeContextMenu(EdgeDefinition edge)
         {
             var menu = new ContextMenu();
-            var delete = new MenuItem { Header = "Delete" };
+            var delete = new MenuItem { Header = "Delete", IsEnabled = !_isReadOnly };
             delete.Click += delegate
             {
+                if (_isReadOnly)
+                {
+                    return;
+                }
+
                 var handler = EdgeDeleteRequested;
                 if (handler != null)
                 {

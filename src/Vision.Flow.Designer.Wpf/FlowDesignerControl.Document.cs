@@ -22,6 +22,12 @@ namespace Vision.Flow.Designer.Wpf
     {
         private void CreateNewDesign()
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("New design skipped: switch to Edit mode first.");
+                return;
+            }
+
             _document = CreateDocument("designer-flow", "Designer Flow");
             _selectedNode = null;
             _selectedEdge = null;
@@ -34,6 +40,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void LoadSingleShotTemplate()
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Sample load skipped: switch to Edit mode first.");
+                return;
+            }
+
             _document = CreateDocument("designer-single-shot", "Single Shot Inspection");
             var flow = _document.Runtime;
 
@@ -134,6 +146,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void AddNodeFromPalette(NodeDescriptor descriptor)
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Add node skipped: switch to Edit mode first.");
+                return;
+            }
+
             if (descriptor == null)
             {
                 return;
@@ -277,6 +295,11 @@ namespace Vision.Flow.Designer.Wpf
 
         private void AddEdge(string fromNodeId, string fromPort, string toNodeId, string toPort)
         {
+            if (!CanEditDocument)
+            {
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId))
             {
                 return;
@@ -323,6 +346,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void DeleteSelection()
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Delete skipped: switch to Edit mode first.");
+                return;
+            }
+
             if (_selectedEdge != null)
             {
                 DeleteEdge(_selectedEdge);
@@ -337,6 +366,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void DeleteEdge(EdgeDefinition edge)
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Delete edge skipped: switch to Edit mode first.");
+                return;
+            }
+
             if (edge == null || _document == null || _document.Runtime == null)
             {
                 return;
@@ -378,12 +413,13 @@ namespace Vision.Flow.Designer.Wpf
                 var card = new NodeCardControl(new NodeViewModel(node, descriptor));
                 card.SetSelected(StringEquals(node.Id, _selectedNode == null ? null : _selectedNode.Id));
                 card.SetDisabled(IsNodeDisabled(node));
+                card.SetEditEnabled(CanEditDocument);
                 card.MouseLeftButtonDown += OnNodeMouseDown;
                 card.MouseMove += OnNodeMouseMove;
                 card.MouseLeftButtonUp += OnNodeMouseUp;
                 card.OutputPortDragStarted += OnOutputPortDragStarted;
                 card.InputPortDragCompleted += OnInputPortDragCompleted;
-                card.ContextMenu = CreateNodeContextMenu(node);
+                card.ContextMenu = CanEditDocument ? CreateNodeContextMenu(node) : null;
                 Canvas.SetLeft(card, view.X);
                 Canvas.SetTop(card, view.Y);
                 _nodeLayer.Children.Add(card);
@@ -403,6 +439,11 @@ namespace Vision.Flow.Designer.Wpf
                 CreateVariableSuggestions(_selectedNode),
                 delegate
                 {
+                    if (!CanEditDocument)
+                    {
+                        return;
+                    }
+
                     var card = _selectedNode == null || !_nodeCards.ContainsKey(_selectedNode.Id)
                         ? null
                         : _nodeCards[_selectedNode.Id];
@@ -412,7 +453,8 @@ namespace Vision.Flow.Designer.Wpf
                     }
 
                     RenderCanvas();
-                });
+                },
+                !CanEditDocument);
         }
 
         private IList<string> CreateVariableSuggestions(NodeDefinition currentNode)
@@ -520,6 +562,11 @@ namespace Vision.Flow.Designer.Wpf
 
         private ContextMenu CreateNodeContextMenu(NodeDefinition node)
         {
+            if (!CanEditDocument)
+            {
+                return null;
+            }
+
             var menu = new ContextMenu();
             menu.Items.Add(CreateMenuItem("Rename", delegate { RenameNode(node); }));
             menu.Items.Add(CreateMenuItem("Duplicate", delegate { DuplicateNode(node); }));
@@ -538,6 +585,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void RenameNode(NodeDefinition node)
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Rename skipped: switch to Edit mode first.");
+                return;
+            }
+
             if (node == null)
             {
                 return;
@@ -587,6 +640,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void DuplicateNode(NodeDefinition node)
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Duplicate skipped: switch to Edit mode first.");
+                return;
+            }
+
             if (node == null || _document == null || _document.Runtime == null)
             {
                 return;
@@ -629,6 +688,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void DeleteNode(NodeDefinition node)
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Delete node skipped: switch to Edit mode first.");
+                return;
+            }
+
             if (node == null || _document == null || _document.Runtime == null)
             {
                 return;
@@ -654,6 +719,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void ToggleNodeDisabled(NodeDefinition node)
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Toggle disabled skipped: switch to Edit mode first.");
+                return;
+            }
+
             if (node == null)
             {
                 return;

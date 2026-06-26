@@ -104,7 +104,10 @@ namespace Vision.Flow.Tests
                 new TestCase("Stage 08 FrameGroupJoin detects non-continuous ShotIndex", Stage08NodeTests.FrameGroupJoinDetectsNonContinuousShotIndex),
                 new TestCase("Stage 08 ScanGroupJoin sorts preprocess results and fusion outputs images", Stage08NodeTests.ScanGroupJoinSortsAndFusionOutputsImages),
                 new TestCase("Stage 08 ScanGroupJoin supports bindings replace duplicates and fusion binding", Stage08NodeTests.ScanGroupJoinBindingsReplaceAndFusionBinding),
-                new TestCase("Stage 08 ScanGroupJoin detects non-continuous FrameIndex", Stage08NodeTests.ScanGroupJoinDetectsNonContinuousFrameIndex)
+                new TestCase("Stage 08 ScanGroupJoin detects non-continuous FrameIndex", Stage08NodeTests.ScanGroupJoinDetectsNonContinuousFrameIndex),
+                new TestCase("Designer property panel read-only mode disables editors", DesignerInteractionTests.PropertyPanelReadOnlyDisablesEditors),
+                new TestCase("Designer node palette read-only mode blocks node requests", DesignerInteractionTests.NodePaletteReadOnlyBlocksNodeRequests),
+                new TestCase("Designer node card shows runtime summary above card", DesignerInteractionTests.NodeCardShowsRuntimeSummaryAboveCard)
             };
 
             var failed = 0;

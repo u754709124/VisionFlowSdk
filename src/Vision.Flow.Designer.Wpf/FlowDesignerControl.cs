@@ -18,6 +18,12 @@ using ShapesPath = System.Windows.Shapes.Path;
 namespace Vision.Flow.Designer.Wpf
 {
     // 设计器核心状态、构造逻辑和公开集成点保留在根文件。
+    internal enum DesignerInteractionMode
+    {
+        Edit = 0,
+        DebugRun = 1
+    }
+
     public sealed class FlowDesignerOptions
     {
         public FlowDesignerOptions()
@@ -37,7 +43,7 @@ namespace Vision.Flow.Designer.Wpf
         private const double CanvasExpansionMargin = 160;
         private const double CanvasExpansionStep = 512;
         private const double NodeBoundsFallbackWidth = 220;
-        private const double NodeBoundsFallbackHeight = 150;
+        private const double NodeBoundsFallbackHeight = 182;
 
         private readonly NodeRegistry _nodeRegistry;
         private readonly Dictionary<string, NodeCardControl> _nodeCards;
@@ -49,9 +55,19 @@ namespace Vision.Flow.Designer.Wpf
         private readonly FlowDesignerOptions _options;
         private readonly Canvas _nodeLayer;
         private readonly TextBlock _statusText;
+        private Button _editModeButton;
+        private Button _debugModeButton;
+        private Button _newButton;
+        private Button _sampleButton;
+        private Button _openButton;
+        private Button _saveButton;
+        private Button _publishButton;
+        private Button _debugRunButton;
+        private Button _stopButton;
         private TextBlock _zoomText;
         private Rectangle _gridLayer;
 
+        private DesignerInteractionMode _interactionMode;
         private FlowDesignDocument _document;
         private NodeDefinition _selectedNode;
         private EdgeDefinition _selectedEdge;
@@ -95,6 +111,7 @@ namespace Vision.Flow.Designer.Wpf
             _nodeRegistry = nodeRegistry ?? CreateDefaultNodeRegistry();
             _nodeCards = new Dictionary<string, NodeCardControl>(StringComparer.OrdinalIgnoreCase);
             _nodeStartTimes = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+            _interactionMode = DesignerInteractionMode.Edit;
             _palette = new NodePaletteControl();
             _properties = new PropertyPanelControl();
             _debug = new RuntimeDebugPanelControl();
@@ -132,6 +149,8 @@ namespace Vision.Flow.Designer.Wpf
             {
                 CreateNewDesign();
             }
+
+            UpdateInteractionModeUi();
         }
 
         public IDeviceRegistry DebugDevices { get; set; }
@@ -144,6 +163,16 @@ namespace Vision.Flow.Designer.Wpf
         public FlowDesignerOptions Options
         {
             get { return _options; }
+        }
+
+        private bool CanEditDocument
+        {
+            get { return _interactionMode == DesignerInteractionMode.Edit; }
+        }
+
+        private bool IsDebugRunMode
+        {
+            get { return _interactionMode == DesignerInteractionMode.DebugRun; }
         }
     }
 }

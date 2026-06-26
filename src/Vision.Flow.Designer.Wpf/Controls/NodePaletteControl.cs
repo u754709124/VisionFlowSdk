@@ -21,9 +21,12 @@ namespace Vision.Flow.Designer.Wpf
     public sealed class NodePaletteControl : Border
     {
         private readonly StackPanel _items;
+        private readonly List<Button> _descriptorButtons;
+        private bool _isReadOnly;
 
         public NodePaletteControl()
         {
+            _descriptorButtons = new List<Button>();
             Margin = new Thickness(0);
             Padding = new Thickness(12);
             Background = Brushes.White;
@@ -49,9 +52,21 @@ namespace Vision.Flow.Designer.Wpf
 
         public event Action<NodeDescriptor> NodeRequested;
 
+        public void SetReadOnly(bool isReadOnly)
+        {
+            _isReadOnly = isReadOnly;
+            Opacity = isReadOnly ? 0.64 : 1.0;
+            ToolTip = isReadOnly ? "调试运行模式下不可新增节点。" : null;
+            foreach (var button in _descriptorButtons)
+            {
+                button.IsEnabled = !isReadOnly;
+            }
+        }
+
         public void SetDescriptors(IEnumerable<NodeDescriptor> descriptors)
         {
             _items.Children.Clear();
+            _descriptorButtons.Clear();
             string currentCategory = null;
             foreach (var descriptor in descriptors)
             {
@@ -74,17 +89,24 @@ namespace Vision.Flow.Designer.Wpf
                     HorizontalContentAlignment = HorizontalAlignment.Stretch,
                     Background = FlowDesignerControl.BrushFromRgb(248, 250, 252),
                     BorderBrush = FlowDesignerControl.BrushFromRgb(226, 232, 240),
+                    IsEnabled = !_isReadOnly,
                     Tag = descriptor,
                     Content = CreatePaletteContent(descriptor)
                 };
                 button.Click += delegate
                 {
+                    if (_isReadOnly)
+                    {
+                        return;
+                    }
+
                     var handler = NodeRequested;
                     if (handler != null)
                     {
                         handler(descriptor);
                     }
                 };
+                _descriptorButtons.Add(button);
                 _items.Children.Add(button);
             }
         }

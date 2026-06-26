@@ -22,6 +22,12 @@ namespace Vision.Flow.Designer.Wpf
     {
         private void OpenDesign()
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Open skipped: switch to Edit mode first.");
+                return;
+            }
+
             var dialog = new OpenFileDialog
             {
                 Filter = "Flow design (*" + FlowFileExtensions.FlowDesign + ")|*" + FlowFileExtensions.FlowDesign + "|All files (*.*)|*.*",
@@ -61,6 +67,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void SaveDesign()
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Save skipped: switch to Edit mode first.");
+                return;
+            }
+
             var dialog = new SaveFileDialog
             {
                 Filter = "Flow design (*" + FlowFileExtensions.FlowDesign + ")|*" + FlowFileExtensions.FlowDesign + "|All files (*.*)|*.*",
@@ -88,6 +100,12 @@ namespace Vision.Flow.Designer.Wpf
 
         private void PublishRuntime()
         {
+            if (!CanEditDocument)
+            {
+                AddDebugMessage("Publish skipped: switch to Edit mode first.");
+                return;
+            }
+
             var dialog = new SaveFileDialog
             {
                 Filter = "Flow runtime (*" + FlowFileExtensions.FlowRuntime + ")|*" + FlowFileExtensions.FlowRuntime + "|All files (*.*)|*.*",
@@ -121,6 +139,11 @@ namespace Vision.Flow.Designer.Wpf
 
         private async Task RunDebugAsync()
         {
+            if (!IsDebugRunMode)
+            {
+                await SetInteractionModeAsync(DesignerInteractionMode.DebugRun).ConfigureAwait(true);
+            }
+
             if (_document == null || _document.Runtime == null || _document.Runtime.Nodes.Count == 0)
             {
                 AddDebugMessage("Debug skipped: the flow has no nodes.");
@@ -179,6 +202,89 @@ namespace Vision.Flow.Designer.Wpf
             }
         }
 
+        private void ClearNodeRuntimeStates()
+        {
+            _nodeStartTimes.Clear();
+            foreach (var card in _nodeCards.Values)
+            {
+                card.ClearRuntimeState();
+            }
+        }
+
+        private async Task SetInteractionModeAsync(DesignerInteractionMode mode)
+        {
+            if (_interactionMode == mode)
+            {
+                return;
+            }
+
+            CancelConnectionPreview();
+            if (mode == DesignerInteractionMode.Edit)
+            {
+                await StopDebugAsync().ConfigureAwait(true);
+                _interactionMode = mode;
+                ClearNodeRuntimeStates();
+            }
+            else
+            {
+                _interactionMode = mode;
+                ResetNodeStates();
+            }
+
+            UpdateInteractionModeUi();
+            RenderProperties();
+            UpdateStatus();
+        }
+
+        private void UpdateInteractionModeUi()
+        {
+            var isEdit = CanEditDocument;
+            _palette.SetReadOnly(!isEdit);
+            _edges.SetReadOnly(!isEdit);
+
+            foreach (var item in _nodeCards)
+            {
+                item.Value.SetEditEnabled(isEdit);
+                item.Value.ContextMenu = isEdit ? CreateNodeContextMenu(item.Value.ViewModel.Node) : null;
+            }
+
+            SetToolbarButtonEnabled(_newButton, isEdit);
+            SetToolbarButtonEnabled(_sampleButton, isEdit);
+            SetToolbarButtonEnabled(_openButton, isEdit);
+            SetToolbarButtonEnabled(_saveButton, isEdit);
+            SetToolbarButtonEnabled(_publishButton, isEdit);
+            SetToolbarButtonEnabled(_debugRunButton, IsDebugRunMode);
+            SetToolbarButtonEnabled(_stopButton, IsDebugRunMode);
+            ApplyModeButtonStyle(_editModeButton, isEdit);
+            ApplyModeButtonStyle(_debugModeButton, IsDebugRunMode);
+        }
+
+        private static void SetToolbarButtonEnabled(Button button, bool isEnabled)
+        {
+            if (button != null)
+            {
+                button.IsEnabled = isEnabled;
+                button.Opacity = isEnabled ? 1.0 : 0.48;
+            }
+        }
+
+        private static void ApplyModeButtonStyle(Button button, bool isActive)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.Background = isActive
+                ? BrushFromRgb(16, 185, 129)
+                : BrushFromRgb(30, 41, 59);
+            button.BorderBrush = isActive
+                ? BrushFromRgb(52, 211, 153)
+                : BrushFromRgb(51, 65, 85);
+            button.Foreground = Brushes.White;
+            button.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
+        }
+
         private FlowToken CreateDebugToken()
         {
             return new FlowToken
@@ -204,8 +310,18 @@ namespace Vision.Flow.Designer.Wpf
             }
 
             _debug.AddEvent(runtimeEvent);
+            if (!IsDebugRunMode)
+            {
+                return;
+            }
+
             if (!string.IsNullOrWhiteSpace(runtimeEvent.NodeId) && _nodeCards.ContainsKey(runtimeEvent.NodeId))
             {
+                if (!IsNodeLifecycleRuntimeEvent(runtimeEvent.EventType))
+                {
+                    return;
+                }
+
                 if (runtimeEvent.EventType == FlowRuntimeEventType.NodeStarted)
                 {
                     _nodeStartTimes[runtimeEvent.NodeId] = DateTime.UtcNow;
@@ -216,6 +332,13 @@ namespace Vision.Flow.Designer.Wpf
                 if ((runtimeEvent.EventType == FlowRuntimeEventType.NodeCompleted ||
                     runtimeEvent.EventType == FlowRuntimeEventType.NodeFailed ||
                     runtimeEvent.EventType == FlowRuntimeEventType.NodeTimeout) &&
+                    runtimeEvent.ElapsedMs >= 0)
+                {
+                    elapsed = TimeSpan.FromMilliseconds(runtimeEvent.ElapsedMs);
+                }
+                else if ((runtimeEvent.EventType == FlowRuntimeEventType.NodeCompleted ||
+                    runtimeEvent.EventType == FlowRuntimeEventType.NodeFailed ||
+                    runtimeEvent.EventType == FlowRuntimeEventType.NodeTimeout) &&
                     _nodeStartTimes.TryGetValue(runtimeEvent.NodeId, out started))
                 {
                     elapsed = DateTime.UtcNow - started;
@@ -223,6 +346,14 @@ namespace Vision.Flow.Designer.Wpf
 
                 _nodeCards[runtimeEvent.NodeId].SetRuntimeState(runtimeEvent.State, elapsed, runtimeEvent.Message);
             }
+        }
+
+        private static bool IsNodeLifecycleRuntimeEvent(FlowRuntimeEventType eventType)
+        {
+            return eventType == FlowRuntimeEventType.NodeStarted ||
+                eventType == FlowRuntimeEventType.NodeCompleted ||
+                eventType == FlowRuntimeEventType.NodeFailed ||
+                eventType == FlowRuntimeEventType.NodeTimeout;
         }
 
         private void AddDebugMessage(string message)
@@ -239,7 +370,8 @@ namespace Vision.Flow.Designer.Wpf
                 ? _selectedNode.Id
                 : (_selectedEdge == null ? "none" : FormatEdgeLabel(_selectedEdge));
             var zoom = _canvasScale == null ? 1.0 : _canvasScale.ScaleX;
-            _statusText.Text = string.Format(CultureInfo.InvariantCulture, "{0} nodes | {1} edges | zoom {2:P0} | selected: {3}", nodeCount, edgeCount, zoom, selected);
+            var mode = CanEditDocument ? "Edit" : "Debug Run";
+            _statusText.Text = string.Format(CultureInfo.InvariantCulture, "{0} nodes | {1} edges | zoom {2:P0} | mode: {3} | selected: {4}", nodeCount, edgeCount, zoom, mode, selected);
         }
 
         private static string FormatValidationIssues(FlowValidationResult validation)

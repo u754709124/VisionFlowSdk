@@ -26,6 +26,10 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Vision.Flow.Core\Vision.Flow.Core.csproj">
@@ -39,6 +43,10 @@
     <ProjectReference Include="..\..\src\Vision.DeviceAdapters\Vision.DeviceAdapters.csproj">
       <Project>{33333333-3333-3333-3333-333333333333}</Project>
       <Name>Vision.DeviceAdapters</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\Vision.Flow.Designer.Wpf\Vision.Flow.Designer.Wpf.csproj">
+      <Project>{44444444-4444-4444-4444-444444444444}</Project>
+      <Name>Vision.Flow.Designer.Wpf</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
