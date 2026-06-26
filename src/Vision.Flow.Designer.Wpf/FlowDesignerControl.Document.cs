@@ -146,6 +146,11 @@ namespace Vision.Flow.Designer.Wpf
 
         private void AddNodeFromPalette(NodeDescriptor descriptor)
         {
+            AddNodeFromPalette(descriptor, null);
+        }
+
+        private void AddNodeFromPalette(NodeDescriptor descriptor, Point? canvasPosition)
+        {
             if (!CanEditDocument)
             {
                 AddDebugMessage("Add node skipped: switch to Edit mode first.");
@@ -157,7 +162,6 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
-            var previous = _document.Runtime.Nodes.LastOrDefault();
             var nodeId = CreateNodeId(descriptor.NodeType);
             var node = new NodeDefinition
             {
@@ -172,22 +176,12 @@ namespace Vision.Flow.Designer.Wpf
                 node.Settings[setting.Name] = CreateDefaultSettingValue(setting);
             }
 
-            AutoConfigureNode(node, previous);
             _document.Runtime.Nodes.Add(node);
-            _document.View.Nodes[node.Id] = new NodeViewState
-            {
-                X = 80 + (_document.Runtime.Nodes.Count % 4) * 280,
-                Y = 80 + (_document.Runtime.Nodes.Count / 4) * 170
-            };
+            _document.View.Nodes[node.Id] = CreatePaletteNodeViewState(canvasPosition);
 
             if (_document.Runtime.Entries.Count == 0)
             {
                 _document.Runtime.Entries.Add(new FlowEntryDefinition { EntryName = DefaultEntryName, TargetNodeId = node.Id });
-            }
-
-            if (previous != null)
-            {
-                AddEdge(previous.Id, node.Id);
             }
 
             SelectNode(node);
@@ -195,37 +189,21 @@ namespace Vision.Flow.Designer.Wpf
             AddDebugMessage("Added node " + node.Id + " (" + descriptor.NodeType + ").");
         }
 
-        private void AutoConfigureNode(NodeDefinition node, NodeDefinition previous)
+        private NodeViewState CreatePaletteNodeViewState(Point? canvasPosition)
         {
-            if (node == null)
+            if (!canvasPosition.HasValue)
             {
-                return;
-            }
-
-            if (string.Equals(node.Type, FlowNodeTypes.RecipeRun, StringComparison.OrdinalIgnoreCase) &&
-                previous != null &&
-                string.Equals(previous.Type, FlowNodeTypes.CameraImageCallback, StringComparison.OrdinalIgnoreCase))
-            {
-                node.Settings[FlowSettingNames.InputImageBinding] = "{{ " + previous.Id + "." + FlowOutputNames.Image + " }}";
-            }
-
-            if (string.Equals(node.Type, FlowNodeTypes.ImageSave, StringComparison.OrdinalIgnoreCase) && previous != null)
-            {
-                if (string.Equals(previous.Type, FlowNodeTypes.CameraImageCallback, StringComparison.OrdinalIgnoreCase))
+                return new NodeViewState
                 {
-                    node.Settings[FlowSettingNames.ImageBinding] = "{{ " + previous.Id + "." + FlowOutputNames.Image + " }}";
-                }
-
-                if (string.Equals(previous.Type, FlowNodeTypes.RecipeRun, StringComparison.OrdinalIgnoreCase))
-                {
-                    node.Settings[FlowSettingNames.ResultImageBinding] = "{{ " + previous.Id + "." + FlowOutputNames.ResultImage + " }}";
-                }
+                    X = 80 + (_document.Runtime.Nodes.Count % 4) * 280,
+                    Y = 80 + (_document.Runtime.Nodes.Count / 4) * 170
+                };
             }
 
-            if (string.Equals(node.Type, FlowNodeTypes.DatabaseSave, StringComparison.OrdinalIgnoreCase) && previous != null)
-            {
-                node.Settings[FlowSettingNames.FieldMappings] = CreateFieldMappings("PreviousNode=" + previous.Id);
-            }
+            var x = Math.Max(8, SnapToGrid(canvasPosition.Value.X));
+            var y = Math.Max(8, SnapToGrid(canvasPosition.Value.Y));
+            ExpandCanvasForNewNode(ref x, ref y);
+            return new NodeViewState { X = x, Y = y };
         }
 
         private object CreateDefaultSettingValue(NodeSettingDescriptor setting)

@@ -107,6 +107,9 @@ namespace Vision.Flow.Tests
                 new TestCase("Stage 08 ScanGroupJoin detects non-continuous FrameIndex", Stage08NodeTests.ScanGroupJoinDetectsNonContinuousFrameIndex),
                 new TestCase("Designer property panel read-only mode disables editors", DesignerInteractionTests.PropertyPanelReadOnlyDisablesEditors),
                 new TestCase("Designer node palette read-only mode blocks node requests", DesignerInteractionTests.NodePaletteReadOnlyBlocksNodeRequests),
+                new TestCase("Designer node palette single click selects only", DesignerInteractionTests.NodePaletteSingleClickSelectsOnly),
+                new TestCase("Designer node palette double click requests node once", DesignerInteractionTests.NodePaletteDoubleClickRequestsNodeOnce),
+                new TestCase("Designer node palette drag request carries descriptor", DesignerInteractionTests.NodePaletteDragRequestCarriesDescriptor),
                 new TestCase("Designer node card shows runtime summary above card", DesignerInteractionTests.NodeCardShowsRuntimeSummaryAboveCard)
             };
 

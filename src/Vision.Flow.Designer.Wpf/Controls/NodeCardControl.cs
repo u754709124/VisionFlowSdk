@@ -24,8 +24,7 @@ namespace Vision.Flow.Designer.Wpf
         private readonly TextBlock _type;
         private readonly StackPanel _summaryRows;
         private readonly Border _cardBody;
-        private readonly Border _runtimeSummary;
-        private readonly TextBlock _runtimeSummaryText;
+        private readonly TextBlock _runtimeSummary;
         private readonly Border _stateChip;
         private readonly TextBlock _stateText;
         private readonly System.Windows.Media.Effects.DropShadowEffect _cardShadow;
@@ -53,24 +52,15 @@ namespace Vision.Flow.Designer.Wpf
             };
             Child = outer;
 
-            _runtimeSummaryText = new TextBlock
+            _runtimeSummary = new TextBlock
             {
+                MinHeight = 18,
+                Margin = new Thickness(2, 0, 2, 8),
                 FontSize = 10.5,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105),
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            _runtimeSummary = new Border
-            {
-                Height = 24,
-                Margin = new Thickness(0, 0, 0, 8),
-                Padding = new Thickness(8, 0, 8, 0),
-                CornerRadius = new CornerRadius(5),
-                Background = FlowDesignerControl.BrushFromRgb(241, 245, 249),
-                BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225),
-                BorderThickness = new Thickness(1),
-                Child = _runtimeSummaryText,
+                VerticalAlignment = VerticalAlignment.Center,
                 Visibility = Visibility.Collapsed
             };
             outer.Children.Add(_runtimeSummary);
@@ -337,7 +327,7 @@ namespace Vision.Flow.Designer.Wpf
             UpdateCardChrome();
             if (state == NodeRuntimeState.Failed || state == NodeRuntimeState.Timeout)
             {
-                _runtimeSummary.ToolTip = string.IsNullOrWhiteSpace(message) ? _runtimeSummaryText.Text : message;
+                _runtimeSummary.ToolTip = string.IsNullOrWhiteSpace(message) ? _runtimeSummary.Text : message;
             }
         }
 
@@ -367,7 +357,7 @@ namespace Vision.Flow.Designer.Wpf
             _runtimeSummary.Visibility = Visibility.Visible;
             if (_isDisabled && _runtimeState == NodeRuntimeState.Waiting)
             {
-                ApplyRuntimeSummary("禁用", FlowDesignerControl.BrushFromRgb(241, 245, 249), FlowDesignerControl.BrushFromRgb(203, 213, 225), FlowDesignerControl.BrushFromRgb(100, 116, 139));
+                ApplyRuntimeSummary("禁用", FlowDesignerControl.BrushFromRgb(100, 116, 139));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(226, 232, 240);
                 _stateChip.ToolTip = "Disabled";
                 _stateText.Text = string.Empty;
@@ -376,7 +366,7 @@ namespace Vision.Flow.Designer.Wpf
 
             if (_runtimeState == NodeRuntimeState.Running)
             {
-                ApplyRuntimeSummary("运行中", FlowDesignerControl.BrushFromRgb(254, 243, 199), FlowDesignerControl.BrushFromRgb(245, 158, 11), FlowDesignerControl.BrushFromRgb(146, 64, 14));
+                ApplyRuntimeSummary("运行中", FlowDesignerControl.BrushFromRgb(146, 64, 14));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(245, 158, 11);
                 _stateChip.ToolTip = "Running";
                 _stateText.Text = string.Empty;
@@ -385,7 +375,7 @@ namespace Vision.Flow.Designer.Wpf
 
             if (_runtimeState == NodeRuntimeState.Completed)
             {
-                ApplyRuntimeSummary("成功" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(220, 252, 231), FlowDesignerControl.BrushFromRgb(34, 197, 94), FlowDesignerControl.BrushFromRgb(21, 128, 61));
+                ApplyRuntimeSummary("成功" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(21, 128, 61));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(16, 185, 129);
                 _stateChip.ToolTip = elapsed.HasValue ? "Done " + FormatElapsed(elapsed.Value) : "Done";
                 _stateText.Text = string.Empty;
@@ -394,7 +384,7 @@ namespace Vision.Flow.Designer.Wpf
 
             if (_runtimeState == NodeRuntimeState.Failed)
             {
-                ApplyRuntimeSummary("失败" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(254, 226, 226), FlowDesignerControl.BrushFromRgb(239, 68, 68), FlowDesignerControl.BrushFromRgb(153, 27, 27));
+                ApplyRuntimeSummary("失败" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(153, 27, 27));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(239, 68, 68);
                 _stateChip.ToolTip = elapsed.HasValue ? "Failed " + FormatElapsed(elapsed.Value) : "Failed";
                 _stateText.Text = string.Empty;
@@ -403,14 +393,14 @@ namespace Vision.Flow.Designer.Wpf
 
             if (_runtimeState == NodeRuntimeState.Timeout)
             {
-                ApplyRuntimeSummary("超时" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(255, 237, 213), FlowDesignerControl.BrushFromRgb(249, 115, 22), FlowDesignerControl.BrushFromRgb(154, 52, 18));
+                ApplyRuntimeSummary("超时" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(154, 52, 18));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(249, 115, 22);
                 _stateChip.ToolTip = elapsed.HasValue ? "Timeout " + FormatElapsed(elapsed.Value) : "Timeout";
                 _stateText.Text = string.Empty;
                 return;
             }
 
-            ApplyRuntimeSummary("未运行", FlowDesignerControl.BrushFromRgb(241, 245, 249), FlowDesignerControl.BrushFromRgb(203, 213, 225), FlowDesignerControl.BrushFromRgb(100, 116, 139));
+            ApplyRuntimeSummary("未运行", FlowDesignerControl.BrushFromRgb(100, 116, 139));
             _stateChip.Background = FlowDesignerControl.BrushFromRgb(148, 163, 184);
             _stateChip.ToolTip = "Waiting";
             _stateText.Text = string.Empty;
@@ -471,12 +461,10 @@ namespace Vision.Flow.Designer.Wpf
             _cardShadow.Opacity = shadowOpacity;
         }
 
-        private void ApplyRuntimeSummary(string text, Brush background, Brush border, Brush foreground)
+        private void ApplyRuntimeSummary(string text, Brush foreground)
         {
-            _runtimeSummaryText.Text = text;
-            _runtimeSummaryText.Foreground = foreground;
-            _runtimeSummary.Background = background;
-            _runtimeSummary.BorderBrush = border;
+            _runtimeSummary.Text = text;
+            _runtimeSummary.Foreground = foreground;
             _runtimeSummary.ToolTip = text;
         }
 

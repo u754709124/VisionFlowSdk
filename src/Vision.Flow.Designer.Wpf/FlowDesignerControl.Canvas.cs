@@ -237,6 +237,57 @@ namespace Vision.Flow.Designer.Wpf
             ApplyCanvasSizeFromView();
         }
 
+        private void ExpandCanvasForNewNode(ref double x, ref double y)
+        {
+            if (_document == null || _document.View == null)
+            {
+                return;
+            }
+
+            ApplyCanvasSizeFromView();
+            var shiftX = x < CanvasExpansionMargin
+                ? GetCanvasExpansionAmount(CanvasExpansionMargin - x)
+                : 0;
+            var shiftY = y < CanvasExpansionMargin
+                ? GetCanvasExpansionAmount(CanvasExpansionMargin - y)
+                : 0;
+
+            if (shiftX > 0 || shiftY > 0)
+            {
+                // 从节点库拖入新节点时，沿用节点拖拽的画布扩张规则，保持坐标均为非负设计态坐标。
+                TranslateDesignNodes(shiftX, shiftY);
+                ShiftRenderedNodeCards(shiftX, shiftY);
+                _document.View.CanvasWidth += shiftX;
+                _document.View.CanvasHeight += shiftY;
+                x += shiftX;
+                y += shiftY;
+
+                var zoom = _canvasScale == null ? GetStoredCanvasZoom() : _canvasScale.ScaleX;
+                if (_canvasScroll != null)
+                {
+                    _canvasScroll.ScrollToHorizontalOffset(_canvasScroll.HorizontalOffset + shiftX * zoom);
+                    _canvasScroll.ScrollToVerticalOffset(_canvasScroll.VerticalOffset + shiftY * zoom);
+                }
+
+                _document.View.OffsetX = Math.Max(0, _document.View.OffsetX + shiftX * zoom);
+                _document.View.OffsetY = Math.Max(0, _document.View.OffsetY + shiftY * zoom);
+            }
+
+            var requiredWidth = x + NodeBoundsFallbackWidth + CanvasExpansionMargin;
+            var requiredHeight = y + NodeBoundsFallbackHeight + CanvasExpansionMargin;
+            if (requiredWidth > _document.View.CanvasWidth)
+            {
+                _document.View.CanvasWidth = ExpandCanvasExtent(_document.View.CanvasWidth, requiredWidth, FlowViewState.DefaultCanvasWidth);
+            }
+
+            if (requiredHeight > _document.View.CanvasHeight)
+            {
+                _document.View.CanvasHeight = ExpandCanvasExtent(_document.View.CanvasHeight, requiredHeight, FlowViewState.DefaultCanvasHeight);
+            }
+
+            ApplyCanvasSizeFromView();
+        }
+
         private void TranslateDesignNodes(double offsetX, double offsetY)
         {
             if (_document == null || _document.View == null || _document.View.Nodes == null)
@@ -373,6 +424,67 @@ namespace Vision.Flow.Designer.Wpf
 
             var zoom = _canvasScale == null ? 1.0 : _canvasScale.ScaleX;
             _zoomText.Text = Math.Round(zoom * 100.0).ToString("0", CultureInfo.InvariantCulture) + "%";
+        }
+
+        private void OnPaletteNodeDragRequested(object sender, NodePaletteDragEventArgs e)
+        {
+            if (!CanEditDocument || e == null || e.Descriptor == null || e.DragSource == null)
+            {
+                return;
+            }
+
+            var data = new DataObject();
+            data.SetData(typeof(NodeDescriptor), e.Descriptor);
+            data.SetData(PaletteNodeTypeDragFormat, e.Descriptor.NodeType);
+            DragDrop.DoDragDrop(e.DragSource, data, DragDropEffects.Copy);
+        }
+
+        private void OnPaletteNodeDragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = CanEditDocument && GetPaletteDragDescriptor(e.Data) != null
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void OnPaletteNodeDrop(object sender, DragEventArgs e)
+        {
+            var descriptor = GetPaletteDragDescriptor(e.Data);
+            if (!CanEditDocument || descriptor == null || _nodeLayer == null)
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            AddNodeFromPalette(descriptor, e.GetPosition(_nodeLayer));
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+
+        private NodeDescriptor GetPaletteDragDescriptor(IDataObject data)
+        {
+            if (data == null)
+            {
+                return null;
+            }
+
+            if (data.GetDataPresent(typeof(NodeDescriptor)))
+            {
+                var descriptor = data.GetData(typeof(NodeDescriptor)) as NodeDescriptor;
+                if (descriptor != null)
+                {
+                    return descriptor;
+                }
+            }
+
+            if (!data.GetDataPresent(PaletteNodeTypeDragFormat))
+            {
+                return null;
+            }
+
+            var nodeType = Convert.ToString(data.GetData(PaletteNodeTypeDragFormat), CultureInfo.InvariantCulture);
+            return string.IsNullOrWhiteSpace(nodeType) ? null : GetDescriptor(nodeType);
         }
 
         private void OnSurfaceMouseDown(object sender, MouseButtonEventArgs e)

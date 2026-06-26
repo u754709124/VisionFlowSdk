@@ -129,7 +129,8 @@ namespace Vision.Flow.Designer.Wpf
                 Width = _canvasWidth,
                 Height = _canvasHeight,
                 Background = BrushFromRgb(248, 250, 252),
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                AllowDrop = true
             };
             _surface.LayoutTransform = _canvasScale;
             _gridLayer = CreateGridLayer();
@@ -140,6 +141,8 @@ namespace Vision.Flow.Designer.Wpf
             _surface.MouseDown += OnSurfaceMouseDown;
             _surface.MouseMove += OnSurfaceMouseMove;
             _surface.MouseUp += OnSurfaceMouseUp;
+            _surface.DragOver += OnPaletteNodeDragOver;
+            _surface.Drop += OnPaletteNodeDrop;
 
             _canvasScroll = new ScrollViewer
             {

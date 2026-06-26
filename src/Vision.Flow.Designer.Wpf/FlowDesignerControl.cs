@@ -44,6 +44,7 @@ namespace Vision.Flow.Designer.Wpf
         private const double CanvasExpansionStep = 512;
         private const double NodeBoundsFallbackWidth = 220;
         private const double NodeBoundsFallbackHeight = 182;
+        private const string PaletteNodeTypeDragFormat = "Vision.Flow.Designer.Wpf.NodePalette.NodeType";
 
         private readonly NodeRegistry _nodeRegistry;
         private readonly Dictionary<string, NodeCardControl> _nodeCards;
@@ -138,6 +139,7 @@ namespace Vision.Flow.Designer.Wpf
             Content = CreateShell();
             _palette.SetDescriptors(_nodeRegistry.Descriptors.OrderBy(x => x.Category).ThenBy(x => x.DisplayName));
             _palette.NodeRequested += AddNodeFromPalette;
+            _palette.NodeDragRequested += OnPaletteNodeDragRequested;
             _debug.NodeRequested += SelectNodeById;
             PreviewKeyDown += OnPreviewKeyDown;
             Focusable = true;

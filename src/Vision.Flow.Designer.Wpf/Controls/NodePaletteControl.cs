@@ -17,11 +17,28 @@ using ShapesPath = System.Windows.Shapes.Path;
 
 namespace Vision.Flow.Designer.Wpf
 {
+    // 节点库拖拽事件只在 Designer 内部使用，用于把节点类型从左侧节点库带到画布。
+    public sealed class NodePaletteDragEventArgs : EventArgs
+    {
+        public NodePaletteDragEventArgs(NodeDescriptor descriptor, UIElement dragSource)
+        {
+            Descriptor = descriptor;
+            DragSource = dragSource;
+        }
+
+        public NodeDescriptor Descriptor { get; private set; }
+
+        public UIElement DragSource { get; private set; }
+    }
+
     // 节点库控件负责节点库条目渲染和新增节点请求。
     public sealed class NodePaletteControl : Border
     {
         private readonly StackPanel _items;
         private readonly List<Button> _descriptorButtons;
+        private NodeDescriptor _pressedDescriptor;
+        private Point _dragStartPoint;
+        private Button _selectedButton;
         private bool _isReadOnly;
 
         public NodePaletteControl()
@@ -52,6 +69,10 @@ namespace Vision.Flow.Designer.Wpf
 
         public event Action<NodeDescriptor> NodeRequested;
 
+        public event EventHandler<NodePaletteDragEventArgs> NodeDragRequested;
+
+        public NodeDescriptor SelectedDescriptor { get; private set; }
+
         public void SetReadOnly(bool isReadOnly)
         {
             _isReadOnly = isReadOnly;
@@ -67,6 +88,9 @@ namespace Vision.Flow.Designer.Wpf
         {
             _items.Children.Clear();
             _descriptorButtons.Clear();
+            SelectedDescriptor = null;
+            _selectedButton = null;
+            _pressedDescriptor = null;
             string currentCategory = null;
             foreach (var descriptor in descriptors)
             {
@@ -93,6 +117,7 @@ namespace Vision.Flow.Designer.Wpf
                     Tag = descriptor,
                     Content = CreatePaletteContent(descriptor)
                 };
+                ApplyDescriptorButtonVisual(button, false);
                 button.Click += delegate
                 {
                     if (_isReadOnly)
@@ -100,15 +125,119 @@ namespace Vision.Flow.Designer.Wpf
                         return;
                     }
 
-                    var handler = NodeRequested;
-                    if (handler != null)
+                    SelectDescriptor(descriptor, button);
+                };
+                button.MouseDoubleClick += delegate(object sender, MouseButtonEventArgs e)
+                {
+                    if (_isReadOnly)
                     {
-                        handler(descriptor);
+                        return;
                     }
+
+                    SelectDescriptor(descriptor, button);
+                    RequestNode(descriptor);
+                    e.Handled = true;
+                };
+                button.PreviewMouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs e)
+                {
+                    if (_isReadOnly)
+                    {
+                        return;
+                    }
+
+                    SelectDescriptor(descriptor, button);
+                    _pressedDescriptor = descriptor;
+                    _dragStartPoint = e.GetPosition(button);
+                };
+                button.PreviewMouseMove += delegate(object sender, MouseEventArgs e)
+                {
+                    if (_isReadOnly || _pressedDescriptor == null || e.LeftButton != MouseButtonState.Pressed)
+                    {
+                        return;
+                    }
+
+                    var point = e.GetPosition(button);
+                    if (Math.Abs(point.X - _dragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                        Math.Abs(point.Y - _dragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+                    {
+                        return;
+                    }
+
+                    var dragDescriptor = _pressedDescriptor;
+                    _pressedDescriptor = null;
+                    RequestNodeDrag(dragDescriptor, button);
+                    e.Handled = true;
+                };
+                button.PreviewMouseLeftButtonUp += delegate
+                {
+                    _pressedDescriptor = null;
                 };
                 _descriptorButtons.Add(button);
                 _items.Children.Add(button);
             }
+        }
+
+        public bool RequestNodeDrag(NodeDescriptor descriptor, UIElement dragSource)
+        {
+            if (_isReadOnly || descriptor == null || dragSource == null)
+            {
+                return false;
+            }
+
+            var button = dragSource as Button;
+            if (button != null)
+            {
+                SelectDescriptor(descriptor, button);
+            }
+
+            var handler = NodeDragRequested;
+            if (handler == null)
+            {
+                return false;
+            }
+
+            handler(this, new NodePaletteDragEventArgs(descriptor, dragSource));
+            return true;
+        }
+
+        private void RequestNode(NodeDescriptor descriptor)
+        {
+            var handler = NodeRequested;
+            if (handler != null)
+            {
+                handler(descriptor);
+            }
+        }
+
+        private void SelectDescriptor(NodeDescriptor descriptor, Button button)
+        {
+            SelectedDescriptor = descriptor;
+            if (_selectedButton != null && !object.ReferenceEquals(_selectedButton, button))
+            {
+                ApplyDescriptorButtonVisual(_selectedButton, false);
+            }
+
+            _selectedButton = button;
+            if (_selectedButton != null)
+            {
+                ApplyDescriptorButtonVisual(_selectedButton, true);
+            }
+        }
+
+        private static void ApplyDescriptorButtonVisual(Button button, bool isSelected)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.Background = isSelected
+                ? FlowDesignerControl.BrushFromRgb(224, 242, 254)
+                : FlowDesignerControl.BrushFromRgb(248, 250, 252);
+            button.BorderBrush = isSelected
+                ? FlowDesignerControl.BrushFromRgb(14, 165, 233)
+                : FlowDesignerControl.BrushFromRgb(226, 232, 240);
+            button.BorderThickness = new Thickness(isSelected ? 1.4 : 1.0);
         }
 
         private static UIElement CreatePaletteContent(NodeDescriptor descriptor)
