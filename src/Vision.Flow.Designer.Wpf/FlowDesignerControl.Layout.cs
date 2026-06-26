@@ -130,8 +130,12 @@ namespace Vision.Flow.Designer.Wpf
                 Height = _canvasHeight,
                 Background = BrushFromRgb(248, 250, 252),
                 Cursor = Cursors.Hand,
-                AllowDrop = true
+                AllowDrop = true,
+                UseLayoutRounding = true,
+                SnapsToDevicePixels = true
             };
+            TextOptions.SetTextFormattingMode(_surface, TextFormattingMode.Display);
+            TextOptions.SetTextRenderingMode(_surface, TextRenderingMode.ClearType);
             _surface.LayoutTransform = _canvasScale;
             _gridLayer = CreateGridLayer();
             _surface.Children.Add(_gridLayer);

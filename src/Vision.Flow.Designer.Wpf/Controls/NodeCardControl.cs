@@ -43,6 +43,10 @@ namespace Vision.Flow.Designer.Wpf
             BorderThickness = new Thickness(0);
             Padding = new Thickness(0);
             Cursor = Cursors.SizeAll;
+            UseLayoutRounding = true;
+            SnapsToDevicePixels = true;
+            TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
+            TextOptions.SetTextRenderingMode(this, TextRenderingMode.ClearType);
             InputPortControls = new List<PortControl>();
             OutputPortControls = new List<PortControl>();
 
@@ -325,10 +329,20 @@ namespace Vision.Flow.Designer.Wpf
             ToolTip = string.IsNullOrWhiteSpace(message) ? null : message;
             UpdateRuntimeVisual(elapsed);
             UpdateCardChrome();
-            if (state == NodeRuntimeState.Failed || state == NodeRuntimeState.Timeout)
+            if (state == NodeRuntimeState.Failed || state == NodeRuntimeState.Timeout || state == NodeRuntimeState.Stopped)
             {
                 _runtimeSummary.ToolTip = string.IsNullOrWhiteSpace(message) ? _runtimeSummary.Text : message;
             }
+        }
+
+        public void StopRunningRuntimeState(TimeSpan? elapsed, string message)
+        {
+            if (!_hasRuntimeState || _runtimeState != NodeRuntimeState.Running)
+            {
+                return;
+            }
+
+            SetRuntimeState(NodeRuntimeState.Stopped, elapsed, message);
         }
 
         public void ClearRuntimeState()
@@ -400,6 +414,15 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
+            if (_runtimeState == NodeRuntimeState.Stopped)
+            {
+                ApplyRuntimeSummary("已停止" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(71, 85, 105));
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(100, 116, 139);
+                _stateChip.ToolTip = elapsed.HasValue ? "Stopped " + FormatElapsed(elapsed.Value) : "Stopped";
+                _stateText.Text = string.Empty;
+                return;
+            }
+
             ApplyRuntimeSummary("未运行", FlowDesignerControl.BrushFromRgb(100, 116, 139));
             _stateChip.Background = FlowDesignerControl.BrushFromRgb(148, 163, 184);
             _stateChip.ToolTip = "Waiting";
@@ -448,6 +471,12 @@ namespace Vision.Flow.Designer.Wpf
                 border = FlowDesignerControl.BrushFromRgb(249, 115, 22);
                 thickness = 1.8;
                 opacity = 1.0;
+            }
+            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Stopped)
+            {
+                border = FlowDesignerControl.BrushFromRgb(100, 116, 139);
+                thickness = 1.4;
+                opacity = 0.78;
             }
             else if (_isSelected)
             {

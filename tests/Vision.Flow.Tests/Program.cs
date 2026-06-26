@@ -110,6 +110,10 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer node palette single click selects only", DesignerInteractionTests.NodePaletteSingleClickSelectsOnly),
                 new TestCase("Designer node palette double click requests node once", DesignerInteractionTests.NodePaletteDoubleClickRequestsNodeOnce),
                 new TestCase("Designer node palette drag request carries descriptor", DesignerInteractionTests.NodePaletteDragRequestCarriesDescriptor),
+                new TestCase("Designer stop marks running cards stopped", DesignerInteractionTests.StopMarksRunningCardsStopped),
+                new TestCase("Designer debug buttons recover after stop", DesignerInteractionTests.DebugButtonsRecoverAfterStop),
+                new TestCase("Designer palette default add uses viewport center", DesignerInteractionTests.PaletteDefaultAddUsesViewportCenter),
+                new TestCase("Designer node card uses sharp text rendering options", DesignerInteractionTests.NodeCardUsesSharpTextRenderingOptions),
                 new TestCase("Designer node card shows runtime summary above card", DesignerInteractionTests.NodeCardShowsRuntimeSummaryAboveCard)
             };
 

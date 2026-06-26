@@ -87,6 +87,7 @@ namespace Vision.Flow.Designer.Wpf
         private bool _isRenderingEdges;
         private bool _hasDeferredEdgeRefresh;
         private bool _isConnecting;
+        private bool _isDebugRunning;
         private NodeDefinition _connectionSourceNode;
         private string _connectionSourcePort;
         private Point _connectionStartPoint;
@@ -125,8 +126,12 @@ namespace Vision.Flow.Designer.Wpf
             {
                 Width = _canvasWidth,
                 Height = _canvasHeight,
-                Background = null
+                Background = null,
+                UseLayoutRounding = true,
+                SnapsToDevicePixels = true
             };
+            TextOptions.SetTextFormattingMode(_nodeLayer, TextFormattingMode.Display);
+            TextOptions.SetTextRenderingMode(_nodeLayer, TextRenderingMode.ClearType);
             _nodeLayer.LayoutUpdated += OnNodeLayerLayoutUpdated;
             _statusText = new TextBlock
             {

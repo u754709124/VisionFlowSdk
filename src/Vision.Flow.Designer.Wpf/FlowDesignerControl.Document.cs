@@ -193,17 +193,44 @@ namespace Vision.Flow.Designer.Wpf
         {
             if (!canvasPosition.HasValue)
             {
-                return new NodeViewState
-                {
-                    X = 80 + (_document.Runtime.Nodes.Count % 4) * 280,
-                    Y = 80 + (_document.Runtime.Nodes.Count / 4) * 170
-                };
+                canvasPosition = GetDefaultPaletteNodePosition();
             }
 
             var x = Math.Max(8, SnapToGrid(canvasPosition.Value.X));
             var y = Math.Max(8, SnapToGrid(canvasPosition.Value.Y));
             ExpandCanvasForNewNode(ref x, ref y);
             return new NodeViewState { X = x, Y = y };
+        }
+
+        private Point GetDefaultPaletteNodePosition()
+        {
+            if (_canvasScroll == null)
+            {
+                return CreatePaletteFallbackGridPosition();
+            }
+
+            var viewportWidth = GetVisualExtent(_canvasScroll.ViewportWidth, _canvasScroll.ActualWidth, 0);
+            var viewportHeight = GetVisualExtent(_canvasScroll.ViewportHeight, _canvasScroll.ActualHeight, 0);
+            if (viewportWidth <= 0 || viewportHeight <= 0)
+            {
+                return CreatePaletteFallbackGridPosition();
+            }
+
+            return CalculateViewportCenteredNodePosition(
+                _canvasScroll.HorizontalOffset,
+                _canvasScroll.VerticalOffset,
+                viewportWidth,
+                viewportHeight,
+                GetStoredCanvasZoom(),
+                NodeBoundsFallbackWidth,
+                NodeBoundsFallbackHeight);
+        }
+
+        private Point CreatePaletteFallbackGridPosition()
+        {
+            return new Point(
+                80 + (_document.Runtime.Nodes.Count % 4) * 280,
+                80 + (_document.Runtime.Nodes.Count / 4) * 170);
         }
 
         private object CreateDefaultSettingValue(NodeSettingDescriptor setting)

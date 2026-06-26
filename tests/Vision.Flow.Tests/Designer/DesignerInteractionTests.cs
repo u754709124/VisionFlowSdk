@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -129,6 +130,81 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task StopMarksRunningCardsStopped()
+        {
+            RunOnSta(delegate
+            {
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = false });
+                var node = CreateNode();
+                var card = new NodeCardControl(new NodeViewModel(node, CreateDescriptor()));
+                card.SetRuntimeState(NodeRuntimeState.Running, null, null);
+
+                GetPrivateField<Dictionary<string, NodeCardControl>>(control, "_nodeCards")[node.Id] = card;
+                GetPrivateField<Dictionary<string, DateTime>>(control, "_nodeStartTimes")[node.Id] = DateTime.UtcNow.AddMilliseconds(-42);
+
+                InvokePrivate(control, "MarkRunningNodeStatesStopped");
+
+                var texts = FindChildren<TextBlock>(card).Select(x => x.Text ?? string.Empty).ToList();
+                AssertEx.True(texts.Any(x => x.IndexOf("已停止", StringComparison.OrdinalIgnoreCase) >= 0),
+                    "Stopping debug should move running cards out of Running and show a stopped state.");
+                AssertEx.False(texts.Any(x => x.IndexOf("运行中", StringComparison.OrdinalIgnoreCase) >= 0),
+                    "Stopped node card should not keep showing Running.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task DebugButtonsRecoverAfterStop()
+        {
+            RunOnSta(delegate
+            {
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = false });
+                SetDesignerMode(control, "DebugRun");
+
+                SetPrivateField(control, "_isDebugRunning", true);
+                InvokePrivate(control, "UpdateInteractionModeUi");
+                AssertEx.False(GetPrivateField<Button>(control, "_debugRunButton").IsEnabled, "Debug Run should be disabled while a debug run is active.");
+                AssertEx.True(GetPrivateField<Button>(control, "_stopButton").IsEnabled, "Stop should be enabled while a debug run is active.");
+
+                SetPrivateField(control, "_isDebugRunning", false);
+                InvokePrivate(control, "UpdateInteractionModeUi");
+                AssertEx.True(GetPrivateField<Button>(control, "_debugRunButton").IsEnabled, "Debug Run should be re-enabled after Stop.");
+                AssertEx.False(GetPrivateField<Button>(control, "_stopButton").IsEnabled, "Stop should be disabled after Stop finishes.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PaletteDefaultAddUsesViewportCenter()
+        {
+            var position = InvokePrivateStatic<Point>(
+                typeof(FlowDesignerControl),
+                "CalculateViewportCenteredNodePosition",
+                320.0,
+                160.0,
+                960.0,
+                640.0,
+                2.0,
+                220.0,
+                182.0);
+
+            AssertEx.Equal(290.0, position.X, "Default palette add should center the new node in the visible canvas area.");
+            AssertEx.Equal(149.0, position.Y, "Default palette add should center the new node in the visible canvas area.");
+            return Task.FromResult(0);
+        }
+
+        public static Task NodeCardUsesSharpTextRenderingOptions()
+        {
+            RunOnSta(delegate
+            {
+                var card = new NodeCardControl(new NodeViewModel(CreateNode(), CreateDescriptor()));
+
+                AssertEx.True(card.UseLayoutRounding, "Node cards should round layout pixels to reduce blurry text while zoomed out.");
+                AssertEx.True(card.SnapsToDevicePixels, "Node cards should snap to device pixels while zoomed out.");
+                AssertEx.Equal(TextFormattingMode.Display, TextOptions.GetTextFormattingMode(card), "Node cards should use display text formatting.");
+                AssertEx.Equal(TextRenderingMode.ClearType, TextOptions.GetTextRenderingMode(card), "Node cards should use ClearType text rendering.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task NodeCardShowsRuntimeSummaryAboveCard()
         {
             RunOnSta(delegate
@@ -168,6 +244,41 @@ namespace Vision.Flow.Tests
             var button = FindChildren<Button>(palette).FirstOrDefault(x => object.ReferenceEquals(x.Tag, descriptor));
             AssertEx.NotNull(button, "Palette should render a button for the descriptor.");
             return button;
+        }
+
+        private static void SetDesignerMode(FlowDesignerControl control, string modeName)
+        {
+            var modeType = typeof(FlowDesignerControl).Assembly.GetType("Vision.Flow.Designer.Wpf.DesignerInteractionMode");
+            AssertEx.NotNull(modeType, "Designer interaction mode type should exist.");
+            SetPrivateField(control, "_interactionMode", Enum.Parse(modeType, modeName));
+        }
+
+        private static T GetPrivateField<T>(object instance, string name)
+        {
+            var field = instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            AssertEx.NotNull(field, "Private field should exist: " + name);
+            return (T)field.GetValue(instance);
+        }
+
+        private static void SetPrivateField(object instance, string name, object value)
+        {
+            var field = instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            AssertEx.NotNull(field, "Private field should exist: " + name);
+            field.SetValue(instance, value);
+        }
+
+        private static void InvokePrivate(object instance, string name)
+        {
+            var method = instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            AssertEx.NotNull(method, "Private method should exist: " + name);
+            method.Invoke(instance, new object[0]);
+        }
+
+        private static T InvokePrivateStatic<T>(Type type, string name, params object[] args)
+        {
+            var method = type.GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic);
+            AssertEx.NotNull(method, "Private static method should exist: " + name);
+            return (T)method.Invoke(null, args);
         }
 
         private static void AssertRuntimeSummaryIsTextOnly(TextBlock summaryText)

@@ -384,6 +384,21 @@ namespace Vision.Flow.Designer.Wpf
             return fallback;
         }
 
+        private static Point CalculateViewportCenteredNodePosition(
+            double horizontalOffset,
+            double verticalOffset,
+            double viewportWidth,
+            double viewportHeight,
+            double zoom,
+            double nodeWidth,
+            double nodeHeight)
+        {
+            var safeZoom = zoom <= 0 || !IsFinite(zoom) ? 1.0 : zoom;
+            var centerX = (horizontalOffset + viewportWidth / 2.0) / safeZoom;
+            var centerY = (verticalOffset + viewportHeight / 2.0) / safeZoom;
+            return new Point(centerX - nodeWidth / 2.0, centerY - nodeHeight / 2.0);
+        }
+
         private void OnCanvasMouseWheel(object sender, MouseWheelEventArgs e)
         {
             ChangeCanvasZoom(e.Delta > 0 ? 1.1 : 0.9);

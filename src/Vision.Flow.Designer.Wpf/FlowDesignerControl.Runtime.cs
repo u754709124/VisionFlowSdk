@@ -157,15 +157,44 @@ namespace Vision.Flow.Designer.Wpf
 
                 var sink = new DesignerEventSink(this);
                 var engine = new FlowEngine(_nodeRegistry, sink, DebugDevices);
-                _runner = engine.CreateRunner(_document.Runtime);
-                await _runner.StartAsync().ConfigureAwait(true);
-                await _runner.TriggerAsync(DefaultEntryName, CreateDebugToken()).ConfigureAwait(true);
-                await _runner.StopAsync().ConfigureAwait(true);
+                var runner = engine.CreateRunner(_document.Runtime);
+                _runner = runner;
+                _isDebugRunning = true;
+                UpdateInteractionModeUi();
+
+                await runner.StartAsync().ConfigureAwait(true);
+                await runner.TriggerAsync(DefaultEntryName, CreateDebugToken()).ConfigureAwait(true);
                 AddDebugMessage("Debug run completed.");
+            }
+            catch (OperationCanceledException)
+            {
+                AddDebugMessage("Debug run stopped.");
             }
             catch (Exception ex)
             {
                 AddDebugMessage("Debug run failed: " + ex.Message);
+            }
+            finally
+            {
+                var runner = _runner;
+                if (runner != null)
+                {
+                    try
+                    {
+                        if (runner.IsRunning)
+                        {
+                            await runner.StopAsync().ConfigureAwait(true);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AddDebugMessage("Stop failed: " + ex.Message);
+                    }
+                }
+
+                _runner = null;
+                _isDebugRunning = false;
+                UpdateInteractionModeUi();
             }
         }
 
@@ -173,6 +202,8 @@ namespace Vision.Flow.Designer.Wpf
         {
             if (_runner == null)
             {
+                _isDebugRunning = false;
+                UpdateInteractionModeUi();
                 return;
             }
 
@@ -190,6 +221,9 @@ namespace Vision.Flow.Designer.Wpf
             finally
             {
                 _runner = null;
+                _isDebugRunning = false;
+                MarkRunningNodeStatesStopped();
+                UpdateInteractionModeUi();
             }
         }
 
@@ -209,6 +243,24 @@ namespace Vision.Flow.Designer.Wpf
             {
                 card.ClearRuntimeState();
             }
+        }
+
+        private void MarkRunningNodeStatesStopped()
+        {
+            var now = DateTime.UtcNow;
+            foreach (var item in _nodeCards)
+            {
+                var elapsed = default(TimeSpan?);
+                DateTime started;
+                if (_nodeStartTimes.TryGetValue(item.Key, out started))
+                {
+                    elapsed = now - started;
+                }
+
+                item.Value.StopRunningRuntimeState(elapsed, "Stopped by user.");
+            }
+
+            _nodeStartTimes.Clear();
         }
 
         private async Task SetInteractionModeAsync(DesignerInteractionMode mode)
@@ -253,8 +305,8 @@ namespace Vision.Flow.Designer.Wpf
             SetToolbarButtonEnabled(_openButton, isEdit);
             SetToolbarButtonEnabled(_saveButton, isEdit);
             SetToolbarButtonEnabled(_publishButton, isEdit);
-            SetToolbarButtonEnabled(_debugRunButton, IsDebugRunMode);
-            SetToolbarButtonEnabled(_stopButton, IsDebugRunMode);
+            SetToolbarButtonEnabled(_debugRunButton, IsDebugRunMode && !_isDebugRunning);
+            SetToolbarButtonEnabled(_stopButton, IsDebugRunMode && _isDebugRunning);
             ApplyModeButtonStyle(_editModeButton, isEdit);
             ApplyModeButtonStyle(_debugModeButton, IsDebugRunMode);
         }
@@ -312,6 +364,14 @@ namespace Vision.Flow.Designer.Wpf
             _debug.AddEvent(runtimeEvent);
             if (!IsDebugRunMode)
             {
+                return;
+            }
+
+            if (runtimeEvent.EventType == FlowRuntimeEventType.FlowStopped)
+            {
+                MarkRunningNodeStatesStopped();
+                _isDebugRunning = false;
+                UpdateInteractionModeUi();
                 return;
             }
 
