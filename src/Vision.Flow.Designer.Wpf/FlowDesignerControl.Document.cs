@@ -38,7 +38,7 @@ namespace Vision.Flow.Designer.Wpf
             AddDebugMessage("New design created.");
         }
 
-        private void LoadSingleShotTemplate()
+        private void LoadCoreBasicTemplate()
         {
             if (!CanEditDocument)
             {
@@ -46,52 +46,35 @@ namespace Vision.Flow.Designer.Wpf
                 return;
             }
 
-            _document = CreateDocument("designer-single-shot", "Single Shot Inspection");
+            _document = CreateDocument("designer-core-basic", "Core Basic Flow");
             var flow = _document.Runtime;
 
-            AddTemplateNode("light_1", FlowNodeTypes.LightControl, "Light Control", 70, 90, new Dictionary<string, object>
+            AddTemplateNode("set_result", FlowNodeTypes.VariableSet, "Set Result", 80, 120, new Dictionary<string, object>
             {
-                { FlowSettingNames.LightId, "Light01" },
-                { FlowSettingNames.Channels, CreateLightChannels("Main", 85) },
-                { FlowSettingNames.StableDelayMs, 0 }
+                { FlowSettingNames.VariableName, "Inspection.Result" },
+                { FlowSettingNames.Value, "OK" }
             });
-            AddTemplateNode("trigger_1", FlowNodeTypes.CameraSoftTrigger, "Camera Trigger", 360, 90, new Dictionary<string, object>
+            AddTemplateNode("condition_1", FlowNodeTypes.ConditionIf, "Check Result", 380, 120, new Dictionary<string, object>
             {
-                { FlowSettingNames.CameraId, "Camera01" },
-                { FlowSettingNames.TimeoutMs, 1000 }
+                { FlowSettingNames.LeftBinding, "{{ set_result.Value }}" },
+                { FlowSettingNames.Operator, "Equal" },
+                { FlowSettingNames.RightValue, "OK" }
             });
-            AddTemplateNode("callback_1", FlowNodeTypes.CameraImageCallback, "Image Callback", 650, 90, new Dictionary<string, object>
+            AddTemplateNode("log_ok", FlowNodeTypes.LogWrite, "Log OK", 700, 40, new Dictionary<string, object>
             {
-                { FlowSettingNames.CameraId, "Camera01" },
-                { FlowSettingNames.MatchMode, CameraFrameMatchModes.TriggerId },
-                { FlowSettingNames.TimeoutMs, 1500 }
+                { FlowSettingNames.Level, "Info" },
+                { FlowSettingNames.Message, "Inspection result is OK." }
             });
-            AddTemplateNode("recipe_1", FlowNodeTypes.RecipeRun, "Recipe Run", 940, 90, new Dictionary<string, object>
+            AddTemplateNode("log_ng", FlowNodeTypes.LogWrite, "Log NG", 700, 220, new Dictionary<string, object>
             {
-                { FlowSettingNames.RecipeId, "Recipe01" },
-                { FlowSettingNames.InputImageBinding, "{{ callback_1.Image }}" },
-                { FlowSettingNames.TimeoutMs, 5000 }
-            });
-            AddTemplateNode("save_1", FlowNodeTypes.ImageSave, "Save Image", 1230, 90, new Dictionary<string, object>
-            {
-                { FlowSettingNames.SaverId, "ImageSave01" },
-                { FlowSettingNames.ImageBinding, "{{ callback_1.Image }}" },
-                { FlowSettingNames.ResultImageBinding, "{{ recipe_1.ResultImage }}" },
-                { FlowSettingNames.FileNameTemplate, "{TokenId}_{ImageId}.png" }
-            });
-            AddTemplateNode("db_1", FlowNodeTypes.DatabaseSave, "Save Result", 1230, 300, new Dictionary<string, object>
-            {
-                { FlowSettingNames.DatabaseId, "VisionDb" },
-                { FlowSettingNames.TableName, "InspectionResults" },
-                { FlowSettingNames.FieldMappings, CreateFieldMappings("IsOk={{ recipe_1.IsOk }};FrameId={{ callback_1.FrameId }};ImagePath={{ save_1.ImagePath }}") }
+                { FlowSettingNames.Level, "Warning" },
+                { FlowSettingNames.Message, "Inspection result is not OK." }
             });
 
-            flow.Entries.Add(new FlowEntryDefinition { EntryName = DefaultEntryName, TargetNodeId = "light_1" });
-            AddEdge("light_1", "trigger_1");
-            AddEdge("trigger_1", "callback_1");
-            AddEdge("callback_1", "recipe_1");
-            AddEdge("recipe_1", "save_1");
-            AddEdge("save_1", "db_1");
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = DefaultEntryName, TargetNodeId = "set_result" });
+            AddEdge("set_result", "condition_1");
+            AddEdge("condition_1", FlowPortNames.True, "log_ok", FlowPortNames.In);
+            AddEdge("condition_1", FlowPortNames.False, "log_ng", FlowPortNames.In);
 
             _selectedNode = flow.Nodes.FirstOrDefault();
             _selectedEdge = null;
@@ -99,7 +82,7 @@ namespace Vision.Flow.Designer.Wpf
             ApplyCanvasViewState();
             RenderProperties();
             _debug.Clear();
-            AddDebugMessage("Single-shot sample loaded.");
+            AddDebugMessage("Core basic sample loaded.");
         }
 
         private void AddTemplateNode(
@@ -243,46 +226,6 @@ namespace Vision.Flow.Designer.Wpf
             if (setting.DefaultValue != null)
             {
                 return setting.DefaultValue;
-            }
-
-            if (StringEquals(setting.Name, FlowSettingNames.CameraId))
-            {
-                return "Camera01";
-            }
-
-            if (StringEquals(setting.Name, FlowSettingNames.LightId))
-            {
-                return "Light01";
-            }
-
-            if (StringEquals(setting.Name, FlowSettingNames.RecipeId))
-            {
-                return "Recipe01";
-            }
-
-            if (StringEquals(setting.Name, FlowSettingNames.DatabaseId))
-            {
-                return "VisionDb";
-            }
-
-            if (StringEquals(setting.Name, FlowSettingNames.TableName))
-            {
-                return "InspectionResults";
-            }
-
-            if (StringEquals(setting.Name, FlowSettingNames.Channels))
-            {
-                return CreateLightChannels("Main", 80);
-            }
-
-            if (StringEquals(setting.Name, FlowSettingNames.Parameters))
-            {
-                return CreateCameraParameters("ExposureTime=1000;Gain=1");
-            }
-
-            if (StringEquals(setting.Name, FlowSettingNames.FieldMappings))
-            {
-                return CreateFieldMappings("TokenId={{ token.TokenId }}");
             }
 
             if (StringEquals(setting.Name, FlowSettingNames.Message))

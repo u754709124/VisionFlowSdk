@@ -1,8 +1,8 @@
 # 03 - Runtime Design
 
-## Runtime 目标
+## 目标
 
-Runtime 必须能在没有 WPF 流程图的生产环境中执行 `.flowruntime`。
+Runtime 必须能在没有 WPF Designer 的生产进程中加载 `.flowruntime` 并执行。
 
 ## 核心类型
 
@@ -13,114 +13,50 @@ FlowExecutionContext
 FlowToken
 VariablePool
 NodeRegistry
-DeviceRegistry
 FlowRuntimeEvent
+RuntimeFlowPlan
 ```
 
 ## 执行模型
 
-流程包含：
-
-- Nodes
-- Edges
-- Entries
-
-外部事件触发入口：
-
 ```text
 TriggerAsync(entryName, token)
-    -> 查找 Entry.TargetNodeId
-    -> 执行节点
-    -> 根据 OutputPort 查找后续边
-    -> 执行下游节点
+  -> find Entry.TargetNodeId
+  -> execute node
+  -> write outputs to VariablePool
+  -> publish FlowRuntimeEvent
+  -> route by OutputPort
 ```
 
-## FlowToken
+`RuntimeFlowPlan` 在运行前索引入口、节点和按输出端口分组的连线，保证一个输出端口可以按定义顺序扇出到多个下游节点。
 
-`FlowToken` 表示一次逻辑执行上下文。
+## Core 基础节点
 
-常用字段：
+Core 内置节点只覆盖流程控制和变量能力：
 
-- ProductId
-- WorkpieceId
-- PositionId
-- CaptureGroupId
-- ScanGroupId
-- FrameId
-- Metadata
+- `delay.wait`
+- `log.write`
+- `variable.set`
+- `flow.split`
+- `join.and`
+- `condition.if`
 
-## VariablePool
+设备、算法、存储、拼图和融合节点由具体项目实现。
 
-每个节点执行后可以输出变量：
+## Runtime 服务
 
-```text
-camera_callback_1.Image
-camera_callback_1.Frame
-recipe_1.Result
-fusion_1.Final3DImage
-```
+`FlowExecutionContext` 仍携带可选服务：
 
-下游节点通过变量绑定引用：
+- `IDeviceRegistry`
+- `ICameraFrameRouter`
+- `IFlowTaskQueueRegistry`
+- `IFlowContinuationDispatcher`
 
-```text
-{{ camera_callback_1.Image }}
-```
-
-## Runtime Event
-
-Runtime 应发布：
-
-- FlowStarted
-- FlowStopped
-- TokenCreated
-- NodeWaiting
-- NodeStarted
-- NodeCompleted
-- NodeFailed
-- NodeTimeout
-- OutputProduced
-- ImageProduced
-- QueueWarning
+这些服务是扩展节点的基础契约，不表示 SDK 内置对应设备节点。
 
 ## 线程规则
 
-- 不阻塞 UI 线程。
-- 不在相机回调线程执行重算法。
-- 设备操作使用 `CancellationToken`。
-- 高吞吐任务使用有界队列。
-- 相机回调只做轻量入队和事件转发。
-
-## 第一版范围
-
-第一版可以只支持：
-
-- 线性执行。
-- `Next` / `Error` 输出端口。
-- Manual entry trigger。
-- RuntimeEvent。
-- 简单变量池。
-- 基础 NodeFactory。
-
-后续再扩展：
-
-- 并行分支。
-- AND Join。
-- FrameGroup。
-- ScanGroup。
-- 断点和单步调试。
-## 2026-06 Runtime Model
-
-- `RuntimeFlowPlan` is the execution index for `FlowRunner`. It preserves output-port edge order and enables one node output to fan out to multiple downstream nodes.
-- `FlowRunner` keeps existing runtime events and variable-pool behavior, but cycle detection now follows the active execution path instead of a global visited set.
-- `DefaultCameraFrameRouter` subscribes to registered cameras, buffers lightweight frame notifications, and supports `WaitNextFrame`, `Any`, `TriggerId`, `ScanGroupId`, and basic stream collection modes.
-- `FlowTaskQueue` provides bounded queue execution with capacity, max degree of parallelism, wait/reject/drop/stop-flow/notify-only full modes, optional detached execution, and queue runtime events.
-- `FlowExecutionContext` carries optional `Devices`, `CameraFrames`, and `Queues` services so nodes remain UI-independent and adapter-driven.
-- `FlowExecutionContext` also carries the active `FlowRunId` and continuation dispatcher used by event-source nodes.
-- `IVisionImage` references should be cloned when work crosses async boundaries or queues; queued save nodes snapshot image references before background execution and dispose their owned queue reference after work completes.
-
-## 2026-06 Continuations And Fan-Out
-
-- Default execution stays sequential and shared-token compatible.
-- `FlowExecutionOptions.FanOutMode=Parallel` runs downstream edges from the same output port concurrently, limited by `MaxDegreeOfParallelism`.
-- `camera.image_callback` PerFrame mode uses the continuation dispatcher to publish frame outputs and execute downstream `Frame` edges from camera frame delivery.
-- `StopAsync` cancels active runner tokens; continuations check runner state before dispatching.
+- 节点实现使用 `async` / `await` 和 `CancellationToken`。
+- 相机回调等外部事件线程只做轻量封装和转发。
+- 重算法、保存、数据库等长耗时工作由具体项目节点自行放入后台任务或有界队列。
+- 生产运行不依赖 Designer UI。

@@ -6,73 +6,22 @@
 tests/Vision.Flow.Tests
 ```
 
-## Runtime 测试
+## 覆盖范围
 
-- FlowRunner 执行线性流程。
-- FlowRunner 发布 NodeStarted / NodeCompleted。
-- 节点失败发布 NodeFailed。
-- TriggerAsync 路由到正确入口。
-- VariablePool 存取变量。
-- CancellationToken 被尊重。
+- Runtime：线性执行、扇出、并行扇出、重入汇合、环检测、缺失入口、错误路由、超时路由、事件顺序。
+- Serialization / Publish：`.flowdesign` round-trip、`.flowruntime` round-trip、发布后移除 view state、样例流程校验。
+- Core 节点：注册、日志事件、延时、变量写入、AND join、Condition 分支。
+- Core 契约：`VisionImageReference` 生命周期、`DefaultCameraFrameRouter` 基础路由。
+- Designer：属性面板只读、节点库交互、拖拽、停止调试、按钮状态恢复、节点卡片运行状态显示。
+- Demo：解决方案构建覆盖 WinForms Demo 和 Designer WPF Demo。
 
-## Serialization 测试
+## 不再覆盖
 
-- `.flowdesign` round-trip。
-- `.flowruntime` round-trip。
-- 发布后移除 ViewState。
-- 必要字段被保留。
+SDK 测试不再覆盖内置 camera/light/motion/recipe/save/database/group/scan/stitch/fusion 节点，因为这些节点已经迁出 SDK。具体项目实现这些节点时，应在项目自己的测试集中覆盖。
 
-## Node 测试
+## 命令
 
-- CameraSetParameterNode。
-- CameraSoftTriggerNode。
-- CameraImageCallbackNode。
-- LightControlNode。
-- RecipeRunNode。
-- ImageSaveNode。
-- DatabaseSaveNode。
-- AndJoinNode。
-- FrameGroupJoinNode。
-- ScanGroupJoinNode。
-
-## Integration 测试
-
-### 1. 单拍流程
-
-```text
-camera.set_parameters -> camera.soft_trigger -> camera.image_callback -> recipe.run -> image.save -> database.save
+```powershell
+./build/build.ps1
+./build/test.ps1
 ```
-
-### 2. 双点位图像组流程
-
-```text
-frame1 -> frame2 -> group.frame_join -> image.stitch -> recipe.run
-```
-
-### 3. 连续扫描流程
-
-```text
-N frames -> frame.preprocess -> scan.group_join -> fusion.final_3d_2d -> recipe.run
-```
-
-## Demo 测试
-
-- Demo.WinForms 不打开 WPF Designer 也能运行 `.flowruntime`。
-- Demo.DesignerWpf 能打开 `.flowdesign` 并发布 `.flowruntime`。
-
-## 完成标准
-
-- Build 通过。
-- 相关测试通过。
-- 依赖规则未破坏。
-- 生产运行仍保持 UI 无关。
-## 2026-06 Test Matrix
-
-- Runtime graph scheduling: linear flow, fan-out, branched fan-out, reconverging branches, cycle detection, missing entry, error route, timeout route, and event order.
-- Serialization and publish: `.flowdesign` round-trip, `.flowruntime` round-trip, publish without view state, sample validation, invalid StreamFrames, invalid queue settings, invalid group settings, and continuous-scan publish.
-- Camera and image lifecycle: parameter set, soft trigger, matching callback, mismatched timeout, `Any` matching, stream mode, fake camera cancellation, fake camera async callback, `VisionImageReference`, fake image disposal, and image-save snapshotting.
-- Motion nodes: notify, move-to, wait-in-position, missing motion id error route, fake motion state/events.
-- Queue execution: bounded capacity/full behavior, drop/stop-flow/notify-only modes, registry reuse, queued recipe/image-save/database chain, and `WaitForCompletion=false` background completion events.
-- Industrial nodes: frame group ordering, duplicate handling, binding-driven replacement, continuous shot validation, scan group ordering, PerFrame stream dispatch, fusion extra outputs, image kind propagation, and continuous frame validation.
-- Designer and demos: solution build covers WPF Designer and both demos; computer-use screenshot verification should be run when Windows automation approval is available.
-- CI: `.github/workflows/build-test.yml` runs `build/build.ps1` and `build/test.ps1` on Windows.

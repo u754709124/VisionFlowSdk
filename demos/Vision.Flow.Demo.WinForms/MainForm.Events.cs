@@ -7,7 +7,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Vision.DeviceAdapters;
 using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 
@@ -31,7 +30,7 @@ namespace Vision.Flow.Demo.WinForms
             _tokenList.Items.Clear();
             var tokenId = _lastToken == null ? "token-" + _eventSequence.ToString("000") : _lastToken.TokenId;
             _tokenList.Items.Add(new ListViewItem(new[] { tokenId, _runner != null && _runner.IsRunning ? "Completed" : "Stopped", entryName }));
-            _outputSummary.Text = _lastOutputSummary ?? "Image: waiting\r\nFrameId: -\r\nRecipeResult: -\r\nDatabaseSave: -";
+            _outputSummary.Text = _lastOutputSummary ?? "Result: waiting\r\nConditionMatched: -\r\nLog: -";
             _imagePreview.Invalidate();
         }
 
@@ -66,74 +65,22 @@ namespace Vision.Flow.Demo.WinForms
             var variableName = Convert.ToString(runtimeEvent.Data[FlowRuntimeDataKeys.VariableName]);
             object value = runtimeEvent.Data.ContainsKey(FlowRuntimeDataKeys.Value) ? runtimeEvent.Data[FlowRuntimeDataKeys.Value] : null;
 
-            var image = value as IVisionImage;
-            if (image != null)
-            {
-                _lastImageSummary = BuildImageSummary(image);
-            }
-
-            if (string.Equals(variableName, "cam_callback_1.FrameId", StringComparison.OrdinalIgnoreCase))
-            {
-                _lastFrameId = Convert.ToString(value);
-            }
-
-            if (string.Equals(variableName, "image_save_1.ImagePath", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(variableName, "image_save_1.ResultImagePath", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(variableName, "recipe_1.IsOk", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(variableName, "db_save_1.Saved", StringComparison.OrdinalIgnoreCase))
-            {
-                BuildOutputSummary();
-            }
-            else if (image != null || !string.IsNullOrWhiteSpace(_lastFrameId))
-            {
-                BuildOutputSummary();
-            }
-
-            if (image != null)
-            {
-                _imagePreview.Invalidate();
-            }
+            BuildOutputSummary();
+            _imagePreview.Invalidate();
         }
 
         private void BuildOutputSummary()
         {
-            var imagePath = FindLatestOutput("image_save_1.ImagePath");
-            var resultImagePath = FindLatestOutput("image_save_1.ResultImagePath");
-            var isOk = FindLatestOutput("recipe_1.IsOk");
-            var saved = FindLatestOutput("db_save_1.Saved");
+            var result = FindLatestOutput("set_result.Value");
+            var matched = FindLatestOutput("condition_1.IsMatched");
+            var okMessage = FindLatestOutput("log_ok.Message");
+            var ngMessage = FindLatestOutput("log_ng.Message");
             _lastOutputSummary =
-                "Image: " + (_lastImageSummary ?? "-") + "\r\n" +
-                "FrameId: " + (_lastFrameId ?? "-") + "\r\n" +
-                "RecipeResult: " + (isOk == null ? "-" : "IsOk=" + isOk) + "\r\n" +
-                "ImagePath: " + (imagePath ?? "-") + "\r\n" +
-                "ResultImagePath: " + (resultImagePath ?? "-") + "\r\n" +
-                "DatabaseSave: " + (saved ?? "-");
+                "Result: " + (result ?? "-") + "\r\n" +
+                "ConditionMatched: " + (matched ?? "-") + "\r\n" +
+                "OK Log: " + (okMessage ?? "-") + "\r\n" +
+                "NG Log: " + (ngMessage ?? "-");
             _outputSummary.Text = _lastOutputSummary;
-        }
-
-        private static string BuildImageSummary(IVisionImage image)
-        {
-            if (image == null)
-            {
-                return null;
-            }
-
-            byte[] bytes;
-            var byteText = image.TryGetBytes(out bytes) && bytes != null
-                ? bytes.Length.ToString(CultureInfo.InvariantCulture) + " bytes"
-                : "bytes unavailable";
-            var storageText = image.NativeImage == null ? "managed" : "native";
-            var disposedText = image.IsDisposed ? ", disposed" : string.Empty;
-            return image.Width.ToString(CultureInfo.InvariantCulture) +
-                "x" +
-                image.Height.ToString(CultureInfo.InvariantCulture) +
-                " " +
-                image.PixelFormat +
-                ", " +
-                byteText +
-                ", " +
-                storageText +
-                disposedText;
         }
 
         private object FindLatestOutput(string variableName)

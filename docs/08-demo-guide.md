@@ -2,18 +2,17 @@
 
 ## Vision.Flow.Demo.WinForms
 
-用途：
+用途：证明生产模式可以不打开 WPF Designer，直接加载 `.flowruntime` 并通过 `FlowRunner` 执行。
 
-证明生产模式可以不打开 WPF Designer，直接加载 `.flowruntime` 执行。
+当前 Demo 使用 `samples/flows/core-basic.flowruntime`，只注册 Core 基础节点。
 
 功能：
 
 - 加载 `.flowruntime`
-- 注册 Fake Adapter
-- 注册公共节点
-- 启动 FlowRunner
-- 手动触发流程
-- 显示 RuntimeEvent 日志
+- 注册 Core 基础节点
+- 启动 / 停止 `FlowRunner`
+- 手动触发入口
+- 显示 `FlowRuntimeEvent`
 - 显示输出摘要
 
 禁止：
@@ -24,31 +23,13 @@
 
 ## Vision.Flow.Demo.DesignerWpf
 
-用途：
+用途：证明流程设计、调试和发布能力可用。
 
-证明流程设计、调试、发布可用。
-
-功能：
-
-- 打开 `.flowdesign`
-- 添加节点
-- 连接节点
-- 编辑属性
-- 校验流程
-- 使用 Fake Adapter 调试运行
-- 发布 `.flowruntime`
+默认加载 Core 基础样例。具体项目可以宿主 `FlowDesignerControl` 并注入自己的节点注册表和调试设备。
 
 ## Sample Flows
 
 ```text
-samples/flows/single-shot.flowdesign
-samples/flows/single-shot.flowruntime
-samples/flows/two-position-stitch.flowdesign
-samples/flows/continuous-scan.flowdesign
+samples/flows/core-basic.flowdesign
+samples/flows/core-basic.flowruntime
 ```
-## 2026-06 Demo Notes
-
-- WinForms Demo can load a runtime file from the command line or Browse Runtime button, validate it, select an entry, create a representative fake `FlowToken`, and trigger the flow through `FlowRunner`.
-- WinForms Demo registers fake adapters, common nodes, camera frame router, and queue registry without referencing `Vision.Flow.Designer.Wpf`.
-- Designer WPF Demo hosts `FlowDesignerControl` with injected node registry, fake debug devices, and options.
-- Designer property editing now exposes variable choices for input bindings and binding settings, including token fields and upstream node outputs.

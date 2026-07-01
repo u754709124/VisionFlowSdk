@@ -97,7 +97,7 @@ namespace Vision.Flow.Designer.Wpf
             buttons.Children.Add(CreateToolbarSpacer());
 
             _newButton = CreateToolbarButton("New", delegate { CreateNewDesign(); });
-            _sampleButton = CreateToolbarButton("Sample", delegate { LoadSingleShotTemplate(); });
+            _sampleButton = CreateToolbarButton("Sample", delegate { LoadCoreBasicTemplate(); });
             _openButton = CreateToolbarButton("Open", delegate { OpenDesign(); });
             _saveButton = CreateToolbarButton("Save", delegate { SaveDesign(); });
             _publishButton = CreateToolbarButton("Publish", delegate { PublishRuntime(); });

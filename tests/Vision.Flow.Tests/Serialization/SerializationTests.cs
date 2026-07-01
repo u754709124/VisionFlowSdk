@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Vision.DeviceAdapters;
 using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 
@@ -23,9 +22,9 @@ namespace Vision.Flow.Tests
 
             AssertEx.Equal("Station01_Main", restored.FlowId, "Runtime FlowId should round-trip.");
             AssertEx.Equal(2, restored.Nodes.Count, "Runtime nodes should round-trip.");
-            AssertEx.Equal(FlowNodeTypes.CameraSoftTrigger, restored.Nodes[0].Type, "Node type should round-trip.");
-            AssertEx.Equal("Camera01", Convert.ToString(restored.Nodes[0].Settings["CameraId"]), "Node settings should round-trip.");
-            AssertEx.Equal("camera_trigger_1.Image", restored.Nodes[1].InputBindings["Image"].GetVariableName(), "Input binding should round-trip.");
+            AssertEx.Equal(FlowNodeTypes.VariableSet, restored.Nodes[0].Type, "Node type should round-trip.");
+            AssertEx.Equal("Inspection.Result", Convert.ToString(restored.Nodes[0].Settings["VariableName"]), "Node settings should round-trip.");
+            AssertEx.Equal("set_result.Value", restored.Nodes[1].InputBindings["Message"].GetVariableName(), "Input binding should round-trip.");
             AssertEx.Equal(1, restored.Edges.Count, "Runtime edges should round-trip.");
             AssertEx.Equal("ManualStart", restored.Entries[0].EntryName, "Runtime entry should round-trip.");
             AssertEx.False(json.IndexOf("Zoom", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view zoom.");
@@ -52,7 +51,7 @@ namespace Vision.Flow.Tests
                     CanvasHeight = 1600
                 }
             };
-            document.View.Nodes["camera_trigger_1"] = new NodeViewState
+            document.View.Nodes["set_result"] = new NodeViewState
             {
                 X = 100,
                 Y = 200,
@@ -67,8 +66,8 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(1.25, restored.View.Zoom, "View zoom should round-trip.");
             AssertEx.Equal(2400.0, restored.View.CanvasWidth, "View canvas width should round-trip.");
             AssertEx.Equal(1600.0, restored.View.CanvasHeight, "View canvas height should round-trip.");
-            AssertEx.Equal(100.0, restored.View.Nodes["camera_trigger_1"].X, "Node X should round-trip.");
-            AssertEx.True(restored.View.Nodes["camera_trigger_1"].IsCollapsed, "Node collapsed state should round-trip.");
+            AssertEx.Equal(100.0, restored.View.Nodes["set_result"].X, "Node X should round-trip.");
+            AssertEx.True(restored.View.Nodes["set_result"].IsCollapsed, "Node collapsed state should round-trip.");
             return Task.FromResult(0);
         }
 
@@ -94,41 +93,41 @@ namespace Vision.Flow.Tests
 
             runtime.Nodes.Add(new NodeDefinition
             {
-                Id = "camera_trigger_1",
-                Type = FlowNodeTypes.CameraSoftTrigger,
-                Name = "Camera Soft Trigger",
+                Id = "set_result",
+                Type = FlowNodeTypes.VariableSet,
+                Name = "Set Result",
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "CameraId", "Camera01" },
-                    { "TimeoutMs", 1000 }
+                    { "VariableName", "Inspection.Result" },
+                    { "Value", "OK" }
                 }
             });
 
             runtime.Nodes.Add(new NodeDefinition
             {
-                Id = "image_save_1",
-                Type = FlowNodeTypes.ImageSave,
-                Name = "Save Image",
+                Id = "log_result",
+                Type = FlowNodeTypes.LogWrite,
+                Name = "Log Result",
                 Version = "1.0.0",
                 InputBindings =
                 {
-                    { "Image", VariableBinding.ForVariable("camera_trigger_1", "Image") }
+                    { "Message", VariableBinding.ForVariable("set_result", "Value") }
                 }
             });
 
             runtime.Edges.Add(new EdgeDefinition
             {
-                FromNodeId = "camera_trigger_1",
+                FromNodeId = "set_result",
                 FromPort = "Next",
-                ToNodeId = "image_save_1",
+                ToNodeId = "log_result",
                 ToPort = "In"
             });
 
             runtime.Entries.Add(new FlowEntryDefinition
             {
                 EntryName = "ManualStart",
-                TargetNodeId = "camera_trigger_1"
+                TargetNodeId = "set_result"
             });
 
             return runtime;

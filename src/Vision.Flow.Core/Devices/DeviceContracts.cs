@@ -82,7 +82,7 @@ namespace Vision.Flow.Core
     }
 
     /// <summary>
-    /// 算法配方适配器接口，运行公共节点时由上位机或 Fake Adapter 提供具体算法实现。
+    /// 算法配方适配器接口，供项目专属节点调用上位机或测试桩中的算法实现。
     /// </summary>
     public interface IRecipeAdapter
     {

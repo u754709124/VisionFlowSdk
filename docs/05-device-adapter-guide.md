@@ -2,84 +2,31 @@
 
 ## 目的
 
-Adapter 让流程 Runtime 能调用现有上位机设备、算法、保存、数据库逻辑，同时不直接依赖具体 SDK。
+Adapter 契约让项目专属节点可以调用现有上位机设备、算法、保存和数据库逻辑，同时避免 Core 直接引用具体 SDK。
 
-## 原则
+## 当前边界
 
-```text
-节点不调用真实 SDK。
-节点调用 Adapter 接口。
-Adapter 调用真实 SDK 或旧上位机 Service。
-```
+Core 保留 Adapter 接口和数据契约，例如：
 
-## 上位机真实适配示例
+- `ICameraAdapter`
+- `ILightAdapter`
+- `IMotionAdapter`
+- `IRecipeAdapter`
+- `IImageSaveAdapter`
+- `IDatabaseAdapter`
+- `IVisionImage`
 
-上位机项目中实现：
+SDK 不再内置 Fake Adapter 项目，也不再内置设备节点。Fake 设备和真实设备适配器应由具体项目、Demo 或测试项目自行提供。
 
-```text
-UpperMachineCameraAdapter : ICameraAdapter
-UpperMachineLightAdapter : ILightAdapter
-UpperMachineMotionAdapter : IMotionAdapter
-UpperMachineRecipeAdapter : IRecipeAdapter
-UpperMachineImageSaveAdapter : IImageSaveAdapter
-UpperMachineDatabaseAdapter : IDatabaseAdapter
-```
+## 规则
 
-## SDK 内部 Fake Adapter 用途
+- 节点不直接调用真实 SDK。
+- 节点通过 Adapter 接口访问设备或上位机服务。
+- Adapter 负责包装真实 SDK、旧服务或测试桩。
+- 相机回调线程只做轻量封装，不执行重算法。
+- 图像对象应通过 `IVisionImage` 或项目自有兼容实现流转。
+- 长耗时 Adapter 操作必须支持 `CancellationToken` 和超时策略。
 
-Fake Adapter 用于：
+## 图像生命周期
 
-- 单元测试
-- 集成测试
-- WinForms Demo
-- Designer Demo
-- 离线 UI 调试
-
-## Adapter 规则
-
-- SDK 具体调用只在 Adapter 中。
-- 不直接将 SDK 图像对象泄漏给节点，除非已被 `IVisionImage` 包装。
-- 相机回调事件应快速返回。
-- Metadata 至少包含 CameraId、FrameId、TriggerId、GrabTime。
-- 支持 CancellationToken。
-- 支持必要的超时策略。
-
-## Camera Adapter 建议接口
-
-```csharp
-public interface ICameraAdapter
-{
-    string CameraId { get; }
-
-    IReadOnlyList<CameraParameterDescriptor> GetParameterDescriptors();
-
-    Task SetParameterAsync(
-        string parameterName,
-        object value,
-        CancellationToken cancellationToken);
-
-    Task<object> GetParameterAsync(
-        string parameterName,
-        CancellationToken cancellationToken);
-
-    Task SoftTriggerAsync(
-        CameraTriggerContext triggerContext,
-        CancellationToken cancellationToken);
-
-    event EventHandler<CameraFrameArrivedEventArgs> FrameArrived;
-}
-```
-## 2026-06 Adapter Notes
-
-- `IMotionAdapter` now carries richer `MotionMessage` and `MotionEventArgs` data for position, capture group, scan group, payload, and timeout-aware motion operations.
-- Fake motion updates position state and emits events so motion nodes can be tested without production hardware.
-- Fake camera callback delivery is asynchronous and cancellation-aware. It no longer relies on unsafe fire-and-forget callback behavior for tests and demos.
-- Camera frame routing is a runtime service. Production hosts can use the default router or provide their own `ICameraFrameRouter` when existing acquisition pipelines already buffer frames.
-- `IVisionImage` implementations must honor `Dispose`, `CloneReference`, and `TryGetBytes`. Native SDK image handles should be wrapped behind `NativeImage` or an adapter-owned image implementation instead of leaking SDK types into nodes.
-
-## 2026-06 Image And Queue Notes
-
-- `IVisionImage.ImageKind` should describe the role of the image, for example `Raw`, `Preprocessed`, `Stitched`, `HeightMap`, `TextureImage`, or `ConfidenceMap`.
-- When adapter work is queued with `WaitForCompletion=false`, adapters still receive a normal request and must report success or failure through the returned task. Queue events carry the final background status.
-- Image save adapters should treat the request image as valid only for the duration of `SaveAsync`; nodes clone and dispose their owned reference around queued work.
-- Fake adapters expose small delay knobs so non-blocking queue behavior can be tested without real hardware.
+当图像跨异步任务、队列或延迟保存边界时，应使用 `IVisionImage.CloneReference()` 或项目自有引用计数机制保持底层句柄有效。拥有原生句柄的一方负责释放。

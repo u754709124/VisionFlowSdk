@@ -11,21 +11,6 @@ namespace Vision.Flow.Core
         public const string FlowSplit = "flow.split";
         public const string JoinAnd = "join.and";
         public const string ConditionIf = "condition.if";
-        public const string MotionNotify = "motion.notify";
-        public const string MotionMoveTo = "motion.move_to";
-        public const string MotionWaitInPosition = "motion.wait_in_position";
-        public const string CameraSetParameters = "camera.set_parameters";
-        public const string CameraSoftTrigger = "camera.soft_trigger";
-        public const string CameraImageCallback = "camera.image_callback";
-        public const string LightControl = "light.control";
-        public const string RecipeRun = "recipe.run";
-        public const string ImageSave = "image.save";
-        public const string DatabaseSave = "database.save";
-        public const string FramePreprocess = "frame.preprocess";
-        public const string GroupFrameJoin = "group.frame_join";
-        public const string ScanGroupJoin = "scan.group_join";
-        public const string ImageStitch = "image.stitch";
-        public const string FusionFinal3D2D = "fusion.final_3d_2d";
     }
 
     /// <summary>

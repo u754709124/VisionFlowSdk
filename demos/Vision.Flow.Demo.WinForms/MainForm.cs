@@ -7,7 +7,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Vision.DeviceAdapters;
 using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 
@@ -25,21 +24,12 @@ namespace Vision.Flow.Demo.WinForms
         private ListView _tokenList;
         private TextBox _outputSummary;
         private Panel _imagePreview;
-        private DefaultDeviceRegistry _devices;
         private NodeRegistry _nodes;
         private IFlowRunner _runner;
         private RuntimeFlowDefinition _runtimeFlow;
-        private FakeCameraAdapter _camera;
-        private FakeImageSaveAdapter _imageSaver;
-        private FakeDatabaseAdapter _database;
         private FlowToken _lastToken;
         private string _runtimePath;
         private string _requestedRuntimePath;
-        private string _activeCaptureGroupId;
-        private string _activeScanGroupId;
-        private int _scanFrameIndex;
-        private string _lastFrameId;
-        private string _lastImageSummary;
         private string _lastOutputSummary;
         private int _eventSequence;
 
@@ -100,7 +90,7 @@ namespace Vision.Flow.Demo.WinForms
             ResetEntrySelector();
             InitializeRuntimeServices();
             SeedSummaryData();
-            AddEvent("System", "Demo initialized", "Fake devices and node factories registered");
+            AddEvent("System", "Demo initialized", "Core node factories registered");
         }
     }
 }

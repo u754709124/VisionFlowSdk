@@ -1,0 +1,79 @@
+{
+  "flowId": "core-basic",
+  "flowName": "Core Basic Demo",
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "set_result",
+      "type": "variable.set",
+      "name": "Set Result",
+      "version": "1.0.0",
+      "settings": {
+        "VariableName": "Inspection.Result",
+        "Value": "OK"
+      },
+      "inputBindings": {}
+    },
+    {
+      "id": "condition_1",
+      "type": "condition.if",
+      "name": "Check Result",
+      "version": "1.0.0",
+      "settings": {
+        "LeftBinding": "{{ set_result.Value }}",
+        "Operator": "Equal",
+        "RightValue": "OK"
+      },
+      "inputBindings": {}
+    },
+    {
+      "id": "log_ok",
+      "type": "log.write",
+      "name": "Log OK",
+      "version": "1.0.0",
+      "settings": {
+        "Level": "Info",
+        "Message": "Inspection result is OK."
+      },
+      "inputBindings": {}
+    },
+    {
+      "id": "log_ng",
+      "type": "log.write",
+      "name": "Log NG",
+      "version": "1.0.0",
+      "settings": {
+        "Level": "Warning",
+        "Message": "Inspection result is not OK."
+      },
+      "inputBindings": {}
+    }
+  ],
+  "edges": [
+    {
+      "fromNodeId": "set_result",
+      "fromPort": "Next",
+      "toNodeId": "condition_1",
+      "toPort": "In"
+    },
+    {
+      "fromNodeId": "condition_1",
+      "fromPort": "True",
+      "toNodeId": "log_ok",
+      "toPort": "In"
+    },
+    {
+      "fromNodeId": "condition_1",
+      "fromPort": "False",
+      "toNodeId": "log_ng",
+      "toPort": "In"
+    }
+  ],
+  "entries": [
+    {
+      "entryName": "ManualStart",
+      "targetNodeId": "set_result"
+    }
+  ]
+}

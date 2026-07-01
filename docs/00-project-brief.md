@@ -4,7 +4,7 @@
 
 构建一个独立的工业视觉流程 SDK：`VisionFlowSdk`。
 
-SDK 允许工程师通过可视化流程完成：
+SDK 提供 UI 无关的流程运行时、Core 基础节点和 WPF 流程设计器。具体工程可以在此基础上注册项目专属节点，通过可视化流程编排：
 
 - 设备控制
 - 相机采集
@@ -16,7 +16,7 @@ SDK 允许工程师通过可视化流程完成：
 - 调试显示
 - 流程发布
 
-SDK 后续由 WinForms 上位机直接引用 DLL 使用。
+SDK 只内置基础流程能力；设备、算法、图像保存、数据库保存、拼图、扫描和融合节点由具体项目或项目专属节点库实现。WinForms 上位机生产运行时直接引用发布 DLL，加载 `.flowruntime` 并通过 `FlowRunner` 执行。
 
 ## 核心原则
 
@@ -35,36 +35,37 @@ WinForms Production App = 加载 .flowruntime 并执行
 - 流程设计器：WPF。
 - 设计器可通过 ElementHost 宿主在 WinForms 中。
 - Runtime 不依赖 WPF 或 WinForms。
-- 节点不包含具体设备 SDK 逻辑。
+- Core 基础节点不包含具体设备 SDK 逻辑。
 - 原有上位机代码通过 Adapter 复用。
 
-## MVP 范围
+## 当前 SDK 内置范围
 
-第一版至少实现：
+当前仓库保留：
 
 - Flow.Core
-- Flow.Nodes
-- DeviceAdapters
-- Designer.Wpf MVP
+- Designer.Wpf
 - Tests
 - Demo.WinForms
 - Demo.DesignerWpf
 
-第一批节点：
+Core 内置基础节点：
 
-- 相机参数设置
-- 相机软触发
-- 相机图像回调
-- 光源控制
-- 算法配方
-- 图像保存
-- 数据库保存
+- Delay
+- Log
+- Variable Set
 - Split
 - AND Join
-- Log
-- Image Preview
+- Condition IF
+
+不再内置：
+
+- 相机、光源、运控等设备节点
+- 算法、图像保存、数据库保存节点
+- 图像组汇合、拼图、扫描和融合节点
 
 ## 未来必须支持的工业场景
+
+以下场景由具体项目节点库在 SDK Core/Designer 之上实现，SDK 本身只提供运行时、发布、校验、序列化和基础流程编排能力。
 
 ### 1. 单点单拍检测
 

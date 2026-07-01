@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Vision.DeviceAdapters;
 using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 
@@ -75,92 +74,63 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task InvalidStreamFramesSettingsReturnErrors()
+        public static Task InvalidCoreNodeSettingsReturnErrors()
         {
             var flow = new RuntimeFlowDefinition
             {
-                FlowId = "invalid-stream-frames",
-                FlowName = "Invalid Stream Frames",
+                FlowId = "invalid-core-node-settings",
+                FlowName = "Invalid Core Node Settings",
                 Version = "1.0.0"
             };
             flow.Nodes.Add(new NodeDefinition
             {
-                Id = "callback1",
-                Type = CameraImageCallbackNodeFactory.TypeName,
-                Name = "Stream Callback",
+                Id = "delay1",
+                Type = DelayNodeFactory.TypeName,
+                Name = "Delay",
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "CameraId", "Camera01" },
-                    { "CallbackMode", "StreamFrames" },
-                    { "MatchMode", "Any" },
-                    { "TimeoutMs", 1000 },
-                    { "ExpectedFrameCount", 0 },
-                    { "FrameTimeoutMs", -1 }
-                }
-            });
-            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "callback1" });
-
-            var result = CreateValidator().Validate(flow);
-
-            AssertHasIssue(result, FlowValidationIssueCodes.SettingValueInvalid, "Invalid StreamFrames numeric settings should be reported.");
-            AssertEx.True(
-                result.Issues.Any(x => string.Equals(x.Field, "Nodes[0].Settings.ExpectedFrameCount", StringComparison.OrdinalIgnoreCase)),
-                "ExpectedFrameCount field should be reported.");
-            AssertEx.True(
-                result.Issues.Any(x => string.Equals(x.Field, "Nodes[0].Settings.FrameTimeoutMs", StringComparison.OrdinalIgnoreCase)),
-                "FrameTimeoutMs field should be reported.");
-            return Task.FromResult(0);
-        }
-
-        public static Task InvalidQueueAndGroupSettingsReturnErrors()
-        {
-            var flow = new RuntimeFlowDefinition
-            {
-                FlowId = "invalid-node-settings",
-                FlowName = "Invalid Node Settings",
-                Version = "1.0.0"
-            };
-
-            flow.Nodes.Add(new NodeDefinition
-            {
-                Id = "save1",
-                Type = ImageSaveNodeFactory.TypeName,
-                Name = "Queued Save",
-                Version = "1.0.0",
-                Settings =
-                {
-                    { "UseQueue", true },
-                    { "QueueCapacity", 0 },
-                    { "QueueMaxDegreeOfParallelism", 0 },
-                    { "QueueFullMode", "Bogus" }
+                    { "DelayMs", -1 }
                 }
             });
 
             flow.Nodes.Add(new NodeDefinition
             {
-                Id = "scanJoin1",
-                Type = ScanGroupJoinNodeFactory.TypeName,
-                Name = "Scan Join",
+                Id = "join1",
+                Type = AndJoinNodeFactory.TypeName,
+                Name = "Join",
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "ExpectedFrameCount", 0 },
-                    { "DuplicatePolicy", "KeepFirst" },
-                    { "RequireContinuousFrameIndex", true },
-                    { "FirstFrameIndex", -1 }
+                    { "JoinKeyBinding", "{{ token.PositionId }}" },
+                    { "ExpectedInputCount", 0 },
+                    { "TimeoutMs", -1 },
+                    { "DuplicatePolicy", "KeepFirst" }
                 }
             });
 
-            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "save1" });
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "condition1",
+                Type = ConditionNodeFactory.TypeName,
+                Name = "Condition",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "LeftBinding", "{{ token.PositionId }}" },
+                    { "Operator", "Bogus" }
+                }
+            });
+
+            flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "delay1" });
 
             var result = CreateValidator().Validate(flow);
 
-            AssertHasIssue(result, FlowValidationIssueCodes.QueueFullModeInvalid, "Invalid QueueFullMode should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.SettingValueInvalid, "Invalid core numeric/operator settings should be reported.");
             AssertHasIssue(result, FlowValidationIssueCodes.DuplicatePolicyInvalid, "Invalid DuplicatePolicy should be reported.");
             AssertEx.True(
                 result.Issues.Count(x => string.Equals(x.Code, FlowValidationIssueCodes.SettingValueInvalid, StringComparison.OrdinalIgnoreCase)) >= 4,
-                "Invalid queue/group numeric settings should be reported.");
+                "Invalid core node numeric/operator settings should be reported.");
             return Task.FromResult(0);
         }
 

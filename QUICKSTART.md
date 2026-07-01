@@ -22,6 +22,7 @@ VisionFlowSdk/
 ## 4. 关键约束
 
 - Core 不依赖 UI。
-- Nodes 不依赖 UI 和真实 SDK。
-- 真实设备逻辑通过 Adapter 接入。
+- Core 内置节点只保留基础流程节点。
+- 设备、算法、保存、拼图和融合节点放到具体项目或项目专属节点库。
+- 真实设备逻辑通过 Core Adapter 契约或项目兼容契约接入。
 - 生产运行加载 `.flowruntime`，不打开 WPF Designer。

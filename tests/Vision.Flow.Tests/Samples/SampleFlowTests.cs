@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Vision.DeviceAdapters;
 using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 
@@ -22,13 +21,11 @@ namespace Vision.Flow.Tests
             var validator = new FlowValidator(registry);
             var publisher = new FlowPublishService(registry);
 
-            ValidateRuntimeFile(Path.Combine(sampleDirectory, "single-shot" + FlowFileExtensions.FlowRuntime), validator);
+            ValidateRuntimeFile(Path.Combine(sampleDirectory, "core-basic" + FlowFileExtensions.FlowRuntime), validator);
 
             var designFiles = new[]
             {
-                "single-shot" + FlowFileExtensions.FlowDesign,
-                "two-position-stitch" + FlowFileExtensions.FlowDesign,
-                "continuous-scan" + FlowFileExtensions.FlowDesign
+                "core-basic" + FlowFileExtensions.FlowDesign
             };
 
             for (var index = 0; index < designFiles.Length; index++)
@@ -53,36 +50,15 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task ContinuousScanPublishesRuntimeWithEnhancedRules()
-        {
-            var sampleDirectory = GetSampleDirectory();
-            var path = Path.Combine(sampleDirectory, "continuous-scan" + FlowFileExtensions.FlowDesign);
-            var document = FlowDesignSerializer.Load(path);
-            var result = new FlowPublishService(CreateRegistry()).Publish(document);
-
-            AssertValid(result.Validation, path);
-            AssertEx.NotNull(result.Runtime, "Published continuous scan runtime should be available.");
-
-            var scanJoin = result.Runtime.Nodes.FirstOrDefault(x => string.Equals(x.Id, "scan_join_1", StringComparison.OrdinalIgnoreCase));
-            AssertEx.NotNull(scanJoin, "Continuous scan sample should contain scan_join_1.");
-            AssertEx.Equal(true, Convert.ToBoolean(scanJoin.Settings["RequireContinuousFrameIndex"], CultureInfo.InvariantCulture), "Sample scan join should require continuous frame indexes.");
-            AssertEx.Equal("Replace", Convert.ToString(scanJoin.Settings["DuplicatePolicy"], CultureInfo.InvariantCulture), "Sample scan join should use Replace duplicate policy.");
-
-            var runtimeJson = RuntimeFlowSerializer.Serialize(result.Runtime);
-            AssertNoViewState(runtimeJson, path);
-            AssertEx.False(runtimeJson.IndexOf("\"runtime\"", StringComparison.OrdinalIgnoreCase) >= 0, "Published runtime JSON should not contain a nested runtime document.");
-            return Task.FromResult(0);
-        }
-
         public static Task SampleRuntimeExcludesViewState()
         {
             var sampleDirectory = GetSampleDirectory();
-            var runtimePath = Path.Combine(sampleDirectory, "single-shot" + FlowFileExtensions.FlowRuntime);
+            var runtimePath = Path.Combine(sampleDirectory, "core-basic" + FlowFileExtensions.FlowRuntime);
             AssertEx.True(File.Exists(runtimePath), "Sample runtime should exist: " + runtimePath);
 
             var runtime = RuntimeFlowSerializer.Load(runtimePath);
             AssertEx.NotNull(runtime, "Sample runtime should deserialize.");
-            AssertEx.Equal("single-shot", runtime.FlowId, "Sample runtime FlowId should match.");
+            AssertEx.Equal("core-basic", runtime.FlowId, "Sample runtime FlowId should match.");
 
             var runtimeJson = File.ReadAllText(runtimePath);
             AssertNoViewState(runtimeJson, runtimePath);

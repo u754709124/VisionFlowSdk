@@ -150,7 +150,7 @@ namespace Vision.Flow.Designer.Wpf
             Focusable = true;
             if (_options.LoadSampleOnStartup)
             {
-                LoadSingleShotTemplate();
+                LoadCoreBasicTemplate();
             }
             else
             {

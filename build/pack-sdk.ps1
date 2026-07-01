@@ -37,8 +37,6 @@ foreach ($target in @($sdkArtifacts, $sampleFlowArtifacts)) {
 
 $assemblies = @(
     "src\Vision.Flow.Core\bin\$Configuration\Vision.Flow.Core.dll",
-    "src\Vision.Flow.Nodes\bin\$Configuration\Vision.Flow.Nodes.dll",
-    "src\Vision.DeviceAdapters\bin\$Configuration\Vision.DeviceAdapters.dll",
     "src\Vision.Flow.Designer.Wpf\bin\$Configuration\Vision.Flow.Designer.Wpf.dll"
 )
 
@@ -69,8 +67,6 @@ if (Test-Path -LiteralPath $samplesSource) {
 Production hosts reference these runtime DLLs from `artifacts/sdk`:
 
 - Vision.Flow.Core.dll
-- Vision.Flow.Nodes.dll
-- Vision.DeviceAdapters.dll
 
 `Vision.Flow.Designer.Wpf.dll` is optional. Reference it only from editor/debug tools that host the WPF designer. Production WinForms stations should load `.flowruntime` files and run through `FlowRunner` without creating designer controls.
 
@@ -78,19 +74,13 @@ Sample design/runtime flow files are copied to `artifacts/samples/flows`.
 
 ## Production Runtime Wiring
 
-Register adapters implemented by the upper-machine application, then register common node factories. The `Vision.DeviceAdapters` project provides `DefaultDeviceRegistry` and fake adapters for demos; production hosts normally register their own adapter implementations through the same Core interfaces.
+Register Core node factories and any station-specific node factories implemented by the upper-machine application. Device, algorithm, image save, database, stitching, and fusion nodes now live in concrete projects instead of this SDK package.
 
 ```csharp
-var devices = new DefaultDeviceRegistry();
-devices.RegisterCamera("Camera01", new UpperMachineCameraAdapter(existingCamera));
-devices.RegisterLight("Light01", new UpperMachineLightAdapter(existingLight));
-devices.RegisterMotion("Motion01", new UpperMachineMotionAdapter(existingMotion));
-devices.RegisterRecipe("Recipe01", new UpperMachineRecipeAdapter(existingRecipeSystem));
-devices.RegisterImageSaver("ImageSave01", new UpperMachineImageSaveAdapter(existingImageStorage));
-devices.RegisterDatabase("VisionDb", new UpperMachineDatabaseAdapter(existingDatabase));
-
 var nodes = new NodeRegistry();
 CommonNodeRegistration.RegisterAll(nodes);
+nodes.Register(new StationCameraTriggerNodeFactory(existingCamera));
+nodes.Register(new StationRecipeNodeFactory(existingRecipeSystem));
 ```
 
 Load the published runtime file:
@@ -113,7 +103,7 @@ public sealed class StationEventSink : IFlowEventSink
 }
 
 var eventSink = new StationEventSink();
-var runner = new FlowRunner(flow, nodes, eventSink, devices);
+var runner = new FlowRunner(flow, nodes, eventSink);
 ```
 
 Start the runner during station initialization, then trigger entries from motion, camera, IO, or recipe events:
@@ -132,8 +122,8 @@ The WPF designer may compile a `.flowdesign` to `.flowruntime` for debugging or 
 ## Runtime Services Added in 2026-06
 
 - `FlowRunner` supports output-port fan-out graph scheduling through the published runtime edges.
-- Camera callback nodes can use `ICameraFrameRouter` / `DefaultCameraFrameRouter` for trigger, scan group, or stream matching.
-- Queue-enabled nodes can use a shared bounded `IFlowTaskQueueRegistry` for recipe, image-save, and database work.
+- Station-specific camera callback nodes can use `ICameraFrameRouter` / `DefaultCameraFrameRouter` for trigger, scan group, or stream matching.
+- Station-specific heavy nodes can use a shared bounded `IFlowTaskQueueRegistry` for recipe, image-save, database, or algorithm work.
 - `IVisionImage` references are disposable and should be cloned before queued or delayed downstream work.
 '@ | Set-Content -Path (Join-Path $sdkArtifacts "README-INTEGRATION.md") -Encoding UTF8
 

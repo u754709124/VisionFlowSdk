@@ -7,7 +7,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Vision.DeviceAdapters;
 using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 
@@ -91,7 +90,7 @@ namespace Vision.Flow.Demo.WinForms
             _runnerStateValue = CreateValueLabel();
             layout.Controls.Add(CreateInfoBlock("Runner state", _runnerStateValue), 0, 3);
 
-            layout.Controls.Add(CreateSectionTitle("Adapters"), 0, 4);
+            layout.Controls.Add(CreateSectionTitle("Core Nodes"), 0, 4);
 
             var adapterList = new ListBox
             {
@@ -101,11 +100,12 @@ namespace Vision.Flow.Demo.WinForms
                 ForeColor = Color.FromArgb(55, 65, 81),
                 IntegralHeight = false
             };
-            adapterList.Items.Add("Camera: Camera01");
-            adapterList.Items.Add("Light: Light01");
-            adapterList.Items.Add("Recipe: Recipe01");
-            adapterList.Items.Add("ImageSave: ImageSave01");
-            adapterList.Items.Add("Database: VisionDb");
+            adapterList.Items.Add("delay.wait");
+            adapterList.Items.Add("log.write");
+            adapterList.Items.Add("variable.set");
+            adapterList.Items.Add("flow.split");
+            adapterList.Items.Add("join.and");
+            adapterList.Items.Add("condition.if");
             layout.Controls.Add(adapterList, 0, 5);
 
             layout.Controls.Add(CreateSectionTitle("Entry Signals"), 0, 6);
@@ -227,12 +227,12 @@ namespace Vision.Flow.Demo.WinForms
                 ReadOnly = true,
                 BackColor = Color.FromArgb(248, 250, 252),
                 ForeColor = Color.FromArgb(55, 65, 81),
-                Text = "Image: -\r\nFrameId: -\r\nRecipeResult: -\r\nDatabaseSave: -",
+                Text = "Result: -\r\nConditionMatched: -\r\nLog: -",
                 ScrollBars = ScrollBars.Vertical
             };
             layout.Controls.Add(outputSummary, 0, 3);
 
-            layout.Controls.Add(CreateSectionTitle("Image Preview"), 0, 4);
+            layout.Controls.Add(CreateSectionTitle("Runtime Preview"), 0, 4);
 
             imagePreview = new Panel
             {
@@ -337,7 +337,7 @@ namespace Vision.Flow.Demo.WinForms
             using (var brush = new SolidBrush(Color.FromArgb(203, 213, 225)))
             using (var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
             {
-                e.Graphics.DrawString(_lastImageSummary ?? "waiting for image output", Font, brush, _imagePreview.ClientRectangle, format);
+                e.Graphics.DrawString(_lastOutputSummary ?? "waiting for runtime output", Font, brush, _imagePreview.ClientRectangle, format);
             }
         }
     }

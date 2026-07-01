@@ -40,6 +40,9 @@ $msbuild = Find-MSBuild
 
 Write-Host "Building tests..." -ForegroundColor Cyan
 & $msbuild $testProject /p:Configuration=$Configuration /m
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
 
 $testExe = Join-Path $root "tests\Vision.Flow.Tests\bin\$Configuration\Vision.Flow.Tests.exe"
 if (!(Test-Path $testExe)) {

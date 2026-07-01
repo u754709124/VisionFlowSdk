@@ -4,96 +4,52 @@
 
 ### `.flowdesign`
 
-设计态文件，供 WPF Designer 打开。
+设计态文件，包含运行态流程和设计器视图状态：
 
-包含：
-
-- RuntimeFlowDefinition
+- `RuntimeFlowDefinition`
 - 节点坐标
-- 画布缩放
-- 画布偏移
-- 节点折叠状态
-- 调试 UI 状态
+- 画布缩放与偏移
+- 节点折叠等设计态状态
 
 ### `.flowruntime`
 
-运行态文件，供生产 WinForms 上位机加载执行。
+生产运行态文件，只包含运行所需信息：
 
-包含：
-
-- FlowId
-- FlowVersion
+- FlowId / FlowName / Version
 - Nodes
 - Edges
 - Entries
 - Settings
-- VariableBindings
+- InputBindings
 
-禁止包含：
+`.flowruntime` 禁止包含 WPF 类型名、节点坐标、画布缩放、样式、Designer ViewModel 或 Debug-only UI 状态。
 
-- WPF 类型名
-- 节点坐标
-- Canvas 缩放
-- 节点颜色
-- Designer ViewModel 状态
-
-## `.flowdesign` 示例
+## Runtime 示例
 
 ```json
 {
-  "flowId": "Station01_Main",
-  "flowName": "Station01 Main Flow",
-  "schemaVersion": 1,
-  "runtime": {
-    "flowId": "Station01_Main",
-    "flowName": "Station01 Main Flow",
-    "version": "1.0.0",
-    "nodes": [],
-    "edges": [],
-    "entries": []
-  },
-  "view": {
-    "zoom": 1.0,
-    "offsetX": 0,
-    "offsetY": 0,
-    "nodes": {}
-  }
-}
-```
-
-## `.flowruntime` 示例
-
-```json
-{
-  "flowId": "Station01_Main",
-  "flowName": "Station01 Main Flow",
+  "flowId": "core-basic",
+  "flowName": "Core Basic Demo",
   "schemaVersion": 1,
   "version": "1.0.0",
   "nodes": [
     {
-      "id": "camera_trigger_1",
-      "type": "camera.soft_trigger",
-      "name": "Camera Soft Trigger",
+      "id": "set_result",
+      "type": "variable.set",
+      "name": "Set Result",
       "version": "1.0.0",
       "settings": {
-        "CameraId": "Camera01",
-        "TimeoutMs": 1000
+        "VariableName": "Inspection.Result",
+        "Value": "OK"
       },
       "inputBindings": {}
     }
   ],
-  "edges": [
-    {
-      "fromNodeId": "camera_trigger_1",
-      "fromPort": "Next",
-      "toNodeId": "camera_callback_1",
-      "toPort": "In"
-    }
-  ],
+  "edges": [],
   "entries": [
     {
       "entryName": "ManualStart",
-      "targetNodeId": "camera_trigger_1"
+      "targetNodeId": "set_result"
     }
   ]
 }
@@ -103,33 +59,12 @@
 
 ```text
 .flowdesign
-    -> FlowValidator
-    -> FlowPublishService
-    -> 移除 ViewState
-    -> .flowruntime
+  -> FlowValidator
+  -> FlowPublishService
+  -> remove ViewState
+  -> .flowruntime
 ```
 
-## 版本字段
+## 扩展节点
 
-每个流程文件应该包含：
-
-- SchemaVersion
-- FlowVersion
-- NodeType
-- NodeVersion
-## 2026-06 Runtime Fields
-
-The published `.flowruntime` format remains UI-free. New runtime-only settings are allowed in node `settings` or `inputBindings`:
-
-- `camera.image_callback`: `CallbackMode`, `MatchMode`, `StreamOutputMode`, `ExpectedFrameCount`, `FrameTimeoutMs`, `AutoStopAfterExpectedFrameCount`, `FrameIndexSource`, `StartFrameIndex`, and matching bindings such as `TriggerIdBinding` or `ScanGroupIdBinding`.
-- queue-enabled nodes: `UseQueue`, `QueueName`, `QueueCapacity`, `QueueMaxDegreeOfParallelism`, `QueueFullMode`, and `WaitForCompletion`.
-- group/scan nodes: `DuplicatePolicy`, `RequireContinuousShotIndex`, `RequireContinuousFrameIndex`, `FirstShotIndex`, and `FirstFrameIndex`.
-- binding settings such as `FrameBinding`, `ImageBinding`, `CaptureGroupIdBinding`, `ScanGroupIdBinding`, `FrameGroupBinding`, and `ScanGroupResultBinding`.
-
-`FlowValidator` rejects invalid StreamFrames settings, invalid queue settings, invalid duplicate policies, and missing binding sources. `.flowruntime` must still exclude WPF view state, canvas coordinates, zoom, styles, and designer-only debug state.
-
-## 2026-06 Sample Flow Updates
-
-- `single-shot.flowruntime` now includes `light.control` before `camera.soft_trigger`.
-- `continuous-scan.flowdesign` starts from `camera.image_callback` with `CallbackMode=StreamFrames` and `StreamOutputMode=PerFrame`; each `Frame` continuation drives `frame.preprocess`.
-- `.flowruntime` remains runtime-only. New queue, stream, and image-kind behavior is expressed through node settings and outputs, not through Designer view state.
+项目专属节点可以在 `settings` 和 `inputBindings` 中定义自己的协议字段。Core 只校验通用结构、端口、绑定和 Core 内置节点规则；设备/算法节点的语义校验由具体项目实现。

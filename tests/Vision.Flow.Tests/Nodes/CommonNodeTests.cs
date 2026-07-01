@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Vision.DeviceAdapters;
 using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 
@@ -27,21 +26,6 @@ namespace Vision.Flow.Tests
             AssertFactoryRegistered(registry, VariableSetNodeFactory.TypeName);
             AssertFactoryRegistered(registry, AndJoinNodeFactory.TypeName);
             AssertFactoryRegistered(registry, ConditionNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, MotionNotifyNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, MotionMoveToNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, MotionWaitInPositionNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, CameraSetParameterNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, CameraSoftTriggerNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, CameraImageCallbackNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, LightControlNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, RecipeRunNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, ImageSaveNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, DatabaseSaveNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, FrameGroupJoinNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, StitchNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, FramePreprocessNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, ScanGroupJoinNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, Final3D2DFusionNodeFactory.TypeName);
             return Task.FromResult(0);
         }
 

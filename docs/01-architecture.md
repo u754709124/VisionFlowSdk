@@ -3,84 +3,39 @@
 ## 解决方案结构
 
 ```text
-VisionFlowSdk
-│
-├─ src
-│  ├─ Vision.Flow.Core
-│  ├─ Vision.Flow.Nodes
-│  ├─ Vision.DeviceAdapters
-│  └─ Vision.Flow.Designer.Wpf
-│
-├─ tests
-│  └─ Vision.Flow.Tests
-│
-└─ demos
-   ├─ Vision.Flow.Demo.WinForms
-   └─ Vision.Flow.Demo.DesignerWpf
+src/Vision.Flow.Core
+src/Vision.Flow.Designer.Wpf
+
+tests/Vision.Flow.Tests
+demos/Vision.Flow.Demo.WinForms
+demos/Vision.Flow.Demo.DesignerWpf
+samples/flows
 ```
 
 ## 项目职责
 
 ### Vision.Flow.Core
 
-负责：
+负责流程定义、运行态模型、节点接口、执行引擎、变量池、运行事件、校验、发布、序列化、Adapter 契约和 Core 基础节点。
 
-- 流程定义
-- 运行态定义
-- 节点接口
-- 执行引擎
-- Token
-- 变量池
-- 运行事件
-- 流程校验
-- 流程序列化
-- Adapter 接口
+Core 内置节点只包含：
 
-不允许引用：
+```text
+delay.wait
+log.write
+variable.set
+flow.split
+join.and
+condition.if
+```
 
-- WPF
-- WinForms
-- 具体硬件 SDK
-
-### Vision.Flow.Nodes
-
-负责公共节点：
-
-- Camera Nodes
-- Light Nodes
-- Motion Nodes
-- Recipe Nodes
-- Save Nodes
-- Join Nodes
-- Group Nodes
-- Scan Fusion Nodes
-
-节点只调用 Adapter 接口。
-
-### Vision.DeviceAdapters
-
-负责：
-
-- 默认设备注册表
-- Fake Adapter
-- Adapter 基类
-- Demo Adapter
-
-生产真实 Adapter 由上位机应用实现。
+设备、算法、存储、拼图、融合等节点由具体项目实现，并通过 `NodeRegistry` 注册。
 
 ### Vision.Flow.Designer.Wpf
 
-负责：
+负责 WPF 设计器 UI：节点库、画布、连线、属性面板、变量选择器、调试面板、`.flowdesign` 保存/加载和 `.flowruntime` 发布。
 
-- WPF 设计器控件
-- 流程画布
-- 节点卡片
-- 连线
-- 属性面板
-- 变量选择器
-- 调试面板
-
-不负责生产执行逻辑。
+Designer 默认使用 Core 基础节点库，也允许宿主注入包含项目专属节点的 `NodeRegistry`。
 
 ## 依赖方向
 
@@ -88,19 +43,12 @@ VisionFlowSdk
 
 ```text
 Designer.Wpf -> Core
-Designer.Wpf -> Nodes
-
-Nodes -> Core
-DeviceAdapters -> Core
-
 Demo.WinForms -> Core
-Demo.WinForms -> Nodes
-Demo.WinForms -> DeviceAdapters
-
 Demo.DesignerWpf -> Core
-Demo.DesignerWpf -> Nodes
-Demo.DesignerWpf -> DeviceAdapters
 Demo.DesignerWpf -> Designer.Wpf
+Tests -> Core
+Tests -> Designer.Wpf
+ProjectSpecificNodes -> Core
 ```
 
 禁止：
@@ -109,48 +57,23 @@ Demo.DesignerWpf -> Designer.Wpf
 Core -> WPF
 Core -> WinForms
 Core -> specific SDK
-
-Nodes -> WPF
-Nodes -> WinForms
-Nodes -> specific SDK
-
-Runtime -> Designer UI
+Production Runtime -> Designer UI
 ```
 
-## 生产运行路径
+## 生产运行
 
 ```text
-WinForms App
-    -> 注册真实 Adapter
-    -> 注册公共节点
-    -> 加载 .flowruntime
-    -> 创建 FlowRunner
-    -> 外部事件 Trigger
-    -> RuntimeEvent 输出日志/状态
+Upper-machine app
+  -> register Core built-in node factories
+  -> register project-specific node factories
+  -> load .flowruntime
+  -> create FlowRunner
+  -> trigger entries from station events
+  -> consume FlowRuntimeEvent
 ```
 
-## WPF 调试路径
+生产环境不创建 Designer 控件，不依赖画布、节点卡片或 ViewModel。
 
-```text
-WPF Designer
-    -> 编译当前 .flowdesign
-    -> 创建同一个 FlowRunner
-    -> 调试运行
-    -> 监听 RuntimeEvent
-    -> 高亮节点、显示图像、显示耗时
-```
-## 2026-06 Upgrade Notes
+## Runtime 服务
 
-- Runtime now builds a `RuntimeFlowPlan` before execution. The plan indexes entries, nodes, incoming edges, and outgoing edges by output port so `FlowRunner` can fan out to every downstream edge in output-port order.
-- Cycle detection is execution-path scoped. A reconverging graph can run both legal branches, while a real cycle on the current path still fails clearly.
-- Runtime services now include `ICameraFrameRouter` for camera callback matching and `IFlowTaskQueueRegistry` for bounded background work queues.
-- `IVisionImage` models image lifetime explicitly through `IDisposable`, `CloneReference`, `TryGetBytes`, and optional native-image wrapping.
-- WPF Designer can be hosted with injected `NodeRegistry`, debug `IDeviceRegistry`, and `FlowDesignerOptions`; production WinForms runtime remains independent from Designer assemblies.
-
-## 2026-06 Production Hardening
-
-- `FlowExecutionOptions` keeps the default sequential fan-out behavior but can enable parallel fan-out per output port with a max degree of parallelism.
-- `ICameraFrameRouter` is now a disposable runtime service with unregister, waiter cancellation, expired-frame cleanup, and subscription disposal support.
-- `camera.image_callback` can run `StreamFrames` in `Batch` or `PerFrame` mode. Per-frame mode dispatches the `Frame` output port for each frame and emits `Completed` after collection.
-- Queue-enabled nodes support `WaitForCompletion=false` for detached background recipe/save/database work while continuing to report queue completion or failure events.
-- `IVisionImage.ImageKind` identifies raw, preprocessed, stitched, height-map, texture, and confidence-map image roles without leaking SDK image types.
+Core 仍提供 `IDeviceRegistry`、`ICameraFrameRouter`、`IFlowTaskQueueRegistry`、`IVisionImage` 等契约，供项目专属节点复用。SDK 不再内置使用这些契约的设备节点。

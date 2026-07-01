@@ -2,109 +2,67 @@
 
 ## SDK Package
 
-Run the package script from the repository root:
-
 ```powershell
 ./build/pack-sdk.ps1
 ```
 
-The script builds the solution and writes the SDK package to:
+产物：
 
 ```text
 artifacts/sdk
 artifacts/samples/flows
 ```
 
-Production WinForms hosts normally reference:
+生产上位机通常只引用：
 
 ```text
 Vision.Flow.Core.dll
-Vision.Flow.Nodes.dll
-Vision.DeviceAdapters.dll
 ```
 
-Reference `Vision.Flow.Designer.Wpf.dll` only from editor or debug tooling that hosts the WPF designer. Production runtime should load `.flowruntime` and run through `FlowRunner` without creating designer UI.
+需要嵌入设计器或调试工具时再引用：
+
+```text
+Vision.Flow.Designer.Wpf.dll
+```
 
 ## Runtime Wiring
 
-Register adapters implemented by the upper-machine application, then register common node factories:
-
 ```csharp
-var devices = new DefaultDeviceRegistry();
-devices.RegisterCamera("Camera01", new UpperMachineCameraAdapter(existingCamera));
-devices.RegisterLight("Light01", new UpperMachineLightAdapter(existingLight));
-devices.RegisterMotion("Motion01", new UpperMachineMotionAdapter(existingMotion));
-devices.RegisterRecipe("Recipe01", new UpperMachineRecipeAdapter(existingRecipeSystem));
-devices.RegisterImageSaver("ImageSave01", new UpperMachineImageSaveAdapter(existingImageStorage));
-devices.RegisterDatabase("VisionDb", new UpperMachineDatabaseAdapter(existingDatabase));
-
 var nodes = new NodeRegistry();
 CommonNodeRegistration.RegisterAll(nodes);
-```
 
-Load the published runtime:
+// 具体项目在这里注册自己的设备、算法、保存、数据库等节点。
+nodes.Register(new StationCameraTriggerNodeFactory(existingCamera));
+nodes.Register(new StationRecipeNodeFactory(existingRecipeSystem));
 
-```csharp
 var flow = RuntimeFlowSerializer.Load("Station01.flowruntime");
-```
-
-Subscribe to runtime events through `IFlowEventSink`:
-
-```csharp
-public sealed class StationEventSink : IFlowEventSink
-{
-    public Task PublishAsync(FlowRuntimeEvent runtimeEvent, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        // Forward to station logs, alarms, UI status, or trace storage.
-        return Task.FromResult(0);
-    }
-}
-
 var eventSink = new StationEventSink();
-var cameraFrames = new DefaultCameraFrameRouter();
-var queues = new FlowTaskQueueRegistry(eventSink);
-var options = new FlowExecutionOptions
-{
-    FanOutMode = FlowFanOutMode.Sequential,
-    MaxDegreeOfParallelism = 1,
-    BranchTokenMode = FlowBranchTokenMode.Shared
-};
-
-var runner = new FlowRunner(flow, nodes, eventSink, devices, cameraFrames, queues, options);
+var runner = new FlowRunner(flow, nodes, eventSink);
 ```
 
-Start the runner once during station initialization, then trigger flow entries from station events:
+如果项目专属节点需要设备、相机帧路由或队列服务，可以使用 `FlowRunner` / `FlowEngine` 的重载传入：
 
-```csharp
-await runner.StartAsync(CancellationToken.None);
-
-var token = new FlowToken { TokenId = Guid.NewGuid().ToString("N") };
-token.Set("PartId", partId);
-
-await runner.TriggerAsync("ManualStart", token, CancellationToken.None);
-```
+- `IDeviceRegistry`
+- `ICameraFrameRouter`
+- `IFlowTaskQueueRegistry`
+- `FlowExecutionOptions`
 
 ## Flow Files
 
-Use `.flowdesign` only for designer editing and debug publishing. Deploy `.flowruntime` to production stations. A runtime file must not contain canvas coordinates, zoom, WPF styles, or designer-only state.
+`.flowdesign` 只用于设计器编辑和调试发布。生产部署 `.flowruntime`，并确保其中不含节点坐标、画布缩放、WPF 样式或设计器状态。
 
-The package script copies sample flows into `artifacts/samples/flows`, including:
+示例流程：
 
 ```text
-single-shot.flowdesign
-single-shot.flowruntime
-two-position-stitch.flowdesign
-continuous-scan.flowdesign
+core-basic.flowdesign
+core-basic.flowruntime
 ```
-## 2026-06 Integration Notes
 
-Production hosts that use camera callback nodes should create or reuse a camera frame router and pass it to the runner. The default router subscribes to registered camera adapters and buffers lightweight frame metadata for `camera.image_callback`.
+## Integration Notes
 
-Queue-enabled nodes (`recipe.run`, `image.save`, `database.save`, `frame.preprocess`, and `fusion.final_3d_2d`) can use named bounded queues. Configure queue names and capacity in the flow file, then provide a shared queue registry so repeated node executions reuse the same queue. `WaitForCompletion=false` returns after queue acceptance; observe `QueueCompleted` and `QueueFailed` events for the background result.
+设备/算法节点已经迁出 SDK。项目专属节点应：
 
-When image data crosses async or queued boundaries, use `IVisionImage.CloneReference()` or an adapter-owned image reference to keep native handles alive until the downstream save or algorithm work completes. Set `ImageKind` to describe the image role, and dispose image references when the host owns their lifetime.
-
-Use `FlowExecutionOptions.FanOutMode=Parallel` only when downstream branches can safely share the same token and variable pool. The default sequential mode remains the safest production setting.
-
-The WinForms demo accepts an optional `.flowruntime` path as the first command-line argument. This is only a demo convenience; production stations should load runtime files from their own recipe/configuration system.
+- 使用 Core Adapter 契约或项目自己的兼容契约访问上位机能力。
+- 自行定义 NodeType 常量、Descriptor、Config 和测试。
+- 对长耗时任务使用异步任务、有界队列和取消令牌。
+- 在发布前通过 `FlowValidator` 和项目专属测试验证。
