@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Flows
 {
     /// <summary>
-    /// ���̬�����ĵ��������ɷ���������̬������������ͼ״̬��
+    /// 设计态流程文档，包含可发布的运行态定义和设计器视图状态。
     /// </summary>
     public sealed class FlowDesignDocument
     {
@@ -13,27 +13,27 @@ namespace Vision.Flow.Core.Domain.Flows
         }
 
         /// <summary>
-        /// ����Ψһ��ʶ����������ļ��������ļ��������¼�֮�佨��������
+        /// 流程唯一标识，用于设计文件、运行文件和运行事件之间建立关联。
         /// </summary>
         public string FlowId { get; set; }
 
         /// <summary>
-        /// �����˵��������ƣ�������ִ�е��ȡ�
+        /// 面向人的流程名称，不参与执行调度。
         /// </summary>
         public string FlowName { get; set; }
 
         /// <summary>
-        /// �ļ��ṹ�汾�����ں�������������
+        /// 文件结构版本，用于后续兼容升级。
         /// </summary>
         public int SchemaVersion { get; set; }
 
         /// <summary>
-        /// �ɷ�������������������̬���塣
+        /// 可发布到生产环境的运行态定义。
         /// </summary>
         public RuntimeFlowDefinition Runtime { get; set; }
 
         /// <summary>
-        /// ���������ʹ�õĻ���״̬������ `.flowruntime` ʱ�����Ƴ���
+        /// 仅供设计器使用的画布状态，发布 `.flowruntime` 时必须移除。
         /// </summary>
         public FlowViewState View { get; set; }
     }

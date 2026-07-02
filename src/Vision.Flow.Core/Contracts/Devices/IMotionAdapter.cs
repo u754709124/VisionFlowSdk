@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// �˿��������ӿڣ���װ��λ���ȴ����˶���Ϣ֪ͨ������
+    /// 运控适配器接口，封装到位、等待和运动消息通知能力。
     /// </summary>
     public interface IMotionAdapter
     {

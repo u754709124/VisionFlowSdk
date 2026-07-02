@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
-    /// ͼ��֡�� Token Ԫ���ݼ�����������ص�����֡�ڵ�ͨ����Щ��������ҵ�Ӿ������ġ�
+    /// 图像、帧和 Token 元数据键常量。相机回调和组帧节点通过这些键交换工业视觉上下文。
     /// </summary>
     public static class FlowMetadataKeys
     {

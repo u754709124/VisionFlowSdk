@@ -5,7 +5,7 @@ using System.Globalization;
 namespace Vision.Flow.Core.Runtime.State
 {
     /// <summary>
-    /// ����ִ�� Token�����ص��ι�������λ����֡��ɨ�������ġ�
+    /// 流程执行 Token，承载单次工件、点位、组帧和扫描上下文。
     /// </summary>
     public sealed class FlowToken
     {
@@ -18,7 +18,7 @@ namespace Vision.Flow.Core.Runtime.State
         }
 
         /// <summary>
-        /// ����Ψһ��ʶ�������¼��ͱ��������ʹ��������һ�����̴�����
+        /// 令牌唯一标识，运行事件和变量输出会使用它关联一次流程触发。
         /// </summary>
         public string TokenId { get; set; }
 
@@ -31,24 +31,24 @@ namespace Vision.Flow.Core.Runtime.State
         public string PositionId { get; set; }
 
         /// <summary>
-        /// �ɼ��� ID�����ڶ��λͼ�����ϡ�
+        /// 采集组 ID，用于多点位图像组汇合。
         /// </summary>
         public string CaptureGroupId { get; set; }
 
         /// <summary>
-        /// ɨ���� ID����������ɨ��֡��ϡ�
+        /// 扫描组 ID，用于连续扫描帧汇合。
         /// </summary>
         public string ScanGroupId { get; set; }
 
         public string FrameId { get; set; }
 
         /// <summary>
-        /// ͨ��ҵ��Ԫ���ݣ����ڵ����λ�����ݷǹ̶��ֶΡ�
+        /// 通用业务元数据，供节点和上位机传递非固定字段。
         /// </summary>
         public Dictionary<string, object> Metadata { get; set; }
 
         /// <summary>
-        /// ���ƾֲ�ֵ����ʺ���ڴ���ʱע��ĳ�ʼ���ݡ�
+        /// 令牌局部值表，适合入口触发时注入的初始数据。
         /// </summary>
         public Dictionary<string, object> Values { get; set; }
 

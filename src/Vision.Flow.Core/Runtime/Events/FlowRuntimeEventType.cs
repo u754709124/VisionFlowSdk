@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.Events
 {
     /// <summary>
-    /// ����ʱ�¼����ͣ�������λ����������������ͨ�����۲�����״̬��
+    /// 运行时事件类型，生产上位机和设计器调试面板通过它观察流程状态。
     /// </summary>
     public enum FlowRuntimeEventType
     {

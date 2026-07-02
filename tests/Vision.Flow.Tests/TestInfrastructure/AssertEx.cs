@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // ��С���Թ����ÿ���̨���Կ�ܱ������ⲿ������
+    // 最小断言工具让控制台测试框架保持无外部依赖。
     internal static class AssertEx
     {
         public static void True(bool condition, string message)

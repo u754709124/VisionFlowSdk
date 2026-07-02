@@ -1,16 +1,16 @@
 # QUICKSTART
 
-## 1. 将本包解压到新仓�?
+## 1. 将本包解压到新仓库
 
 ```text
 VisionFlowSdk/
 ```
 
-## 2. �?Codex 执行第一阶段
+## 2. 用 Codex 执行第一阶段
 
-�?`prompts/00-master-start.md` �?`prompts/01-solution-skeleton.md` 的内容作为首个任务发�?Codex�?
+把 `prompts/00-master-start.md` 或 `prompts/01-solution-skeleton.md` 的内容作为首个任务发给 Codex。
 
-## 3. 按阶段开�?
+## 3. 按阶段开发
 
 每个阶段完成后运行：
 
@@ -21,7 +21,7 @@ VisionFlowSdk/
 
 ## 4. 引用命名空间
 
-运行时宿主通常按职责引�?Core API�?
+运行时宿主通常按职责引用 Core API：
 
 ```csharp
 using Vision.Flow.Core.Contracts.Nodes;
@@ -41,8 +41,8 @@ using Vision.Flow.Designer.Wpf.Controls;
 
 ## 5. 关键约束
 
-- Core 不依�?UI�?
-- Core 内置节点只保留基础流程节点�?
-- 设备、算法、保存、拼图和融合节点放到具体项目或项目专属节点库�?
-- 真实设备逻辑通过 Core Adapter 契约或项目兼容契约接入�?
-- 生产运行加载 `.flowruntime`，不打开 WPF Designer�?
+- Core 不依赖 UI。
+- Core 内置节点只保留基础流程节点。
+- 设备、算法、保存、拼图和融合节点放到具体项目或项目专属节点库。
+- 真实设备逻辑通过 Core Adapter 契约或项目兼容契约接入。
+- 生产运行加载 `.flowruntime`，不打开 WPF Designer。

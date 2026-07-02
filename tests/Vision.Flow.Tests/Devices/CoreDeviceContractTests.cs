@@ -20,7 +20,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // Core �豸��Լ����ֻʹ�ñ�����С׮������ SDK �������� Fake Adapter ��Ŀ��
+    // Core 设备契约测试只使用本地最小桩，避免 SDK 测试依赖 Fake Adapter 项目。
     internal static class CoreDeviceContractTests
     {
         public static async Task CameraFrameRouterRoutesLocalTestCamera()

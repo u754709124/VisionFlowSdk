@@ -6,7 +6,7 @@ using Vision.Flow.Core.Domain.Flows;
 
 namespace Vision.Flow.Core.Services.Validation
 {
-    // ����̬����ֹ�����ר����ͼ״̬й©�� .flowruntime �ļ���
+    // 运行态检查防止设计器专用视图状态泄漏到 .flowruntime 文件。
     public sealed partial class FlowValidator
     {
         private static void ValidateNoDesignerState(RuntimeFlowDefinition definition, FlowValidationResult result)

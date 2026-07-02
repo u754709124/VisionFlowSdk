@@ -6,7 +6,7 @@ using Vision.Flow.Core.Domain.Nodes;
 namespace Vision.Flow.Core.Runtime.Execution
 {
     /// <summary>
-    /// �ڵ�ִ�н��������·�ɶ˿ڡ���������ʹ���/��ʱ״̬��
+    /// 节点执行结果，包含路由端口、输出变量和错误/超时状态。
     /// </summary>
     public sealed class NodeExecutionResult
     {

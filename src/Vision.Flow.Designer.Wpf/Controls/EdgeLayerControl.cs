@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // ���߲�ؼ���Ⱦ���������ߺ�����Ԥ����
+    // 连线层控件渲染贝塞尔连线和连线预览。
     public sealed class EdgeLayerControl : Canvas
     {
         private const double NodeCardWidth = 190;

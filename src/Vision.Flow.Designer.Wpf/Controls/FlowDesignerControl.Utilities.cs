@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // ���߸�������ͳһ����ʾ��·�������ı������߱�ǩ�Ϳ��������ҡ�
+    // 工具辅助方法统一处理示例路径、绑定文本、连线标签和可视树查找。
     public sealed partial class FlowDesignerControl
     {
         private static string GetSampleFlowDirectory()

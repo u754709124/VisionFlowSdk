@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // ʾ�����̲���ȷ���ֿ��� Demo �ʲ����ܷ����л���У��ͷ�����
+    // 示例流程测试确保仓库内 Demo 资产仍能反序列化、校验和发布。
     internal static class SampleFlowTests
     {
         public static Task SampleFlowFilesDeserializeAndValidate()

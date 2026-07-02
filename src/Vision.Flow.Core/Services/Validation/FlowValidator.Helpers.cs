@@ -8,7 +8,7 @@ using Vision.Flow.Core.Domain.Nodes;
 
 namespace Vision.Flow.Core.Services.Validation
 {
-    // �������������֤���á��󶨺ͱ���У����Ϊһ�¡�
+    // 共享辅助方法保证设置、绑定和标量校验行为一致。
     public sealed partial class FlowValidator
     {
         private static bool HasConfiguredValue(NodeDefinition node, string settingName)

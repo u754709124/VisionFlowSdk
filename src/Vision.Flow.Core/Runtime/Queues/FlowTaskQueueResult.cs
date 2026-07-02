@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.Queues
 {
     /// <summary>
-    /// ������ӽ������������Ƿ񱻽��ܡ��ܾ����������֪ͨ��
+    /// 队列入队结果，表达任务是否被接受、拒绝、丢弃或仅通知。
     /// </summary>
     public class FlowTaskQueueResult
     {

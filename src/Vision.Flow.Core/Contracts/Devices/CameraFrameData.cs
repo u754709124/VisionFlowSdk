@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ���֡����ģ�ͣ�����ͼ��֡�š��ɼ�ʱ���ƥ����Ԫ���ݡ�
+    /// 相机帧数据模型，承载图像、帧号、采集时间和匹配用元数据。
     /// </summary>
     public sealed class CameraFrameData
     {

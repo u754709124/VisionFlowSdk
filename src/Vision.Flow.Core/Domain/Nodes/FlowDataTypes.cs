@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
-    /// �ڵ�������ʹ�õ������������ơ�������Ҫ�������ɸѡ�����Ա༭������������ʱ���ͽ�������
+    /// 节点描述中使用的数据类型名称。它们主要服务界面筛选和属性编辑，不代表运行时类型解析器。
     /// </summary>
     public static class FlowDataTypes
     {

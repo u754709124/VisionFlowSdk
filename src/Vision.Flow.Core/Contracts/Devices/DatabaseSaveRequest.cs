@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ���ݿⱣ�����󣬱����ֶ��ɹ����ڵ���ݱ����󶨻�ӳ��������װ��
+    /// 数据库保存请求，保存字段由公共节点根据变量绑定或映射配置组装。
     /// </summary>
     public sealed class DatabaseSaveRequest
     {

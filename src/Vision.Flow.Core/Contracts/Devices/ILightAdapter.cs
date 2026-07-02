@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ��Դ�������ӿڣ��ڵ�ͨ��������ͨ�����Ⱥ͹رչ�Դ��
+    /// 光源适配器接口，节点通过它设置通道亮度和关闭光源。
     /// </summary>
     public interface ILightAdapter
     {

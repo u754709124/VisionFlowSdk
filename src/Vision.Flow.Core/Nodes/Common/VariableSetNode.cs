@@ -10,7 +10,7 @@ using Vision.Flow.Core.Runtime.Execution;
 namespace Vision.Flow.Nodes
 {
     /// <summary>
-    /// ����д��ڵ����ã�����Ҫд������ص����ƺ�ֵ��
+    /// 变量写入节点配置，描述要写入变量池的名称和值。
     /// </summary>
     public sealed class VariableSetNodeConfig
     {

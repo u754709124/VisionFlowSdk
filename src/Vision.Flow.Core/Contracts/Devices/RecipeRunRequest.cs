@@ -4,7 +4,7 @@ using Vision.Flow.Core.Runtime.State;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// �䷽�������󣬽ڵ�� Token��ͼ���ҵ����������󽻸��㷨��������
+    /// 配方运行请求，节点把 Token、图像和业务输入整理后交给算法适配器。
     /// </summary>
     public sealed class RecipeRunRequest
     {

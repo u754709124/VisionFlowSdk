@@ -4,7 +4,7 @@ using System.Threading;
 namespace Vision.Flow.Core.Runtime.Events
 {
     /// <summary>
-    /// �ڵ��������¼��е�״̬���ա�
+    /// 节点在运行事件中的状态快照。
     /// </summary>
     public enum NodeRuntimeState
     {

@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // �������ؼ�����༭�ڵ����úͱ����󶨡�
+    // 属性面板控件负责编辑节点设置和变量绑定。
     public sealed class PropertyPanelControl : Border
     {
         private readonly StackPanel _rows;

@@ -5,7 +5,7 @@ using Vision.Flow.Core.Runtime.Events;
 namespace Vision.Flow.Core.Runtime.Queues
 {
     /// <summary>
-    /// Ĭ�϶���ע���������������Դ������������ж��С�
+    /// 默认队列注册表，按队列名惰性创建并复用运行队列。
     /// </summary>
     public sealed class FlowTaskQueueRegistry : IFlowTaskQueueRegistry
     {

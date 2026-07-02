@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ͼ�񱣴��������ӿڣ�����ڵ�ֱ�����������ļ�ϵͳ��ҵ��洢�߼���
+    /// 图像保存适配器接口，避免节点直接依赖具体文件系统或业务存储逻辑。
     /// </summary>
     public interface IImageSaveAdapter
     {

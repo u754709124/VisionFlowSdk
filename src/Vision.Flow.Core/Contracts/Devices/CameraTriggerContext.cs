@@ -5,7 +5,7 @@ using Vision.Flow.Core.Runtime.State;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// �������������ģ����ڰ� TriggerId��Token ��ҵ��Ԫ���ݴ��������������
+    /// 相机软触发上下文，用于把 TriggerId、Token 和业务元数据传给相机适配器。
     /// </summary>
     public sealed class CameraTriggerContext
     {

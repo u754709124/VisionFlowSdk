@@ -6,7 +6,7 @@ using System.Windows.Controls;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 变量选择控件负责把设计器可见变量表达式插入到绑定输入框�?
+    // 变量选择控件负责把设计器可见变量表达式插入到绑定输入框。
     public sealed class VariableSelectorControl : Button
     {
         private readonly IList<string> _variables;

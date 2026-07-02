@@ -16,9 +16,9 @@ samples/flows
 
 ### Vision.Flow.Core
 
-负责流程定义、运行态模型、节点接口、执行引擎、变量池、运行事件、校验、发布、序列化、Adapter 契约�?Core 基础节点�?
+负责流程定义、运行态模型、节点接口、执行引擎、变量池、运行事件、校验、发布、序列化、Adapter 契约和 Core 基础节点。
 
-公共 API 按职责放�?`Vision.Flow.Core.Domain.Flows`、`Vision.Flow.Core.Contracts.Nodes`、`Vision.Flow.Core.Runtime.Engine / Vision.Flow.Core.Runtime.Execution / Vision.Flow.Core.Runtime.State`、`Vision.Flow.Core.Services.Serialization`、`Vision.Flow.Core.Services.Validation` 等命名空间中。内置节点源码命名空间仍�?`Vision.Flow.Nodes`，编译产物仍属于 `Vision.Flow.Core.dll`�?
+公共 API 按职责放在 `Vision.Flow.Core.Domain.Flows`、`Vision.Flow.Core.Contracts.Nodes`、`Vision.Flow.Core.Runtime.Engine / Vision.Flow.Core.Runtime.Execution / Vision.Flow.Core.Runtime.State`、`Vision.Flow.Core.Services.Serialization`、`Vision.Flow.Core.Services.Validation` 等命名空间中。内置节点源码命名空间仍为 `Vision.Flow.Nodes`，编译产物仍属于 `Vision.Flow.Core.dll`。
 
 Core 内置节点只包含：
 
@@ -31,19 +31,19 @@ join.and
 condition.if
 ```
 
-设备、算法、存储、拼图、融合等节点由具体项目实现，并通过 `NodeRegistry` 注册�?
+设备、算法、存储、拼图、融合等节点由具体项目实现，并通过 `NodeRegistry` 注册。
 
 ### Vision.Flow.Designer.Wpf
 
-负责 WPF 设计�?UI：节点库、画布、连线、属性面板、变量选择器、调试面板、`.flowdesign` 保存/加载�?`.flowruntime` 发布�?
+负责 WPF 设计器 UI：节点库、画布、连线、属性面板、变量选择器、调试面板、`.flowdesign` 保存/加载和 `.flowruntime` 发布。
 
-设计器控件公开�?`Vision.Flow.Designer.Wpf.Controls`，ViewModel 放在 `Vision.Flow.Designer.Wpf.ViewModels`�?
+设计器控件公开在 `Vision.Flow.Designer.Wpf.Controls`，ViewModel 放在 `Vision.Flow.Designer.Wpf.ViewModels`。
 
-Designer 默认使用 Core 基础节点库，也允许宿主注入包含项目专属节点的 `NodeRegistry`�?
+Designer 默认使用 Core 基础节点库，也允许宿主注入包含项目专属节点的 `NodeRegistry`。
 
 ## 依赖方向
 
-允许�?
+允许：
 
 ```text
 Designer.Wpf -> Core
@@ -55,7 +55,7 @@ Tests -> Designer.Wpf
 ProjectSpecificNodes -> Core
 ```
 
-禁止�?
+禁止：
 
 ```text
 Core -> WPF
@@ -76,8 +76,8 @@ Upper-machine app
   -> consume FlowRuntimeEvent
 ```
 
-生产环境不创�?Designer 控件，不依赖画布、节点卡片或 ViewModel�?
+生产环境不创建 Designer 控件，不依赖画布、节点卡片或 ViewModel。
 
 ## Runtime 服务
 
-Core 仍提�?`IDeviceRegistry`、`ICameraFrameRouter`、`IFlowTaskQueueRegistry`、`IVisionImage` 等契约，供项目专属节点复用。SDK 不再内置使用这些契约的设备节点�?
+Core 仍提供 `IDeviceRegistry`、`ICameraFrameRouter`、`IFlowTaskQueueRegistry`、`IVisionImage` 等契约，供项目专属节点复用。SDK 不再内置使用这些契约的设备节点。

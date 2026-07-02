@@ -6,7 +6,7 @@ using Vision.Flow.Core.Domain.Nodes;
 namespace Vision.Flow.Designer.Wpf.ViewModels
 {
     /// <summary>
-    /// 节点卡片视图模型，组合运行态节点定义和节点描述信息�?
+    /// 节点卡片视图模型，组合运行态节点定义和节点描述信息。
     /// </summary>
     public sealed class NodeViewModel
     {

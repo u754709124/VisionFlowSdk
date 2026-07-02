@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // У���뷢�����԰����Ʊ������ļ�������̬�������Ƿ���һ��
+    // 校验与发布测试把类似编译器的检查和运行态发布覆盖放在一起。
     internal static class FlowValidationPublishTests
     {
         public static Task DuplicateNodeIdReturnsError()

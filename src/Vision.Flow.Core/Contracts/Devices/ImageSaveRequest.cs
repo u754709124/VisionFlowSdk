@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ͼ�񱣴���������������ͼ��Ŀ��·���ͱ������Ԫ���ݡ�
+    /// 图像保存请求，描述待保存图像、目标路径和保存相关元数据。
     /// </summary>
     public sealed class ImageSaveRequest
     {

@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.CameraFrames
 {
     /// <summary>
-    /// ��ʽ֡���ģʽ������
+    /// 流式帧输出模式常量。
     /// </summary>
     public static class CameraStreamOutputModes
     {

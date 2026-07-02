@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Services.Validation
 {
     /// <summary>
-    /// ����У������볣�����ⲿ���ߺͲ��Կ���������Щ���������Զ��жϡ�
+    /// 流程校验错误码常量。外部工具和测试可能依赖这些错误码做自动判断。
     /// </summary>
     public static class FlowValidationIssueCodes
     {

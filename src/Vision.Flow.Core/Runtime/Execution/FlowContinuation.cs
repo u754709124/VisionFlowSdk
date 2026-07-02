@@ -5,7 +5,7 @@ using Vision.Flow.Core.Runtime.State;
 namespace Vision.Flow.Core.Runtime.Execution
 {
     /// <summary>
-    /// ��̨����ʽ�ڵ����������������������ָ������˿ڵ������ġ�
+    /// 后台或流式节点向运行引擎请求继续调度指定输出端口的上下文。
     /// </summary>
     public sealed class FlowContinuation
     {

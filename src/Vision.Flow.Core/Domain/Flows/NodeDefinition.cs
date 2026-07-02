@@ -4,7 +4,7 @@ using Vision.Flow.Core.Domain.Nodes;
 namespace Vision.Flow.Core.Domain.Flows
 {
     /// <summary>
-    /// ����̬�ڵ㶨�壬����ڵ����͡����úͱ����󶨡�
+    /// 运行态节点定义，保存节点类型、配置和变量绑定。
     /// </summary>
     public sealed class NodeDefinition
     {
@@ -15,12 +15,12 @@ namespace Vision.Flow.Core.Domain.Flows
         }
 
         /// <summary>
-        /// �ڵ�ʵ�� ID���Ǳ��������������õ��ȶ�����
+        /// 节点实例 ID，是变量名和连线引用的稳定键。
         /// </summary>
         public string Id { get; set; }
 
         /// <summary>
-        /// �ڵ����ͣ�����ʹ�� `FlowNodeTypes` �е���ע��Э��ֵ��
+        /// 节点类型，必须使用 `FlowNodeTypes` 中的已注册协议值。
         /// </summary>
         public string Type { get; set; }
 
@@ -29,12 +29,12 @@ namespace Vision.Flow.Core.Domain.Flows
         public string Version { get; set; }
 
         /// <summary>
-        /// �ڵ������ֵ䣬��Ӧ����ʹ�� `FlowSettingNames` ������
+        /// 节点配置字典，键应优先使用 `FlowSettingNames` 常量。
         /// </summary>
         public Dictionary<string, object> Settings { get; set; }
 
         /// <summary>
-        /// ����˿ڵ��������ʽ�İ󶨣�������Ҫͨ���ýṹ��ڵ㴫�ݡ�
+        /// 输入端口到变量表达式的绑定，数据主要通过该结构跨节点传递。
         /// </summary>
         public Dictionary<string, VariableBinding> InputBindings { get; set; }
     }

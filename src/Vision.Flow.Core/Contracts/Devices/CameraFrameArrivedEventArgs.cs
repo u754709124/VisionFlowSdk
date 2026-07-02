@@ -3,7 +3,7 @@ using System;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ���֡�����¼����������ٷ�װ�ص�֡�󽻸�����ʱ·�ɡ�
+    /// 相机帧到达事件参数，快速封装回调帧后交给运行时路由。
     /// </summary>
     public sealed class CameraFrameArrivedEventArgs : EventArgs
     {

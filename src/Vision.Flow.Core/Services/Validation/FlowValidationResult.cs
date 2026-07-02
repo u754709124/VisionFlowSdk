@@ -4,7 +4,7 @@ using System.Linq;
 namespace Vision.Flow.Core.Services.Validation
 {
     /// <summary>
-    /// ����У�������ۺϴ���;��沢�ṩ��ݲ�ѯ��
+    /// 流程校验结果，聚合错误和警告并提供便捷查询。
     /// </summary>
     public sealed class FlowValidationResult
     {

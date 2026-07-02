@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // �������ڵ���Ը��Ƿ�֧�ͻ�����壬�������豸��������
+    // 控制流节点测试覆盖分支和汇合语义，不引入设备适配器。
     internal static class ControlFlowNodeTests
     {
         public static async Task AndJoinTwoInputsSameJoinKey()

@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.Events
 {
     /// <summary>
-    /// �����¼� Data �ֵ���������� Runtime��Demo �Ͳ��Զ�ȡ����ʱ�¼����ء�
+    /// 运行事件 Data 字典键常量，供 Runtime、Demo 和测试读取运行时事件负载。
     /// </summary>
     public static class FlowRuntimeDataKeys
     {

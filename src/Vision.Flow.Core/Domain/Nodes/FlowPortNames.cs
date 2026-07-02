@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
-    /// �������˿����������˿�������������ߺ�����̬�����У����뱣���ȶ���
+    /// 控制流端口名常量。端口名会出现在连线和运行态调度中，必须保持稳定。
     /// </summary>
     public static class FlowPortNames
     {

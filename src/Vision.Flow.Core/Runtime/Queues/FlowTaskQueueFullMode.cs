@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.Queues
 {
     /// <summary>
-    /// ��������ʱ�Ĵ�����ԣ�������ʱ�㷨�򱣴���ڵ�ʹ�á�
+    /// 队列满载时的处理策略，供长耗时算法或保存类节点使用。
     /// </summary>
     public enum FlowTaskQueueFullMode
     {

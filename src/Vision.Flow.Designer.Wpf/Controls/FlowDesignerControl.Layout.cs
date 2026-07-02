@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // ���ָ�������������̬��ǡ�������������������ͨ�ý����ܡ�
+    // 布局辅助方法构建静态外壳、工具栏、画布宿主和通用界面框架。
     public sealed partial class FlowDesignerControl
     {
         private UIElement CreateShell()
@@ -104,8 +104,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             dock.Children.Add(buttons);
 
-            _editModeButton = CreateToolbarButton("�༭", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
-            _debugModeButton = CreateToolbarButton("��������", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
+            _editModeButton = CreateToolbarButton("编辑", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
+            _debugModeButton = CreateToolbarButton("调试运行", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
             buttons.Children.Add(_editModeButton);
             buttons.Children.Add(_debugModeButton);
             buttons.Children.Add(CreateToolbarSpacer());

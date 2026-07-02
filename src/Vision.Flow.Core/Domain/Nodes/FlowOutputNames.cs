@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
-    /// �ڵ���������������������󶨱��ʽ������Щ���ƶ�λ���νڵ������
+    /// 节点输出变量名常量。变量绑定表达式依赖这些名称定位上游节点输出。
     /// </summary>
     public static class FlowOutputNames
     {

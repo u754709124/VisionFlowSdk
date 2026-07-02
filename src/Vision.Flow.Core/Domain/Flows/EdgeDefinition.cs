@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Flows
 {
     /// <summary>
-    /// ���������߶��壬������������˿ں���������˿ڡ�
+    /// 控制流连线定义，连接上游输出端口和下游输入端口。
     /// </summary>
     public sealed class EdgeDefinition
     {

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// �˿��¼������������ⲿ�˿��¼������̴�������������ġ�
+    /// 运控事件参数，承载外部运控事件到流程触发所需的上下文。
     /// </summary>
     public sealed class MotionEventArgs : EventArgs
     {

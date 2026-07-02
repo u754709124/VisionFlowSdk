@@ -5,7 +5,7 @@ using Vision.Flow.Core.Domain.Nodes;
 
 namespace Vision.Flow.Core.Services.Validation
 {
-    // �ڵ�ר���������� Core ���û����ڵ㣻�豸���㷨�ڵ��ɾ�����Ŀע�Ტ����Լ����
+    // 节点专项规则仅覆盖 Core 内置基础节点；设备和算法节点由具体项目注册并自行约束。
     public sealed partial class FlowValidator
     {
         private static readonly string[] ConditionOperators = new[]

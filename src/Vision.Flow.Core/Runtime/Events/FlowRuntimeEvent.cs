@@ -6,7 +6,7 @@ using Vision.Flow.Core.Runtime.State;
 namespace Vision.Flow.Core.Runtime.Events
 {
     /// <summary>
-    /// ���������¼�ģ�ͣ����� Runtime �� UI����־��������λ������״̬�仯��
+    /// 流程运行事件模型，用于 Runtime 向 UI、日志或生产上位机发布状态变化。
     /// </summary>
     public sealed class FlowRuntimeEvent
     {
@@ -39,7 +39,7 @@ namespace Vision.Flow.Core.Runtime.Events
         public long ElapsedMs { get; set; }
 
         /// <summary>
-        /// �����¼����ݣ�����Ӧ����ʹ�� `FlowRuntimeDataKeys` ������
+        /// 附加事件数据，键名应优先使用 `FlowRuntimeDataKeys` 常量。
         /// </summary>
         public Dictionary<string, object> Data { get; set; }
 

@@ -11,7 +11,7 @@ using Vision.Flow.Core.Runtime.Execution;
 namespace Vision.Flow.Nodes
 {
     /// <summary>
-    /// ��ʱ�ڵ����ã�����ִ��ǰ�ȴ��ĺ�������
+    /// 延时节点配置，保存执行前等待的毫秒数。
     /// </summary>
     public sealed class DelayNodeConfig
     {

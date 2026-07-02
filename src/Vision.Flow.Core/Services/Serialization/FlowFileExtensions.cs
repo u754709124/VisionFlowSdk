@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Services.Serialization
 {
     /// <summary>
-    /// �����ļ���չ�������������������̬�ļ�����������̬�ļ���
+    /// 流程文件扩展名常量，用于区分设计态文件和生产运行态文件。
     /// </summary>
     public static class FlowFileExtensions
     {

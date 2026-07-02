@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
-    /// �ڵ����ü����������ü���д�������ļ�����������塢�ڵ㹤����У������ͬ��ȡ��
+    /// 节点设置键常量。设置键会写入流程文件并被属性面板、节点工厂和校验器共同读取。
     /// </summary>
     public static class FlowSettingNames
     {

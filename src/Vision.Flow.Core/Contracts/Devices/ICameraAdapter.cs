@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ����������ӿڣ���װ��ʵ��� SDK �� Fake ����Ĳ������������֡�ص�������
+    /// 相机适配器接口，封装真实相机 SDK 或 Fake 相机的参数、软触发和帧回调能力。
     /// </summary>
     public interface ICameraAdapter
     {

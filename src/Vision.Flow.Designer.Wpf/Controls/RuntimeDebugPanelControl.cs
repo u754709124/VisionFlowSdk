@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // ���е��������ʾ�����¼�������¶�ڵ㵼������
+    // 运行调试面板显示流程事件，并暴露节点导航请求。
     public sealed class RuntimeDebugPanelControl : Border
     {
         private readonly ListBox _events;

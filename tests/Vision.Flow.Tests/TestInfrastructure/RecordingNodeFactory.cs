@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // ��¼�ڵ�Ϊ FlowRunner �����ṩȷ���Ե�����̽�롣
+    // 记录节点为 FlowRunner 测试提供确定性的运行探针。
     internal sealed class RecordingNodeFactory : INodeFactory
     {
         public const string TypeName = "test.record";

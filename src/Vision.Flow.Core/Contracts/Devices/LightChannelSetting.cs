@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ��Դͨ�����ã���ﵥ��ͨ���Ŀ��ء����Ⱥͳ���ʱ�䡣
+    /// 光源通道设置，表达单个通道的开关、亮度和持续时间。
     /// </summary>
     public sealed class LightChannelSetting
     {

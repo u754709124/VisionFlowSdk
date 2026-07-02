@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Vision.Flow.Core.Runtime.Queues
 {
     /// <summary>
-    /// �������������ģ����������¼�ʱ���ڶ�λ���̡��ڵ�� Token��
+    /// 队列任务上下文，发布队列事件时用于定位流程、节点和 Token。
     /// </summary>
     public sealed class FlowTaskQueueItemContext
     {

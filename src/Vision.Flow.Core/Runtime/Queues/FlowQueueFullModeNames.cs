@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.Queues
 {
     /// <summary>
-    /// �������ش�������ַ���������
+    /// 队列满载处理策略字符串常量。
     /// </summary>
     public static class FlowQueueFullModeNames
     {

@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // ���������״̬�������߼��͹������ɵ㱣���ڸ��ļ���
+    // 设计器核心状态、构造逻辑和公开集成点保留在根文件。
     internal enum DesignerInteractionMode
     {
         Edit = 0,

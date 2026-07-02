@@ -24,7 +24,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // ������״̬�͹������ڸ��ļ������幤����ϸ�ڷ��� partial �ļ��С�
+    // 主窗体状态和构造留在根文件，具体工作流细节放在 partial 文件中。
     public sealed partial class MainForm : Form
     {
         private readonly UiFlowEventSink _eventSink;

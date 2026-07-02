@@ -4,7 +4,7 @@ using System.IO;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ͼ�񱣴����������̷��ر���״̬��·���͸���Ԫ���ݡ�
+    /// 图像保存结果，向流程返回保存状态、路径和附加元数据。
     /// </summary>
     public sealed class ImageSaveResult
     {

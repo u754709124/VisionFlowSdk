@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // ���л����Ա��������ļ����������̬/����̬���롣
+    // 序列化测试保护流程文件往返和设计态/运行态分离。
     internal static class SerializationTests
     {
         public static Task RuntimeRoundTrip()

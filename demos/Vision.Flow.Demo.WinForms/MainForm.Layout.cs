@@ -24,7 +24,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // ���ָ��������������� Demo ������������Ƭ������ͼ��Ԥ����
+    // 布局辅助方法构建生产 Demo 的命令栏、卡片、表格和图像预览。
     public sealed partial class MainForm
     {
         private Control CreateCommandBar()

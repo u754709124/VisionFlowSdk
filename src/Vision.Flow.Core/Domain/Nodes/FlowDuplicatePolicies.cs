@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
-    /// �ظ����봦����Գ�����
+    /// 重复输入处理策略常量。
     /// </summary>
     public static class FlowDuplicatePolicies
     {

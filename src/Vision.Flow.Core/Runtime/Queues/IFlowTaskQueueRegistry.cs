@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.Queues
 {
     /// <summary>
-    /// ����ע���ӿڣ������ڶ���ڵ�֮�临�þ������ж��С�
+    /// 队列注册表接口，用于在多个节点之间复用具名运行队列。
     /// </summary>
     public interface IFlowTaskQueueRegistry
     {

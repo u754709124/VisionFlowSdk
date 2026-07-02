@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // ���Կ����ڽ�����ע���ִ�б��š�
+    // 测试框架入口仅保留注册和执行编排。
     internal static class Program
     {
         private static int Main()
@@ -48,6 +48,7 @@ namespace Vision.Flow.Tests
             {
                 new TestCase("FlowToken supports Set/Get/TryGet", FlowTokenTests.SetGetTryGet),
                 new TestCase("Flow protocol constants keep existing wire values", FlowProtocolConstantsTests.ConstantsKeepExistingWireValues),
+                new TestCase("Source text files do not contain corrupted Chinese markers", SourceTextEncodingTests.TextFilesDoNotContainCorruptedChineseMarkers),
                 new TestCase("Runtime serialization round-trips without view state", SerializationTests.RuntimeRoundTrip),
                 new TestCase("Design serialization round-trips runtime and view state", SerializationTests.DesignRoundTrip),
                 new TestCase("Legacy design serialization uses default canvas size", SerializationTests.DesignMissingCanvasSizeUsesDefaults),

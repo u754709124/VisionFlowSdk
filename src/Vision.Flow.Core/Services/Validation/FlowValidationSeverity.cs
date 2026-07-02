@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Services.Validation
 {
     /// <summary>
-    /// ����У���������ؼ���
+    /// 流程校验问题严重级别。
     /// </summary>
     public enum FlowValidationSeverity
     {

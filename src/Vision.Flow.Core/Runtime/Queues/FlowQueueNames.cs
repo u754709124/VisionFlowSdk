@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.Queues
 {
     /// <summary>
-    /// ���ж������Ƴ����������ڵ������������Ǳ���Ĭ�϶�����һ�¡�
+    /// 运行队列名称常量，公共节点和设计器用它们保持默认队列名一致。
     /// </summary>
     public static class FlowQueueNames
     {

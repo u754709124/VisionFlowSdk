@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // �ĵ����������������ģ�塢�ڵ�༭��ѡ��״̬������ˢ�¡�
+    // 文档辅助方法负责设计模板、节点编辑、选择状态和属性刷新。
     public sealed partial class FlowDesignerControl
     {
         private void CreateNewDesign()

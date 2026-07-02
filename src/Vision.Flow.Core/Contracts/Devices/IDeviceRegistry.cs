@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// �豸������ע��������ʱ�ڵ�ֻ��ͨ���ýӿڻ�ȡ�������Դ���˿ء��㷨�ʹ洢��������
+    /// 设备适配器注册表，运行时节点只能通过该接口获取相机、光源、运控、算法和存储适配器。
     /// </summary>
     public interface IDeviceRegistry
     {

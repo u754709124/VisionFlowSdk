@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // ���в��Ը��������������ڵ�ʹ�õ��н��ִ̨����Ϊ��
+    // 队列测试覆盖重型适配器节点使用的有界后台执行行为。
     internal static class FlowTaskQueueTests
     {
         public static async Task CapacityRejectsAndPublishesEvents()

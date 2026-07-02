@@ -24,7 +24,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // ���и�������������� flowruntime �ļ������� FlowRunner �������ڲ�������ڡ�
+    // 运行辅助方法负责加载 flowruntime 文件、管理 FlowRunner 生命周期并触发入口。
     public sealed partial class MainForm
     {
         private void SeedSummaryData()

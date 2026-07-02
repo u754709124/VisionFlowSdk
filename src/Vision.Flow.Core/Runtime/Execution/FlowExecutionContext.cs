@@ -11,7 +11,7 @@ using Vision.Flow.Core.Runtime.State;
 namespace Vision.Flow.Core.Runtime.Execution
 {
     /// <summary>
-    /// ���νڵ�ִ�������ģ��ۺ����̶��塢Token�������ء��豸�����к��¼����ڡ�
+    /// 单次节点执行上下文，聚合流程定义、Token、变量池、设备、队列和事件出口。
     /// </summary>
     public sealed class FlowExecutionContext
     {

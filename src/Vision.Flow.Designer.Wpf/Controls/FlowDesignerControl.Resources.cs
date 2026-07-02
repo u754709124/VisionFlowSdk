@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // ��Դ�����������й��������ɫ�� WPF �ؼ�ģ�塣
+    // 资源辅助方法集中管理共享颜色和 WPF 控件模板。
     public sealed partial class FlowDesignerControl
     {
         private static NodeRegistry CreateDefaultNodeRegistry()

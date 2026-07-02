@@ -5,7 +5,7 @@ using System.Globalization;
 namespace Vision.Flow.Core.Runtime.State
 {
     /// <summary>
-    /// �����ؽӿڣ��ڵ��������ͨ����д�벢�������ڵ㰴���ƶ�ȡ��
+    /// 变量池接口，节点输出变量通过它写入并供后续节点按名称读取。
     /// </summary>
     public interface IVariablePool
     {
@@ -23,7 +23,7 @@ namespace Vision.Flow.Core.Runtime.State
     }
 
     /// <summary>
-    /// �̰߳�ȫ������ʵ�֣�����һ�����������еĽڵ����������
+    /// 线程安全变量池实现，保存一次流程运行中的节点输出变量。
     /// </summary>
     public sealed class VariablePool : IVariablePool
     {

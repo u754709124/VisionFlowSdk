@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // ͨ�ýڵ���Է���һ�𣬸��ǹ���ע��ͼ򵥽ڵ���Ϊ��
+    // 通用节点测试放在一起，覆盖共享注册和简单节点行为。
     internal static class CommonNodeTests
     {
         public static Task RegisterAllResolvesFactories()

@@ -5,7 +5,7 @@ using Vision.Flow.Core.Runtime.Execution;
 namespace Vision.Flow.Core.Contracts.Nodes
 {
     /// <summary>
-    /// ����ʱ�ڵ�ӿڣ����й����ڵ�ͨ������Լ����ִ�����档
+    /// 运行时节点接口，所有公共节点通过该契约接入执行引擎。
     /// </summary>
     public interface IFlowNode
     {

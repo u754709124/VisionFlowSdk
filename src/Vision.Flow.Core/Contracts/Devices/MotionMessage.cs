@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// �˿���Ϣģ�ͣ������˿�������֮�䴫�ݵ�λ���ɼ����ɨ���������ġ�
+    /// 运控消息模型，用于运控与流程之间传递点位、采集组和扫描组上下文。
     /// </summary>
     public sealed class MotionMessage
     {

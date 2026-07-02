@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Contracts.Devices
 {
     /// <summary>
-    /// ��������������������������λ�����ֿ����ò�����
+    /// 相机参数描述，用于设计器或上位机呈现可配置参数。
     /// </summary>
     public sealed class CameraParameterDescriptor
     {

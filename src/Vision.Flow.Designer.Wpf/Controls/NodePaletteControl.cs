@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // �ڵ��ؼ�����ڵ����Ŀ��Ⱦ�������ڵ�����
+    // 节点库控件负责节点库条目渲染和新增节点请求。
     public sealed class NodePaletteControl : Border
     {
         private readonly StackPanel _items;
@@ -77,7 +77,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         {
             _isReadOnly = isReadOnly;
             Opacity = isReadOnly ? 0.64 : 1.0;
-            ToolTip = isReadOnly ? "��������ģʽ�²��������ڵ㡣" : null;
+            ToolTip = isReadOnly ? "调试运行模式下不可新增节点。" : null;
             foreach (var button in _descriptorButtons)
             {
                 button.IsEnabled = !isReadOnly;

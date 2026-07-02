@@ -8,7 +8,7 @@ using Vision.Flow.Core.Runtime.Execution;
 namespace Vision.Flow.Nodes
 {
     /// <summary>
-    /// ִ������֧�ڵ����ã�Ŀǰ����Ҫ���������
+    /// 执行流分支节点配置，目前不需要额外参数。
     /// </summary>
     public sealed class SplitNodeConfig
     {

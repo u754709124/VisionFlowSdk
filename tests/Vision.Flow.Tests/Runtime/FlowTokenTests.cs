@@ -25,7 +25,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // ����ʱ���Ʋ��Ծ۽�����ִ�й���ı�����ȡ��Ϊ��
+    // 运行时令牌测试聚焦流程执行共享的变量存取行为。
     internal static class FlowTokenTests
     {
         public static Task SetGetTryGet()

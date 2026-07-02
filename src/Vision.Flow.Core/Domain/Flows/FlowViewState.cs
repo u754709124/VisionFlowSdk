@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Vision.Flow.Core.Domain.Flows
 {
     /// <summary>
-    /// �����������ͼ״̬�������������������̬�ļ���
+    /// 设计器画布视图状态，不允许进入生产运行态文件。
     /// </summary>
     public sealed class FlowViewState
     {
@@ -25,12 +25,12 @@ namespace Vision.Flow.Core.Domain.Flows
         public double OffsetY { get; set; }
 
         /// <summary>
-        /// �����������ȣ������� `.flowdesign` ��ͼ״̬����������̬ʱ�����Ƴ���
+        /// 设计器画布宽度，仅用于 `.flowdesign` 视图状态，发布运行态时必须移除。
         /// </summary>
         public double CanvasWidth { get; set; }
 
         /// <summary>
-        /// ����������߶ȣ������� `.flowdesign` ��ͼ״̬����������̬ʱ�����Ƴ���
+        /// 设计器画布高度，仅用于 `.flowdesign` 视图状态，发布运行态时必须移除。
         /// </summary>
         public double CanvasHeight { get; set; }
 

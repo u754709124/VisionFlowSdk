@@ -4,7 +4,7 @@ using Vision.Flow.Core.Runtime.Engine;
 namespace Vision.Flow.Core.Domain.Flows
 {
     /// <summary>
-    /// ��������̬���̶��壬WinForms ��λ������ `.flowruntime` ���� `FlowRunner` ִ�С�
+    /// 生产运行态流程定义，WinForms 上位机加载 `.flowruntime` 后由 `FlowRunner` 执行。
     /// </summary>
     public sealed class RuntimeFlowDefinition
     {
@@ -26,17 +26,17 @@ namespace Vision.Flow.Core.Domain.Flows
         public string Version { get; set; }
 
         /// <summary>
-        /// ����̬�ڵ㼯�ϣ�ֻ����ִ��������Ϣ��
+        /// 运行态节点集合，只包含执行所需信息。
         /// </summary>
         public List<NodeDefinition> Nodes { get; set; }
 
         /// <summary>
-        /// ���������߼��ϣ�������˿����������ڵ���ȡ�
+        /// 控制流连线集合，按输出端口驱动后续节点调度。
         /// </summary>
         public List<EdgeDefinition> Edges { get; set; }
 
         /// <summary>
-        /// �ⲿ�¼��ɴ�����������ڡ�
+        /// 外部事件可触发的流程入口。
         /// </summary>
         public List<FlowEntryDefinition> Entries { get; set; }
 

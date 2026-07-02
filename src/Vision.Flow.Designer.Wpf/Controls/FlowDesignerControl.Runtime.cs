@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // ���и�������������롢�������������У����� FlowRunner �¼��ش����������
+    // 运行辅助方法负责编译、发布、调试运行，并将 FlowRunner 事件回传到设计器。
     public sealed partial class FlowDesignerControl
     {
         private void OpenDesign()

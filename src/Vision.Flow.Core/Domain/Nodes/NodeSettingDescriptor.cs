@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
-    /// �ڵ�������������������������Ա༭������ǰУ�顣
+    /// 节点配置项描述，驱动设计器属性编辑和运行前校验。
     /// </summary>
     public sealed class NodeSettingDescriptor
     {

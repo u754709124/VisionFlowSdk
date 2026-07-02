@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.CameraFrames
 {
     /// <summary>
-    /// ֡������Դ������
+    /// 帧索引来源常量。
     /// </summary>
     public static class FrameIndexSources
     {

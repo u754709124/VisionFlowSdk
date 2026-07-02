@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Runtime.Queues
 {
     /// <summary>
-    /// ��������������ã����������������Ⱥ����ز��ԡ�
+    /// 运行任务队列配置，控制容量、并发度和满载策略。
     /// </summary>
     public sealed class FlowTaskQueueOptions
     {

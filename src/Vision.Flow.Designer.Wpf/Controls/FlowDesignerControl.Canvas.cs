@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // �������������������š�ƽ�ơ��ڵ���ק���˿�ê���������Ⱦ��
+    // 画布辅助方法管理缩放、平移、节点拖拽、端口锚点和连线渲染。
     public sealed partial class FlowDesignerControl
     {
         private void ApplyCanvasViewState()
@@ -172,7 +172,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (shiftX > 0 || shiftY > 0)
             {
-                // �����ϲ�����ʱ����ƽ�����̬���꣬���Ᵽ�渺���ꡣ
+                // 左侧或上侧扩张时整体平移设计态坐标，避免保存负坐标。
                 TranslateDesignNodes(shiftX, shiftY);
                 _document.View.CanvasWidth += shiftX;
                 _document.View.CanvasHeight += shiftY;
@@ -217,7 +217,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (shiftX > 0 || shiftY > 0)
             {
-                // ͬ���ƶ���ǰ��Ⱦ��͹���ƫ�ƣ����ӿڿ�����ֻ������/�ϳ����¿ռ䡣
+                // 同步移动当前渲染层和滚动偏移，让视口看起来只是向左/上长出新空间。
                 TranslateDesignNodes(shiftX, shiftY);
                 ShiftRenderedNodeCards(shiftX, shiftY);
                 _document.View.CanvasWidth += shiftX;
@@ -268,7 +268,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (shiftX > 0 || shiftY > 0)
             {
-                // �ӽڵ�������½ڵ�ʱ�����ýڵ���ק�Ļ������Ź��򣬱��������Ϊ�Ǹ����̬���ꡣ
+                // 从节点库拖入新节点时，沿用节点拖拽的画布扩张规则，保持坐标均为非负设计态坐标。
                 TranslateDesignNodes(shiftX, shiftY);
                 ShiftRenderedNodeCards(shiftX, shiftY);
                 _document.View.CanvasWidth += shiftX;
