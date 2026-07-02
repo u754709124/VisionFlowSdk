@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -16,16 +16,15 @@ using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
 
 namespace Vision.Flow.Designer.Wpf.ViewModels
 {
-    // 设计器 ViewModel 是供设计器控件共享的轻量状态载体。
+    // 璁捐鍣?ViewModel 鏄緵璁捐鍣ㄦ帶浠跺叡浜殑杞婚噺鐘舵€佽浇浣撱€?
     /// <summary>
-    /// 设计器根视图模型，承载当前设计态流程文档。
+    /// 璁捐鍣ㄦ牴瑙嗗浘妯″瀷锛屾壙杞藉綋鍓嶈璁℃€佹祦绋嬫枃妗ｃ€?
     /// </summary>
     public sealed class FlowDesignerViewModel
     {

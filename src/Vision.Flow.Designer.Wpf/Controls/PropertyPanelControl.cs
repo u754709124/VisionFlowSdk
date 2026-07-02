@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -16,7 +16,6 @@ using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -31,7 +30,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 属性面板控件负责编辑节点设置和变量绑定。
+    // 灞炴€ч潰鏉挎帶浠惰礋璐ｇ紪杈戣妭鐐硅缃拰鍙橀噺缁戝畾銆?
     public sealed class PropertyPanelControl : Border
     {
         private readonly StackPanel _rows;
@@ -336,23 +335,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 items.Add("Camera01");
             }
-            else if (string.Equals(setting.Name, "LightId", StringComparison.OrdinalIgnoreCase))
-            {
-                items.Add("Light01");
-            }
-            else if (string.Equals(setting.Name, "RecipeId", StringComparison.OrdinalIgnoreCase))
-            {
-                items.Add("Recipe01");
-            }
-            else if (string.Equals(setting.Name, "DatabaseId", StringComparison.OrdinalIgnoreCase))
-            {
-                items.Add("VisionDb");
-            }
-            else if (string.Equals(setting.Name, FlowSettingNames.SaverId, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(setting.Name, FlowSettingNames.ImageSaverId, StringComparison.OrdinalIgnoreCase))
-            {
-                items.Add("ImageSave01");
-            }
             else if (string.Equals(setting.Name, FlowSettingNames.MatchMode, StringComparison.OrdinalIgnoreCase))
             {
                 AddWireValues<CameraFrameMatchMode>(items);
@@ -365,10 +347,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 AddWireValues<CameraStreamOutputMode>(items);
             }
-            else if (string.Equals(setting.Name, FlowSettingNames.FrameIndexSource, StringComparison.OrdinalIgnoreCase))
-            {
-                AddWireValues<FrameIndexSource>(items);
-            }
             else if (string.Equals(setting.Name, FlowSettingNames.DuplicatePolicy, StringComparison.OrdinalIgnoreCase))
             {
                 AddWireValues<FlowDuplicatePolicy>(items);
@@ -380,18 +358,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             else if (string.Equals(setting.Name, FlowSettingNames.Level, StringComparison.OrdinalIgnoreCase))
             {
                 AddWireValues<FlowLogLevel>(items);
-            }
-            else if (string.Equals(setting.Name, FlowSettingNames.QueueFullMode, StringComparison.OrdinalIgnoreCase))
-            {
-                AddWireValues<FlowTaskQueueFullMode>(items);
-            }
-            else if (string.Equals(setting.Name, FlowSettingNames.QueueName, StringComparison.OrdinalIgnoreCase))
-            {
-                items.Add(FlowQueueNames.Recipe);
-                items.Add(FlowQueueNames.ImageSave);
-                items.Add(FlowQueueNames.DatabaseSave);
-                items.Add(FlowQueueNames.FramePreprocess);
-                items.Add(FlowQueueNames.Fusion);
             }
 
             return items;

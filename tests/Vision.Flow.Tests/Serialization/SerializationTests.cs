@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,7 +10,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -25,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 序列化测试保护流程文件往返和设计态/运行态分离。
+    // 搴忓垪鍖栨祴璇曚繚鎶ゆ祦绋嬫枃浠跺線杩斿拰璁捐鎬?杩愯鎬佸垎绂汇€?
     internal static class SerializationTests
     {
         public static Task RuntimeRoundTrip()

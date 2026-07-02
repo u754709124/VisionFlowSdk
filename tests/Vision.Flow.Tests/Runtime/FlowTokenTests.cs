@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,7 +10,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -25,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 运行时令牌测试聚焦流程执行共享的变量存取行为。
+    // 杩愯鏃朵护鐗屾祴璇曡仛鐒︽祦绋嬫墽琛屽叡浜殑鍙橀噺瀛樺彇琛屼负銆?
     internal static class FlowTokenTests
     {
         public static Task SetGetTryGet()

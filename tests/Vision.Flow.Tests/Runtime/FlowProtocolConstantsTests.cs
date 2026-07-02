@@ -1,14 +1,13 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 
 namespace Vision.Flow.Tests
 {
-    // 协议常量测试保护节点、端口、事件和文件扩展名等 wire value，避免重构目录时误改生产文件协议。
+    // 鍗忚甯搁噺娴嬭瘯淇濇姢鑺傜偣銆佺鍙ｃ€佷簨浠跺拰鏂囦欢鎵╁睍鍚嶇瓑 wire value锛岄伩鍏嶉噸鏋勭洰褰曟椂璇敼鐢熶骇鏂囦欢鍗忚銆?
     internal static class FlowProtocolConstantsTests
     {
         public static Task ConstantsKeepExistingWireValues()
@@ -34,9 +33,7 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("LeftBinding", FlowSettingNames.LeftBinding, "condition left binding wire value");
 
             AssertEx.Equal("VariableName", FlowRuntimeDataKeys.VariableName, "runtime event variable data key");
-            AssertEx.Equal("QueueName", FlowRuntimeDataKeys.QueueName, "runtime queue data key");
             AssertEx.Equal("ElapsedMs", FlowRuntimeDataKeys.ElapsedMs, "runtime elapsed data key");
-            AssertEx.Equal("default", FlowQueueNames.Default, "default queue name wire value");
 
             AssertEx.Equal("NodeIdDuplicate", FlowValidationIssueCodes.NodeIdDuplicate, "validation code wire value");
             AssertEx.Equal("RuntimeContainsViewState", FlowValidationIssueCodes.RuntimeContainsViewState, "runtime view-state validation code wire value");
@@ -57,8 +54,6 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("TriggerId", FlowEnumConverter.ToWireValue(CameraFrameMatchMode.TriggerId), "camera match mode enum wire value");
             AssertEx.Equal("StreamFrames", FlowEnumConverter.ToWireValue(CameraCallbackMode.StreamFrames), "camera callback mode enum wire value");
             AssertEx.Equal("PerFrame", FlowEnumConverter.ToWireValue(CameraStreamOutputMode.PerFrame), "camera stream output mode enum wire value");
-            AssertEx.Equal("Metadata", FlowEnumConverter.ToWireValue(FrameIndexSource.Metadata), "frame index source enum wire value");
-            AssertEx.Equal("StopFlow", FlowEnumConverter.ToWireValue(FlowTaskQueueFullMode.StopFlow), "queue full mode enum wire value");
 
             FlowDuplicatePolicy duplicatePolicy;
             AssertEx.True(FlowEnumConverter.TryParse("replace", out duplicatePolicy), "Duplicate policy should parse case-insensitively.");

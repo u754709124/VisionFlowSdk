@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -16,7 +16,6 @@ using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -31,7 +30,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 文档辅助方法负责设计模板、节点编辑、选择状态和属性刷新。
+    // 鏂囨。杈呭姪鏂规硶璐熻矗璁捐妯℃澘銆佽妭鐐圭紪杈戙€侀€夋嫨鐘舵€佸拰灞炴€у埛鏂般€?
     public sealed partial class FlowDesignerControl
     {
         private void CreateNewDesign()
@@ -466,12 +465,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             AddVariableSuggestion(items, "token", "ProductId");
             AddVariableSuggestion(items, "token", "WorkpieceId");
             AddVariableSuggestion(items, "token", "PositionId");
-            AddVariableSuggestion(items, "token", "CaptureGroupId");
-            AddVariableSuggestion(items, "token", "ScanGroupId");
             AddVariableSuggestion(items, "token", "TriggerId");
             AddVariableSuggestion(items, "token", "FrameId");
-            AddVariableSuggestion(items, "token", "ShotIndex");
-            AddVariableSuggestion(items, "token", "FrameIndex");
             AddVariableSuggestion(items, "token", "Image");
             AddVariableSuggestion(items, "token", "Frame");
         }

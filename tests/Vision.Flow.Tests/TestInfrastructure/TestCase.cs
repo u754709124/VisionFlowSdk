@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,7 +10,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -25,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 小型测试用例包装器，供控制台测试框架复用。
+    // 灏忓瀷娴嬭瘯鐢ㄤ緥鍖呰鍣紝渚涙帶鍒跺彴娴嬭瘯妗嗘灦澶嶇敤銆?
     internal sealed class TestCase
     {
         private readonly Func<Task> _runAsync;

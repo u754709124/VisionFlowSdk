@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,7 +10,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -25,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 记录节点为 FlowRunner 测试提供确定性的运行探针。
+    // 璁板綍鑺傜偣涓?FlowRunner 娴嬭瘯鎻愪緵纭畾鎬х殑杩愯鎺㈤拡銆?
     internal sealed class RecordingNodeFactory : INodeFactory
     {
         public const string TypeName = "test.record";

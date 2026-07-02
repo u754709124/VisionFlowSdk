@@ -14,12 +14,6 @@ namespace Vision.Flow.Core.Runtime.Events
         NodeFailed = 6,
         NodeTimeout = 7,
         OutputProduced = 8,
-        ImageProduced = 9,
-        QueueWarning = 10,
-        QueueEnqueued = 11,
-        QueueStarted = 12,
-        QueueCompleted = 13,
-        QueueFailed = 14,
-        QueueRejected = 15
+        ImageProduced = 9
     }
 }

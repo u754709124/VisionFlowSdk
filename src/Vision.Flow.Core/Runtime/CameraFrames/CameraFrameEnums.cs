@@ -16,8 +16,7 @@ namespace Vision.Flow.Core.Runtime.CameraFrames
     {
         TriggerId = 0,
         Any = 1,
-        TimeWindow = 2,
-        ScanGroupId = 3
+        TimeWindow = 2
     }
 
     /// <summary>
@@ -29,12 +28,4 @@ namespace Vision.Flow.Core.Runtime.CameraFrames
         PerFrame = 1
     }
 
-    /// <summary>
-    /// 相机帧索引的来源。
-    /// </summary>
-    public enum FrameIndexSource
-    {
-        Increment = 0,
-        Metadata = 1
-    }
 }

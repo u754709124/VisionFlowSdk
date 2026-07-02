@@ -1,4 +1,4 @@
-# 03 - Runtime Design
+﻿# 03 - Runtime Design
 
 ## 目标
 
@@ -49,12 +49,11 @@ Core 内置节点只覆盖流程控制和变量能力：
 
 - `IDeviceRegistry`
 - `ICameraFrameRouter`
-- `IFlowTaskQueueRegistry`
 - `IFlowContinuationDispatcher`
 
 这些服务是扩展节点的基础契约，不表示 SDK 内置对应设备节点。
 
-对应命名空间分别为 `Vision.Flow.Core.Contracts.Devices`、`Vision.Flow.Core.Runtime.CameraFrames`、`Vision.Flow.Core.Runtime.Queues` 和 `Vision.Flow.Core.Runtime.Engine / Vision.Flow.Core.Runtime.Execution / Vision.Flow.Core.Runtime.State`。
+对应命名空间分别为 `Vision.Flow.Core.Contracts.Devices`、`Vision.Flow.Core.Runtime.CameraFrames`、`Vision.Flow.Core.Runtime.Engine / Vision.Flow.Core.Runtime.Execution / Vision.Flow.Core.Runtime.State`。
 
 ## 线程规则
 

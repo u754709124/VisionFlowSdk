@@ -7,8 +7,6 @@ namespace Vision.Flow.Core.Runtime.Events
     {
         public const string VariableName = "VariableName";
         public const string Value = "Value";
-        public const string QueueName = "QueueName";
-        public const string QueueDepth = "QueueDepth";
         public const string Depth = "Depth";
         public const string Capacity = "Capacity";
         public const string MaxDegreeOfParallelism = "MaxDegreeOfParallelism";

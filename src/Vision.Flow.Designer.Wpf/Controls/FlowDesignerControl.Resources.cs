@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -16,7 +16,6 @@ using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -31,7 +30,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 资源辅助方法集中管理共享颜色和 WPF 控件模板。
+    // 璧勬簮杈呭姪鏂规硶闆嗕腑绠＄悊鍏变韩棰滆壊鍜?WPF 鎺т欢妯℃澘銆?
     public sealed partial class FlowDesignerControl
     {
         private static NodeRegistry CreateDefaultNodeRegistry()

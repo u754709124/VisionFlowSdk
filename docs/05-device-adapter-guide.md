@@ -9,14 +9,11 @@ Adapter 契约让项目专属节点可以调用现有上位机设备、算法、
 Core 保留 Adapter 接口和数据契约，例如：
 
 - `ICameraAdapter`
-- `ILightAdapter`
-- `IMotionAdapter`
-- `IRecipeAdapter`
-- `IImageSaveAdapter`
-- `IDatabaseAdapter`
 - `IVisionImage`
 
 SDK 不再内置 Fake Adapter 项目，也不再内置设备节点。Fake 设备和真实设备适配器应由具体项目、Demo 或测试项目自行提供。
+
+光源、运动、Recipe、图像保存、数据库保存和队列服务不再作为 Core 公共契约发布；项目如需这些能力，应在项目专属节点库或上位机应用中定义自己的接口。
 
 ## 规则
 

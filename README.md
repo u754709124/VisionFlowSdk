@@ -19,6 +19,8 @@
 
 生产 WinForms 上位机只需要引用 `Vision.Flow.Core.dll`。需要嵌入设计器或调试工具时再引用 `Vision.Flow.Designer.Wpf.dll`。
 
+Core Adapter 公共面当前只保留相机查找、相机帧路由和图像引用契约。光源、运动、Recipe、保存、数据库、队列以及扫描/融合分组能力由具体项目或项目专属节点库自行定义。
+
 ## 公共 API 命名空间
 
 Core 公共类型按职责拆分命名空间，生产运行常用引用如下：

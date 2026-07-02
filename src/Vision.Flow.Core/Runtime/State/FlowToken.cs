@@ -5,7 +5,7 @@ using System.Globalization;
 namespace Vision.Flow.Core.Runtime.State
 {
     /// <summary>
-    /// 流程执行 Token，承载单次工件、点位、组帧和扫描上下文。
+    /// 流程执行 Token，承载单次工件、点位和通用业务上下文。
     /// </summary>
     public sealed class FlowToken
     {
@@ -29,16 +29,6 @@ namespace Vision.Flow.Core.Runtime.State
         public string WorkpieceId { get; set; }
 
         public string PositionId { get; set; }
-
-        /// <summary>
-        /// 采集组 ID，用于多点位图像组汇合。
-        /// </summary>
-        public string CaptureGroupId { get; set; }
-
-        /// <summary>
-        /// 扫描组 ID，用于连续扫描帧汇合。
-        /// </summary>
-        public string ScanGroupId { get; set; }
 
         public string FrameId { get; set; }
 

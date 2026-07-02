@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -16,7 +16,6 @@ using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -31,7 +30,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 设计器核心状态、构造逻辑和公开集成点保留在根文件。
+    // 璁捐鍣ㄦ牳蹇冪姸鎬併€佹瀯閫犻€昏緫鍜屽叕寮€闆嗘垚鐐逛繚鐣欏湪鏍规枃浠躲€?
     internal enum DesignerInteractionMode
     {
         Edit = 0,

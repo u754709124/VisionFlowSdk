@@ -27,7 +27,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             try
             {
                 var flowNode = GetOrCreateNode(node);
-                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices, _cameraFrames, _queues, this, flowRunId);
+                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices, _cameraFrames, this, flowRunId);
                 result = await flowNode.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
                 if (result == null)
                 {

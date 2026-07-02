@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -16,7 +16,6 @@ using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -31,7 +30,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 节点卡片和端口控件渲染画布节点及连线手柄。
+    // 鑺傜偣鍗＄墖鍜岀鍙ｆ帶浠舵覆鏌撶敾甯冭妭鐐瑰強杩炵嚎鎵嬫焺銆?
     public sealed class NodeCardControl : Border
     {
         private readonly TextBlock _title;
@@ -580,13 +579,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private static string FormatElapsedSuffix(TimeSpan? elapsed)
         {
-            return elapsed.HasValue ? " · " + FormatElapsed(elapsed.Value) : string.Empty;
+            return elapsed.HasValue ? " 路 " + FormatElapsed(elapsed.Value) : string.Empty;
         }
 
         private static string FormatMessageSuffix(object message)
         {
             var text = Convert.ToString(message, CultureInfo.InvariantCulture);
-            return string.IsNullOrWhiteSpace(text) ? string.Empty : " · " + ToShortText(text);
+            return string.IsNullOrWhiteSpace(text) ? string.Empty : " 路 " + ToShortText(text);
         }
 
         private static Brush GetNodeAccentBrush(string nodeType)
@@ -597,20 +596,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return FlowDesignerControl.BrushFromRgb(59, 130, 246);
             }
 
-            if (type.StartsWith(FlowNodeTypePrefixes.Light, StringComparison.OrdinalIgnoreCase))
-            {
-                return FlowDesignerControl.BrushFromRgb(245, 158, 11);
-            }
-
-            if (type.StartsWith(FlowNodeTypePrefixes.Database, StringComparison.OrdinalIgnoreCase))
-            {
-                return FlowDesignerControl.BrushFromRgb(20, 184, 166);
-            }
-
-            if (type.StartsWith(FlowNodeTypePrefixes.Join, StringComparison.OrdinalIgnoreCase) ||
-                type.StartsWith(FlowNodeTypePrefixes.Group, StringComparison.OrdinalIgnoreCase) ||
-                type.StartsWith(FlowNodeTypePrefixes.Scan, StringComparison.OrdinalIgnoreCase) ||
-                type.StartsWith(FlowNodeTypePrefixes.Fusion, StringComparison.OrdinalIgnoreCase))
+            if (type.StartsWith(FlowNodeTypePrefixes.Join, StringComparison.OrdinalIgnoreCase))
             {
                 return FlowDesignerControl.BrushFromRgb(14, 165, 233);
             }
@@ -640,11 +626,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (type.StartsWith(FlowNodeTypePrefixes.Camera, StringComparison.OrdinalIgnoreCase))
             {
                 return "CAM";
-            }
-
-            if (type.StartsWith(FlowNodeTypePrefixes.Database, StringComparison.OrdinalIgnoreCase))
-            {
-                return "DB";
             }
 
             if (type.IndexOf("branch", StringComparison.OrdinalIgnoreCase) >= 0 ||

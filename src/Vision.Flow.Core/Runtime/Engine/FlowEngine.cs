@@ -5,7 +5,6 @@ using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Execution;
-using Vision.Flow.Core.Runtime.Queues;
 
 namespace Vision.Flow.Core.Runtime.Engine
 {
@@ -15,7 +14,6 @@ namespace Vision.Flow.Core.Runtime.Engine
         private readonly IFlowEventSink _eventSink;
         private readonly IDeviceRegistry _devices;
         private readonly ICameraFrameRouter _cameraFrames;
-        private readonly IFlowTaskQueueRegistry _queues;
         private readonly FlowExecutionOptions _options;
 
         public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink = null)
@@ -43,17 +41,6 @@ namespace Vision.Flow.Core.Runtime.Engine
             IFlowEventSink eventSink,
             IDeviceRegistry devices,
             ICameraFrameRouter cameraFrames,
-            IFlowTaskQueueRegistry queues)
-            : this(nodeRegistry, eventSink, devices, cameraFrames, queues, null)
-        {
-        }
-
-        public FlowEngine(
-            NodeRegistry nodeRegistry,
-            IFlowEventSink eventSink,
-            IDeviceRegistry devices,
-            ICameraFrameRouter cameraFrames,
-            IFlowTaskQueueRegistry queues,
             FlowExecutionOptions options)
         {
             if (nodeRegistry == null)
@@ -65,7 +52,6 @@ namespace Vision.Flow.Core.Runtime.Engine
             _eventSink = eventSink ?? new InMemoryFlowEventSink();
             _devices = devices ?? EmptyDeviceRegistry.Instance;
             _cameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
-            _queues = queues ?? new FlowTaskQueueRegistry(_eventSink);
             _options = CloneOptions(options);
         }
 
@@ -76,7 +62,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                 throw new ArgumentNullException("definition");
             }
 
-            return new FlowRunner(definition, _nodeRegistry, _eventSink, _devices, _cameraFrames, _queues, _options);
+            return new FlowRunner(definition, _nodeRegistry, _eventSink, _devices, _cameraFrames, _options);
         }
 
         private static FlowExecutionOptions CloneOptions(FlowExecutionOptions options)

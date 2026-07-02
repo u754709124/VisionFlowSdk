@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,7 +10,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -25,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 流程运行器测试覆盖调度、路由、取消和运行事件行为。
+    // 娴佺▼杩愯鍣ㄦ祴璇曡鐩栬皟搴︺€佽矾鐢便€佸彇娑堝拰杩愯浜嬩欢琛屼负銆?
     internal static class FlowRunnerTests
     {
         public static async Task LinearOrderAndVariables()
@@ -234,7 +233,7 @@ namespace Vision.Flow.Tests
         {
             var registry = new NodeRegistry();
             registry.Register(new RecordingNodeFactory(executionLog));
-            return new FlowEngine(registry, sink, null, null, null, options).CreateRunner(flow);
+            return new FlowEngine(registry, sink, null, null, options).CreateRunner(flow);
         }
 
         private static RuntimeFlowDefinition CreateLinearFlow(bool includeOutputs)

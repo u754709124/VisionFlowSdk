@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,7 +10,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -25,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 校验与发布测试把类似编译器的检查和运行态发布覆盖放在一起。
+    // 鏍￠獙涓庡彂甯冩祴璇曟妸绫讳技缂栬瘧鍣ㄧ殑妫€鏌ュ拰杩愯鎬佸彂甯冭鐩栨斁鍦ㄤ竴璧枫€?
     internal static class FlowValidationPublishTests
     {
         public static Task DuplicateNodeIdReturnsError()

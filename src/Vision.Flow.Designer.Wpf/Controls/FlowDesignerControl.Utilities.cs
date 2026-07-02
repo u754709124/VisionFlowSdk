@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -16,7 +16,6 @@ using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -31,7 +30,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 工具辅助方法统一处理示例路径、绑定文本、连线标签和可视树查找。
+    // 宸ュ叿杈呭姪鏂规硶缁熶竴澶勭悊绀轰緥璺緞銆佺粦瀹氭枃鏈€佽繛绾挎爣绛惧拰鍙鏍戞煡鎵俱€?
     public sealed partial class FlowDesignerControl
     {
         private static string GetSampleFlowDirectory()

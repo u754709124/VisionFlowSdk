@@ -27,8 +27,7 @@ namespace Vision.Flow.Core.Domain.Nodes
         Object = 6,
         DateTime = 7,
         IVisionImage = 8,
-        CameraFrameData = 9,
-        RecipeRunResult = 10
+        CameraFrameData = 9
     }
 
     /// <summary>

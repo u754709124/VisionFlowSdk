@@ -35,7 +35,6 @@ using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Nodes;
 
@@ -55,7 +54,6 @@ var runner = new FlowRunner(flow, nodes, eventSink);
 
 - `IDeviceRegistry`
 - `ICameraFrameRouter`
-- `IFlowTaskQueueRegistry`
 - `FlowExecutionOptions`
 
 ## Flow Files

@@ -131,7 +131,7 @@ The WPF designer may compile a `.flowdesign` to `.flowruntime` for debugging or 
 
 - `FlowRunner` supports output-port fan-out graph scheduling through the published runtime edges.
 - Station-specific camera callback nodes can use `ICameraFrameRouter` / `DefaultCameraFrameRouter` for trigger, scan group, or stream matching.
-- Station-specific heavy nodes can use a shared bounded `IFlowTaskQueueRegistry` for recipe, image-save, database, or algorithm work.
+- Station-specific heavy nodes should define their own queue or background execution service outside the SDK.
 - `IVisionImage` references are disposable and should be cloned before queued or delayed downstream work.
 '@ | Set-Content -Path (Join-Path $sdkArtifacts "README-INTEGRATION.md") -Encoding UTF8
 

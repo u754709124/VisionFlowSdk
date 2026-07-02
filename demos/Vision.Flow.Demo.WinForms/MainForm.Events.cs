@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -11,7 +11,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -24,7 +23,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // 事件辅助方法集中处理运行事件显示、Token 摘要和输出预览。
+    // 浜嬩欢杈呭姪鏂规硶闆嗕腑澶勭悊杩愯浜嬩欢鏄剧ず銆乀oken 鎽樿鍜岃緭鍑洪瑙堛€?
     public sealed partial class MainForm
     {
         private void AddEvent(string source, string eventName, string detail)
@@ -99,7 +98,7 @@ namespace Vision.Flow.Demo.WinForms
         {
             for (var row = 0; row < _eventGrid.Rows.Count; row++)
             {
-                // 事件表格面向人工查看，运行输出值直接从事件负载采集更可靠。
+                // 浜嬩欢琛ㄦ牸闈㈠悜浜哄伐鏌ョ湅锛岃繍琛岃緭鍑哄€肩洿鎺ヤ粠浜嬩欢璐熻浇閲囬泦鏇村彲闈犮€?
             }
 
             return _eventSink.TryGetOutput(variableName);

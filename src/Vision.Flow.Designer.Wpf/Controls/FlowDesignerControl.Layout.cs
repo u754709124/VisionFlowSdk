@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -16,7 +16,6 @@ using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -31,7 +30,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 布局辅助方法构建静态外壳、工具栏、画布宿主和通用界面框架。
+    // 甯冨眬杈呭姪鏂规硶鏋勫缓闈欐€佸澹炽€佸伐鍏锋爮銆佺敾甯冨涓诲拰閫氱敤鐣岄潰妗嗘灦銆?
     public sealed partial class FlowDesignerControl
     {
         private UIElement CreateShell()
@@ -104,8 +103,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             dock.Children.Add(buttons);
 
-            _editModeButton = CreateToolbarButton("编辑", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
-            _debugModeButton = CreateToolbarButton("调试运行", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
+            _editModeButton = CreateToolbarButton("缂栬緫", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
+            _debugModeButton = CreateToolbarButton("璋冭瘯杩愯", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
             buttons.Children.Add(_editModeButton);
             buttons.Children.Add(_debugModeButton);
             buttons.Children.Add(CreateToolbarSpacer());

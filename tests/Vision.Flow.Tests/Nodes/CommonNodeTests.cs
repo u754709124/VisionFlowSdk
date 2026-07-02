@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,7 +10,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -25,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 通用节点测试放在一起，覆盖共享注册和简单节点行为。
+    // 閫氱敤鑺傜偣娴嬭瘯鏀惧湪涓€璧凤紝瑕嗙洊鍏变韩娉ㄥ唽鍜岀畝鍗曡妭鐐硅涓恒€?
     internal static class CommonNodeTests
     {
         public static Task RegisterAllResolvesFactories()

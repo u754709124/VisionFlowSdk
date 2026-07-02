@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -16,7 +16,6 @@ using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -31,7 +30,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 运行辅助方法负责编译、发布、调试运行，并将 FlowRunner 事件回传到设计器。
+    // 杩愯杈呭姪鏂规硶璐熻矗缂栬瘧銆佸彂甯冦€佽皟璇曡繍琛岋紝骞跺皢 FlowRunner 浜嬩欢鍥炰紶鍒拌璁″櫒銆?
     public sealed partial class FlowDesignerControl
     {
         private void OpenDesign()
@@ -357,8 +356,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 ProductId = "DemoProduct",
                 WorkpieceId = "WP-" + DateTime.Now.ToString("HHmmss", CultureInfo.InvariantCulture),
-                PositionId = "P1",
-                CaptureGroupId = "SingleShot"
+                PositionId = "P1"
             };
         }
 

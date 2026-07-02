@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -11,7 +11,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -24,7 +23,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // 主窗体状态和构造留在根文件，具体工作流细节放在 partial 文件中。
+    // 涓荤獥浣撶姸鎬佸拰鏋勯€犵暀鍦ㄦ牴鏂囦欢锛屽叿浣撳伐浣滄祦缁嗚妭鏀惧湪 partial 鏂囦欢涓€?
     public sealed partial class MainForm : Form
     {
         private readonly UiFlowEventSink _eventSink;

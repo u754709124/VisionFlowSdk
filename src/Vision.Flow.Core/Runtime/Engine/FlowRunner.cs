@@ -8,7 +8,6 @@ using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Execution;
-using Vision.Flow.Core.Runtime.Queues;
 
 namespace Vision.Flow.Core.Runtime.Engine
 {
@@ -21,7 +20,6 @@ namespace Vision.Flow.Core.Runtime.Engine
         private readonly IFlowEventSink _eventSink;
         private readonly IDeviceRegistry _devices;
         private readonly ICameraFrameRouter _cameraFrames;
-        private readonly IFlowTaskQueueRegistry _queues;
         private readonly FlowExecutionOptions _options;
         private readonly Dictionary<string, IFlowNode> _nodeInstances;
         private CancellationTokenSource _runnerCancellation;
@@ -52,18 +50,6 @@ namespace Vision.Flow.Core.Runtime.Engine
             IFlowEventSink eventSink,
             IDeviceRegistry devices,
             ICameraFrameRouter cameraFrames,
-            IFlowTaskQueueRegistry queues)
-            : this(definition, nodeRegistry, eventSink, devices, cameraFrames, queues, null)
-        {
-        }
-
-        public FlowRunner(
-            RuntimeFlowDefinition definition,
-            NodeRegistry nodeRegistry,
-            IFlowEventSink eventSink,
-            IDeviceRegistry devices,
-            ICameraFrameRouter cameraFrames,
-            IFlowTaskQueueRegistry queues,
             FlowExecutionOptions options)
         {
             if (definition == null)
@@ -82,7 +68,6 @@ namespace Vision.Flow.Core.Runtime.Engine
             _eventSink = eventSink ?? new InMemoryFlowEventSink();
             _devices = devices ?? EmptyDeviceRegistry.Instance;
             _cameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
-            _queues = queues ?? new FlowTaskQueueRegistry(_eventSink);
             _options = CloneOptions(options);
             _nodeInstances = new Dictionary<string, IFlowNode>(StringComparer.OrdinalIgnoreCase);
         }

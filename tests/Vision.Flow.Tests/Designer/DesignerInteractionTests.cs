@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -12,7 +12,6 @@ using System.Windows.Media;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -27,7 +26,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // Designer 控件测试在 STA 线程运行，覆盖调试只读模式和节点运行状态摘要。
+    // Designer 鎺т欢娴嬭瘯鍦?STA 绾跨▼杩愯锛岃鐩栬皟璇曞彧璇绘ā寮忓拰鑺傜偣杩愯鐘舵€佹憳瑕併€?
     internal static class DesignerInteractionTests
     {
         public static Task PropertyPanelReadOnlyDisablesEditors()

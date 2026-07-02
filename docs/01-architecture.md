@@ -80,4 +80,4 @@ Upper-machine app
 
 ## Runtime 服务
 
-Core 仍提供 `IDeviceRegistry`、`ICameraFrameRouter`、`IFlowTaskQueueRegistry`、`IVisionImage` 等契约，供项目专属节点复用。SDK 不再内置使用这些契约的设备节点。
+Core 仅保留 `IDeviceRegistry` 的相机查找能力、`ICameraFrameRouter` 和 `IVisionImage` 等相机/图像基础契约。光源、运控、Recipe、保存、数据库、队列和扫描/融合分组能力由项目专属节点库自行定义和注册。

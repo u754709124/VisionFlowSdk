@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,7 +10,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -25,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 测试框架入口仅保留注册和执行编排。
+    // 娴嬭瘯妗嗘灦鍏ュ彛浠呬繚鐣欐敞鍐屽拰鎵ц缂栨帓銆?
     internal static class Program
     {
         private static int Main()
@@ -49,6 +48,10 @@ namespace Vision.Flow.Tests
                 new TestCase("FlowToken supports Set/Get/TryGet", FlowTokenTests.SetGetTryGet),
                 new TestCase("Flow protocol constants keep existing wire values", FlowProtocolConstantsTests.ConstantsKeepExistingWireValues),
                 new TestCase("Flow enum wire values keep existing strings", FlowProtocolConstantsTests.EnumWireValuesKeepExistingStrings),
+                new TestCase("Non-camera contracts are not exposed", ApiSurfaceReductionTests.NonCameraContractsAreNotExposed),
+                new TestCase("Queue runtime is not exposed", ApiSurfaceReductionTests.QueueRuntimeIsNotExposed),
+                new TestCase("Camera surface does not expose grouped frame fields", ApiSurfaceReductionTests.CameraSurfaceDoesNotExposeGroupedFrameFields),
+                new TestCase("Domain constants do not expose removed names", ApiSurfaceReductionTests.DomainConstantsDoNotExposeRemovedNames),
                 new TestCase("Source text files do not contain corrupted Chinese markers", SourceTextEncodingTests.TextFilesDoNotContainCorruptedChineseMarkers),
                 new TestCase("Runtime serialization round-trips without view state", SerializationTests.RuntimeRoundTrip),
                 new TestCase("Design serialization round-trips runtime and view state", SerializationTests.DesignRoundTrip),
@@ -75,9 +78,6 @@ namespace Vision.Flow.Tests
                 new TestCase("FlowRunner detects cycles on the current execution path", FlowRunnerTests.CycleRouteThrows),
                 new TestCase("FlowRunner reports a clear missing entry exception", FlowRunnerTests.MissingEntryThrows),
                 new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
-                new TestCase("FlowTaskQueue enforces capacity and publishes events", FlowTaskQueueTests.CapacityRejectsAndPublishesEvents),
-                new TestCase("FlowTaskQueue supports drop stop and notify full modes", FlowTaskQueueTests.DropStopAndNotifyFullModes),
-                new TestCase("FlowTaskQueueRegistry reuses named queues", FlowTaskQueueTests.RegistryReusesNamedQueues),
                 new TestCase("Core CameraFrameRouter routes frames from local test camera", CoreDeviceContractTests.CameraFrameRouterRoutesLocalTestCamera),
                 new TestCase("Core CameraFrameRouter routes frames with strong match mode", CoreDeviceContractTests.CameraFrameRouterRoutesWithStrongMatchMode),
                 new TestCase("VisionImageReference supports clone and disposal", CoreDeviceContractTests.VisionImageReferenceLifecycle),

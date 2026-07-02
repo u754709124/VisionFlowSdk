@@ -91,16 +91,6 @@ namespace Vision.Flow.Nodes
                 return token.PositionId;
             }
 
-            if (string.Equals(name, "CaptureGroupId", StringComparison.OrdinalIgnoreCase))
-            {
-                return token.CaptureGroupId;
-            }
-
-            if (string.Equals(name, "ScanGroupId", StringComparison.OrdinalIgnoreCase))
-            {
-                return token.ScanGroupId;
-            }
-
             if (string.Equals(name, "FrameId", StringComparison.OrdinalIgnoreCase))
             {
                 return token.FrameId;

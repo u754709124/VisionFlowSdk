@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -11,7 +11,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -24,7 +23,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // 布局辅助方法构建生产 Demo 的命令栏、卡片、表格和图像预览。
+    // 甯冨眬杈呭姪鏂规硶鏋勫缓鐢熶骇 Demo 鐨勫懡浠ゆ爮銆佸崱鐗囥€佽〃鏍煎拰鍥惧儚棰勮銆?
     public sealed partial class MainForm
     {
         private Control CreateCommandBar()

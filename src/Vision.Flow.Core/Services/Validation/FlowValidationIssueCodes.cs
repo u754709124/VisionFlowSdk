@@ -41,8 +41,6 @@ namespace Vision.Flow.Core.Services.Validation
         public const string CameraCallbackModeInvalid = "CameraCallbackModeInvalid";
         public const string CameraMatchModeInvalid = "CameraMatchModeInvalid";
         public const string CameraStreamOutputModeInvalid = "CameraStreamOutputModeInvalid";
-        public const string QueueNameMissing = "QueueNameMissing";
-        public const string QueueFullModeInvalid = "QueueFullModeInvalid";
         public const string DuplicatePolicyInvalid = "DuplicatePolicyInvalid";
         public const string SettingValueInvalid = "SettingValueInvalid";
     }

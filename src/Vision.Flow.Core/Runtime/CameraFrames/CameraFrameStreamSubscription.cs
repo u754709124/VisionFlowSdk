@@ -27,11 +27,7 @@ namespace Vision.Flow.Core.Runtime.CameraFrames
 
         public CameraFrameWaitTicket Ticket { get; private set; }
 
-        public string QueueName { get; set; }
-
         public int MaxFrameCount { get; set; }
-
-        public string ScanGroupId { get; set; }
 
         internal bool IsDisposed
         {

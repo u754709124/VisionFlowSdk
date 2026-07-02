@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -11,7 +11,6 @@ using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -24,7 +23,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // 运行辅助方法负责加载 flowruntime 文件、管理 FlowRunner 生命周期并触发入口。
+    // 杩愯杈呭姪鏂规硶璐熻矗鍔犺浇 flowruntime 鏂囦欢銆佺鐞?FlowRunner 鐢熷懡鍛ㄦ湡骞惰Е鍙戝叆鍙ｃ€?
     public sealed partial class MainForm
     {
         private void SeedSummaryData()

@@ -1,11 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -20,7 +19,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // Core 设备契约测试只使用本地最小桩，避免 SDK 测试依赖 Fake Adapter 项目。
+    // Core 璁惧濂戠害娴嬭瘯鍙娇鐢ㄦ湰鍦版渶灏忔々锛岄伩鍏?SDK 娴嬭瘯渚濊禆 Fake Adapter 椤圭洰銆?
     internal static class CoreDeviceContractTests
     {
         public static async Task CameraFrameRouterRoutesLocalTestCamera()
