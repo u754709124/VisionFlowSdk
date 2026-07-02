@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace Vision.Flow.Core
+namespace Vision.Flow.Core.Devices
 {
     public sealed class VisionImageReference : IVisionImage
     {

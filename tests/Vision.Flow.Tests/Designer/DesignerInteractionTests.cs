@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -9,8 +9,20 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using Vision.Flow.Core;
-using Vision.Flow.Designer.Wpf;
+using Vision.Flow.Core.Constants;
+using Vision.Flow.Core.Definitions;
+using Vision.Flow.Core.Descriptors;
+using Vision.Flow.Core.Devices;
+using Vision.Flow.Core.Publishing;
+using Vision.Flow.Core.Registry;
+using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Runtime.CameraFrames;
+using Vision.Flow.Core.Runtime.Events;
+using Vision.Flow.Core.Runtime.Queues;
+using Vision.Flow.Core.Serialization;
+using Vision.Flow.Core.Validation;
+using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
@@ -248,7 +260,7 @@ namespace Vision.Flow.Tests
 
         private static void SetDesignerMode(FlowDesignerControl control, string modeName)
         {
-            var modeType = typeof(FlowDesignerControl).Assembly.GetType("Vision.Flow.Designer.Wpf.DesignerInteractionMode");
+            var modeType = typeof(FlowDesignerControl).Assembly.GetType("Vision.Flow.Designer.Wpf.Controls.DesignerInteractionMode");
             AssertEx.NotNull(modeType, "Designer interaction mode type should exist.");
             SetPrivateField(control, "_interactionMode", Enum.Parse(modeType, modeName));
         }

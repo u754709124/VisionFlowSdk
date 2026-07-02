@@ -7,14 +7,14 @@ Runtime 必须能在没有 WPF Designer 的生产进程中加载 `.flowruntime` 
 ## 核心类型
 
 ```text
-FlowEngine
-FlowRunner
-FlowExecutionContext
-FlowToken
-VariablePool
-NodeRegistry
-FlowRuntimeEvent
-RuntimeFlowPlan
+Vision.Flow.Core.Runtime.FlowEngine
+Vision.Flow.Core.Runtime.FlowRunner
+Vision.Flow.Core.Runtime.FlowExecutionContext
+Vision.Flow.Core.Runtime.FlowToken
+Vision.Flow.Core.Runtime.VariablePool
+Vision.Flow.Core.Registry.NodeRegistry
+Vision.Flow.Core.Runtime.Events.FlowRuntimeEvent
+Vision.Flow.Core.Runtime.RuntimeFlowPlan
 ```
 
 ## 执行模型
@@ -53,6 +53,8 @@ Core 内置节点只覆盖流程控制和变量能力：
 - `IFlowContinuationDispatcher`
 
 这些服务是扩展节点的基础契约，不表示 SDK 内置对应设备节点。
+
+对应命名空间分别为 `Vision.Flow.Core.Devices`、`Vision.Flow.Core.Runtime.CameraFrames`、`Vision.Flow.Core.Runtime.Queues` 和 `Vision.Flow.Core.Runtime`。
 
 ## 线程规则
 

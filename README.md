@@ -19,6 +19,26 @@
 
 生产 WinForms 上位机只需要引用 `Vision.Flow.Core.dll`。需要嵌入设计器或调试工具时再引用 `Vision.Flow.Designer.Wpf.dll`。
 
+## 公共 API 命名空间
+
+Core 公共类型按职责拆分命名空间，生产运行常用引用如下：
+
+```csharp
+using Vision.Flow.Core.Definitions;
+using Vision.Flow.Core.Registry;
+using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Runtime.Events;
+using Vision.Flow.Core.Serialization;
+using Vision.Flow.Core.Validation;
+using Vision.Flow.Nodes;
+```
+
+嵌入 WPF 设计器时使用：
+
+```csharp
+using Vision.Flow.Designer.Wpf.Controls;
+```
+
 ## 解决方案结构
 
 ```text

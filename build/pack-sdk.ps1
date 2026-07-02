@@ -77,6 +77,12 @@ Sample design/runtime flow files are copied to `artifacts/samples/flows`.
 Register Core node factories and any station-specific node factories implemented by the upper-machine application. Device, algorithm, image save, database, stitching, and fusion nodes now live in concrete projects instead of this SDK package.
 
 ```csharp
+using Vision.Flow.Core.Registry;
+using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Runtime.Events;
+using Vision.Flow.Core.Serialization;
+using Vision.Flow.Nodes;
+
 var nodes = new NodeRegistry();
 CommonNodeRegistration.RegisterAll(nodes);
 nodes.Register(new StationCameraTriggerNodeFactory(existingCamera));

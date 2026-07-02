@@ -29,6 +29,12 @@ condition.if
 
 宿主可以通过构造函数传入自己的 `NodeRegistry`，从而显示和调试项目专属设备/算法节点。
 
+嵌入设计器控件时引用：
+
+```csharp
+using Vision.Flow.Designer.Wpf.Controls;
+```
+
 ## 属性面板
 
 属性面板根据 `NodeSettingDescriptor` 动态生成编辑器。绑定类设置可以使用变量选择器引用上游输出：

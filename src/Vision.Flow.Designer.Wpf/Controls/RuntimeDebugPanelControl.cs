@@ -11,11 +11,24 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using Microsoft.Win32;
-using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 using ShapesPath = System.Windows.Shapes.Path;
+using Vision.Flow.Core.Constants;
+using Vision.Flow.Core.Definitions;
+using Vision.Flow.Core.Descriptors;
+using Vision.Flow.Core.Devices;
+using Vision.Flow.Core.Publishing;
+using Vision.Flow.Core.Registry;
+using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Runtime.CameraFrames;
+using Vision.Flow.Core.Runtime.Events;
+using Vision.Flow.Core.Runtime.Queues;
+using Vision.Flow.Core.Serialization;
+using Vision.Flow.Core.Validation;
+using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.ViewModels;
 
-namespace Vision.Flow.Designer.Wpf
+namespace Vision.Flow.Designer.Wpf.Controls
 {
     // 运行调试面板显示流程事件，并暴露节点导航请求。
     public sealed class RuntimeDebugPanelControl : Border

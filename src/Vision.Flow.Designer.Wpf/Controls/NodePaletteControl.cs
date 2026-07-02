@@ -11,26 +11,25 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using Microsoft.Win32;
-using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 using ShapesPath = System.Windows.Shapes.Path;
+using Vision.Flow.Core.Constants;
+using Vision.Flow.Core.Definitions;
+using Vision.Flow.Core.Descriptors;
+using Vision.Flow.Core.Devices;
+using Vision.Flow.Core.Publishing;
+using Vision.Flow.Core.Registry;
+using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Runtime.CameraFrames;
+using Vision.Flow.Core.Runtime.Events;
+using Vision.Flow.Core.Runtime.Queues;
+using Vision.Flow.Core.Serialization;
+using Vision.Flow.Core.Validation;
+using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.ViewModels;
 
-namespace Vision.Flow.Designer.Wpf
+namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 节点库拖拽事件只在 Designer 内部使用，用于把节点类型从左侧节点库带到画布。
-    public sealed class NodePaletteDragEventArgs : EventArgs
-    {
-        public NodePaletteDragEventArgs(NodeDescriptor descriptor, UIElement dragSource)
-        {
-            Descriptor = descriptor;
-            DragSource = dragSource;
-        }
-
-        public NodeDescriptor Descriptor { get; private set; }
-
-        public UIElement DragSource { get; private set; }
-    }
-
     // 节点库控件负责节点库条目渲染和新增节点请求。
     public sealed class NodePaletteControl : Border
     {

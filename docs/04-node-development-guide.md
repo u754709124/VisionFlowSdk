@@ -26,6 +26,18 @@ condition.if
 
 节点必须实现 `IFlowNode`，通过 `INodeFactory` 注册到 `NodeRegistry`。
 
+常用命名空间：
+
+```csharp
+using Vision.Flow.Core.Constants;
+using Vision.Flow.Core.Definitions;
+using Vision.Flow.Core.Descriptors;
+using Vision.Flow.Core.Devices;
+using Vision.Flow.Core.Registry;
+using Vision.Flow.Core.Runtime;
+using Vision.Flow.Nodes;
+```
+
 ## NodeType 命名
 
 Core 内置节点使用稳定协议值。项目专属节点建议使用项目或领域前缀，例如：

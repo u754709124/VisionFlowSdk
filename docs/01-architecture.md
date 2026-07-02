@@ -18,6 +18,8 @@ samples/flows
 
 负责流程定义、运行态模型、节点接口、执行引擎、变量池、运行事件、校验、发布、序列化、Adapter 契约和 Core 基础节点。
 
+公共 API 按职责放在 `Vision.Flow.Core.Definitions`、`Vision.Flow.Core.Registry`、`Vision.Flow.Core.Runtime`、`Vision.Flow.Core.Serialization`、`Vision.Flow.Core.Validation` 等命名空间中。内置节点源码命名空间仍为 `Vision.Flow.Nodes`，编译产物仍属于 `Vision.Flow.Core.dll`。
+
 Core 内置节点只包含：
 
 ```text
@@ -34,6 +36,8 @@ condition.if
 ### Vision.Flow.Designer.Wpf
 
 负责 WPF 设计器 UI：节点库、画布、连线、属性面板、变量选择器、调试面板、`.flowdesign` 保存/加载和 `.flowruntime` 发布。
+
+设计器控件公开在 `Vision.Flow.Designer.Wpf.Controls`，ViewModel 放在 `Vision.Flow.Designer.Wpf.ViewModels`。
 
 Designer 默认使用 Core 基础节点库，也允许宿主注入包含项目专属节点的 `NodeRegistry`。
 

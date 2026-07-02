@@ -11,11 +11,24 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using Microsoft.Win32;
-using Vision.Flow.Core;
 using Vision.Flow.Nodes;
 using ShapesPath = System.Windows.Shapes.Path;
+using Vision.Flow.Core.Constants;
+using Vision.Flow.Core.Definitions;
+using Vision.Flow.Core.Descriptors;
+using Vision.Flow.Core.Devices;
+using Vision.Flow.Core.Publishing;
+using Vision.Flow.Core.Registry;
+using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Runtime.CameraFrames;
+using Vision.Flow.Core.Runtime.Events;
+using Vision.Flow.Core.Runtime.Queues;
+using Vision.Flow.Core.Serialization;
+using Vision.Flow.Core.Validation;
+using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.ViewModels;
 
-namespace Vision.Flow.Designer.Wpf
+namespace Vision.Flow.Designer.Wpf.Controls
 {
     // 属性面板控件负责编辑节点设置和变量绑定。
     public sealed class PropertyPanelControl : Border
@@ -624,66 +637,4 @@ namespace Vision.Flow.Designer.Wpf
         }
     }
 
-    public sealed class VariableSelectorControl : Button
-    {
-        private readonly IList<string> _variables;
-
-        public VariableSelectorControl()
-            : this(null)
-        {
-        }
-
-        public VariableSelectorControl(IEnumerable<string> variables)
-        {
-            _variables = variables == null
-                ? new List<string>()
-                : variables
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            Content = "Var";
-            MinWidth = 44;
-            Height = 28;
-            Margin = new Thickness(6, 0, 0, 0);
-            ToolTip = "Insert a variable binding.";
-            Click += OnClick;
-        }
-
-        public event Action<string> VariableSelected;
-
-        private void OnClick(object sender, RoutedEventArgs e)
-        {
-            if (_variables.Count == 0)
-            {
-                RaiseVariableSelected("{{ node.Output }}");
-                return;
-            }
-
-            var menu = new ContextMenu
-            {
-                PlacementTarget = this
-            };
-            foreach (var variable in _variables)
-            {
-                var item = new MenuItem
-                {
-                    Header = variable
-                };
-                item.Click += delegate { RaiseVariableSelected(variable); };
-                menu.Items.Add(item);
-            }
-
-            ContextMenu = menu;
-            menu.IsOpen = true;
-        }
-
-        private void RaiseVariableSelected(string expression)
-        {
-            var handler = VariableSelected;
-            if (handler != null)
-            {
-                handler(expression);
-            }
-        }
-    }
 }

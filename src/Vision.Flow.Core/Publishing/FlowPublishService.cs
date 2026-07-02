@@ -1,29 +1,14 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Vision.Flow.Core.Definitions;
+using Vision.Flow.Core.Registry;
+using Vision.Flow.Core.Validation;
 
-namespace Vision.Flow.Core
+namespace Vision.Flow.Core.Publishing
 {
-    public sealed class FlowPublishResult
-    {
-        public FlowPublishResult(RuntimeFlowDefinition runtime, FlowValidationResult validation)
-        {
-            Runtime = runtime;
-            Validation = validation ?? new FlowValidationResult();
-        }
-
-        public RuntimeFlowDefinition Runtime { get; private set; }
-
-        public FlowValidationResult Validation { get; private set; }
-
-        public bool IsSuccess
-        {
-            get { return Validation.IsValid; }
-        }
-    }
-
     public sealed class FlowPublishService
     {
         private readonly FlowValidator _validator;

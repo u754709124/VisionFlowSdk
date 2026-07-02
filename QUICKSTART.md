@@ -19,7 +19,25 @@ VisionFlowSdk/
 ./build/test.ps1
 ```
 
-## 4. 关键约束
+## 4. 引用命名空间
+
+运行时宿主通常按职责引用 Core API：
+
+```csharp
+using Vision.Flow.Core.Registry;
+using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Runtime.Events;
+using Vision.Flow.Core.Serialization;
+using Vision.Flow.Nodes;
+```
+
+设计器宿主额外引用：
+
+```csharp
+using Vision.Flow.Designer.Wpf.Controls;
+```
+
+## 5. 关键约束
 
 - Core 不依赖 UI。
 - Core 内置节点只保留基础流程节点。
