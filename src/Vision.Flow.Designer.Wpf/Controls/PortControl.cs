@@ -7,7 +7,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 端口控件只负责端口手柄的命中区域和锚点计算。
+    // 端口控件只负责端口手柄的命中区域和锚点计算�?
     public sealed class PortControl : Border
     {
         private readonly Border _tab;

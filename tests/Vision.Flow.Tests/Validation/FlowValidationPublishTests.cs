@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -7,24 +7,25 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Nodes;
-using Vision.Flow.Core.Constants;
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Descriptors;
-using Vision.Flow.Core.Devices;
-using Vision.Flow.Core.Publishing;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Queues;
-using Vision.Flow.Core.Serialization;
-using Vision.Flow.Core.Validation;
+using Vision.Flow.Core.Services.Serialization;
+using Vision.Flow.Core.Services.Validation;
+using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Contracts.Devices;
+using Vision.Flow.Core.Services.Publishing;
+using Vision.Flow.Core.Contracts.Nodes;
+using Vision.Flow.Core.Runtime.Engine;
+using Vision.Flow.Core.Runtime.Execution;
+using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 校验与发布测试把类似编译器的检查和运行态发布覆盖放在一起。
+    // У���뷢�����԰����Ʊ������ļ�������̬�������Ƿ���һ��
     internal static class FlowValidationPublishTests
     {
         public static Task DuplicateNodeIdReturnsError()

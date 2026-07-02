@@ -1,0 +1,99 @@
+namespace Vision.Flow.Core.Domain.Nodes
+{
+    /// <summary>
+    /// �ڵ����ü����������ü���д�������ļ�����������塢�ڵ㹤����У������ͬ��ȡ��
+    /// </summary>
+    public static class FlowSettingNames
+    {
+        public const string CameraId = "CameraId";
+        public const string TriggerId = "TriggerId";
+        public const string CallbackMode = "CallbackMode";
+        public const string MatchMode = "MatchMode";
+        public const string StreamOutputMode = "StreamOutputMode";
+        public const string ScanGroupIdBinding = "ScanGroupIdBinding";
+        public const string TimeoutMs = "TimeoutMs";
+        public const string StableDelayMs = "StableDelayMs";
+        public const string ExpectedFrameCount = "ExpectedFrameCount";
+        public const string FrameTimeoutMs = "FrameTimeoutMs";
+        public const string AutoStopAfterExpectedFrameCount = "AutoStopAfterExpectedFrameCount";
+        public const string FrameIndexSource = "FrameIndexSource";
+        public const string StartFrameIndex = "StartFrameIndex";
+        public const string UseQueue = "UseQueue";
+        public const string QueueName = "QueueName";
+        public const string QueueCapacity = "QueueCapacity";
+        public const string QueueMaxDegreeOfParallelism = "QueueMaxDegreeOfParallelism";
+        public const string QueueFullMode = "QueueFullMode";
+        public const string WaitForCompletion = "WaitForCompletion";
+        public const string JoinKeyBinding = "JoinKeyBinding";
+        public const string ExpectedInputCount = "ExpectedInputCount";
+        public const string DuplicatePolicy = "DuplicatePolicy";
+        public const string LeftBinding = "LeftBinding";
+        public const string Operator = "Operator";
+        public const string RightValue = "RightValue";
+        public const string RightBinding = "RightBinding";
+        public const string DelayMs = "DelayMs";
+        public const string Message = "Message";
+        public const string Level = "Level";
+        public const string VariableName = "VariableName";
+        public const string Value = "Value";
+        public const string ValueBinding = "ValueBinding";
+        public const string ConstantValue = "ConstantValue";
+        public const string Binding = "Binding";
+        public const string Expression = "Expression";
+        public const string Name = "Name";
+        public const string ParameterName = "ParameterName";
+        public const string MotionId = "MotionId";
+        public const string MessageType = "MessageType";
+        public const string ResultBinding = "ResultBinding";
+        public const string PositionName = "PositionName";
+        public const string PositionId = "PositionId";
+        public const string LightId = "LightId";
+        public const string RecipeId = "RecipeId";
+        public const string InputImage = "InputImage";
+        public const string InputImageBinding = "InputImageBinding";
+        public const string DatabaseId = "DatabaseId";
+        public const string TableName = "TableName";
+        public const string SaverId = "SaverId";
+        public const string ImageSaverId = "ImageSaverId";
+        public const string ImageBinding = "ImageBinding";
+        public const string ResultImageBinding = "ResultImageBinding";
+        public const string RootDirectory = "RootDirectory";
+        public const string DirectoryTemplate = "DirectoryTemplate";
+        public const string FileNameTemplate = "FileNameTemplate";
+        public const string ImagePathTemplate = "ImagePathTemplate";
+        public const string FieldMappings = "FieldMappings";
+        public const string FieldName = "FieldName";
+        public const string Field = "Field";
+        public const string Column = "Column";
+        public const string InputName = "InputName";
+        public const string Input = "Input";
+        public const string ChannelSettings = "ChannelSettings";
+        public const string Channels = "Channels";
+        public const string ChannelName = "ChannelName";
+        public const string Channel = "Channel";
+        public const string IsEnabled = "IsEnabled";
+        public const string Enabled = "Enabled";
+        public const string Intensity = "Intensity";
+        public const string DurationMs = "DurationMs";
+        public const string CaptureGroupId = "CaptureGroupId";
+        public const string ScanGroupId = "ScanGroupId";
+        public const string CaptureGroupIdBinding = "CaptureGroupIdBinding";
+        public const string ShotIndexBinding = "ShotIndexBinding";
+        public const string ExpectedShotCount = "ExpectedShotCount";
+        public const string RequireContinuousShotIndex = "RequireContinuousShotIndex";
+        public const string FirstShotIndex = "FirstShotIndex";
+        public const string FrameBinding = "FrameBinding";
+        public const string FrameIdBinding = "FrameIdBinding";
+        public const string FrameIndexBinding = "FrameIndexBinding";
+        public const string FrameIndex = "FrameIndex";
+        public const string RequireContinuousFrameIndex = "RequireContinuousFrameIndex";
+        public const string FirstFrameIndex = "FirstFrameIndex";
+        public const string FrameGroupBinding = "FrameGroupBinding";
+        public const string ScanGroupBinding = "ScanGroupBinding";
+        public const string PreprocessedImageBinding = "PreprocessedImageBinding";
+        public const string PreprocessResultBinding = "PreprocessResultBinding";
+        public const string ScanGroupResultBinding = "ScanGroupResultBinding";
+        public const string Parameters = "Parameters";
+        public const string Disabled = "Disabled";
+    }
+}

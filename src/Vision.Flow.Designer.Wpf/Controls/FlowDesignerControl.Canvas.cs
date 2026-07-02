@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -13,24 +13,25 @@ using System.Windows.Shapes;
 using Microsoft.Win32;
 using Vision.Flow.Nodes;
 using ShapesPath = System.Windows.Shapes.Path;
-using Vision.Flow.Core.Constants;
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Descriptors;
-using Vision.Flow.Core.Devices;
-using Vision.Flow.Core.Publishing;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Queues;
-using Vision.Flow.Core.Serialization;
-using Vision.Flow.Core.Validation;
+using Vision.Flow.Core.Services.Serialization;
+using Vision.Flow.Core.Services.Validation;
+using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Contracts.Devices;
+using Vision.Flow.Core.Services.Publishing;
+using Vision.Flow.Core.Contracts.Nodes;
+using Vision.Flow.Core.Runtime.Engine;
+using Vision.Flow.Core.Runtime.Execution;
+using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 画布辅助方法管理缩放、平移、节点拖拽、端口锚点和连线渲染。
+    // �������������������š�ƽ�ơ��ڵ���ק���˿�ê���������Ⱦ��
     public sealed partial class FlowDesignerControl
     {
         private void ApplyCanvasViewState()
@@ -171,7 +172,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (shiftX > 0 || shiftY > 0)
             {
-                // 左侧或上侧扩张时整体平移设计态坐标，避免保存负坐标。
+                // �����ϲ�����ʱ����ƽ�����̬���꣬���Ᵽ�渺���ꡣ
                 TranslateDesignNodes(shiftX, shiftY);
                 _document.View.CanvasWidth += shiftX;
                 _document.View.CanvasHeight += shiftY;
@@ -216,7 +217,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (shiftX > 0 || shiftY > 0)
             {
-                // 同步移动当前渲染层和滚动偏移，让视口看起来只是向左/上长出新空间。
+                // ͬ���ƶ���ǰ��Ⱦ��͹���ƫ�ƣ����ӿڿ�����ֻ������/�ϳ����¿ռ䡣
                 TranslateDesignNodes(shiftX, shiftY);
                 ShiftRenderedNodeCards(shiftX, shiftY);
                 _document.View.CanvasWidth += shiftX;
@@ -267,7 +268,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (shiftX > 0 || shiftY > 0)
             {
-                // 从节点库拖入新节点时，沿用节点拖拽的画布扩张规则，保持坐标均为非负设计态坐标。
+                // �ӽڵ�������½ڵ�ʱ�����ýڵ���ק�Ļ������Ź��򣬱��������Ϊ�Ǹ����̬���ꡣ
                 TranslateDesignNodes(shiftX, shiftY);
                 ShiftRenderedNodeCards(shiftX, shiftY);
                 _document.View.CanvasWidth += shiftX;

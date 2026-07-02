@@ -2,7 +2,7 @@
 
 ## 内置节点边界
 
-SDK Core 只内置基础节点：
+SDK Core 只内置基础节点�?
 
 ```text
 delay.wait
@@ -13,9 +13,9 @@ join.and
 condition.if
 ```
 
-设备、算法、图像保存、数据库保存、拼图、融合等节点应放在具体项目或项目专属节点库中。
+设备、算法、图像保存、数据库保存、拼图、融合等节点应放在具体项目或项目专属节点库中�?
 
-## 新节点必须包含
+## 新节点必须包�?
 
 ```text
 {NodeName}Node
@@ -24,17 +24,23 @@ condition.if
 {NodeName}Descriptor
 ```
 
-节点必须实现 `IFlowNode`，通过 `INodeFactory` 注册到 `NodeRegistry`。
+节点必须实现 `IFlowNode`，通过 `INodeFactory` 注册�?`NodeRegistry`�?
 
-常用命名空间：
+常用命名空间�?
 
 ```csharp
-using Vision.Flow.Core.Constants;
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Descriptors;
-using Vision.Flow.Core.Devices;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Domain.Nodes;
+using Vision.Flow.Core.Runtime.CameraFrames;
+using Vision.Flow.Core.Runtime.Events;
+using Vision.Flow.Core.Runtime.Queues;
+using Vision.Flow.Core.Services.Serialization;
+using Vision.Flow.Core.Services.Validation;
+using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Contracts.Devices;
+using Vision.Flow.Core.Contracts.Nodes;
+using Vision.Flow.Core.Runtime.Engine;
+using Vision.Flow.Core.Runtime.Execution;
+using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Nodes;
 ```
 
@@ -50,22 +56,22 @@ station.database.save
 station.fusion.final
 ```
 
-不要在 Core 中重新加入项目专属 NodeType 常量。
+不要�?Core 中重新加入项目专�?NodeType 常量�?
 
 ## Adapter 访问
 
-设备节点只能通过 Core 中的 Adapter 契约访问外部设备或上位机服务：
+设备节点只能通过 Core 中的 Adapter 契约访问外部设备或上位机服务�?
 
 ```csharp
 var camera = context.Devices.GetCamera(cameraId);
 await camera.SoftTriggerAsync(triggerContext, cancellationToken);
 ```
 
-禁止节点直接引用具体 SDK 类型或旧上位机业务对象。
+禁止节点直接引用具体 SDK 类型或旧上位机业务对象�?
 
 ## Descriptor 要求
 
-Descriptor 必须声明：
+Descriptor 必须声明�?
 
 - NodeType
 - DisplayName
@@ -76,7 +82,7 @@ Descriptor 必须声明：
 - Settings
 - Outputs
 
-Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
+Designer 的节点库、属性面板和变量选择器都依赖 Descriptor�?
 
 ## 测试要求
 
@@ -88,4 +94,4 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 - Error / Timeout 路由
 - 输出变量
 - RuntimeEvent
-- 序列化/发布兼容性
+- 序列�?发布兼容�?

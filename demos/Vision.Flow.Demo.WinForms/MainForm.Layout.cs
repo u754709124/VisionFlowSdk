@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -8,22 +8,23 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Vision.Flow.Nodes;
-using Vision.Flow.Core.Constants;
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Descriptors;
-using Vision.Flow.Core.Devices;
-using Vision.Flow.Core.Publishing;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Queues;
-using Vision.Flow.Core.Serialization;
-using Vision.Flow.Core.Validation;
+using Vision.Flow.Core.Services.Serialization;
+using Vision.Flow.Core.Services.Validation;
+using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Contracts.Devices;
+using Vision.Flow.Core.Services.Publishing;
+using Vision.Flow.Core.Contracts.Nodes;
+using Vision.Flow.Core.Runtime.Engine;
+using Vision.Flow.Core.Runtime.Execution;
+using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // 布局辅助方法构建生产 Demo 的命令栏、卡片、表格和图像预览。
+    // ���ָ��������������� Demo ������������Ƭ������ͼ��Ԥ����
     public sealed partial class MainForm
     {
         private Control CreateCommandBar()

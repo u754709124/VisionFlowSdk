@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -13,24 +13,25 @@ using System.Windows.Shapes;
 using Microsoft.Win32;
 using Vision.Flow.Nodes;
 using ShapesPath = System.Windows.Shapes.Path;
-using Vision.Flow.Core.Constants;
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Descriptors;
-using Vision.Flow.Core.Devices;
-using Vision.Flow.Core.Publishing;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Queues;
-using Vision.Flow.Core.Serialization;
-using Vision.Flow.Core.Validation;
+using Vision.Flow.Core.Services.Serialization;
+using Vision.Flow.Core.Services.Validation;
+using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Contracts.Devices;
+using Vision.Flow.Core.Services.Publishing;
+using Vision.Flow.Core.Contracts.Nodes;
+using Vision.Flow.Core.Runtime.Engine;
+using Vision.Flow.Core.Runtime.Execution;
+using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 节点卡片和端口控件渲染画布节点及连线手柄。
+    // �ڵ㿨Ƭ�Ͷ˿ڿؼ���Ⱦ�����ڵ㼰�����ֱ���
     public sealed class NodeCardControl : Border
     {
         private readonly TextBlock _title;
@@ -384,7 +385,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _runtimeSummary.Visibility = Visibility.Visible;
             if (_isDisabled && _runtimeState == NodeRuntimeState.Waiting)
             {
-                ApplyRuntimeSummary("禁用", FlowDesignerControl.BrushFromRgb(100, 116, 139));
+                ApplyRuntimeSummary("����", FlowDesignerControl.BrushFromRgb(100, 116, 139));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(226, 232, 240);
                 _stateChip.ToolTip = "Disabled";
                 _stateText.Text = string.Empty;
@@ -393,7 +394,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (_runtimeState == NodeRuntimeState.Running)
             {
-                ApplyRuntimeSummary("运行中", FlowDesignerControl.BrushFromRgb(146, 64, 14));
+                ApplyRuntimeSummary("������", FlowDesignerControl.BrushFromRgb(146, 64, 14));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(245, 158, 11);
                 _stateChip.ToolTip = "Running";
                 _stateText.Text = string.Empty;
@@ -402,7 +403,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (_runtimeState == NodeRuntimeState.Completed)
             {
-                ApplyRuntimeSummary("成功" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(21, 128, 61));
+                ApplyRuntimeSummary("�ɹ�" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(21, 128, 61));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(16, 185, 129);
                 _stateChip.ToolTip = elapsed.HasValue ? "Done " + FormatElapsed(elapsed.Value) : "Done";
                 _stateText.Text = string.Empty;
@@ -411,7 +412,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (_runtimeState == NodeRuntimeState.Failed)
             {
-                ApplyRuntimeSummary("失败" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(153, 27, 27));
+                ApplyRuntimeSummary("ʧ��" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(153, 27, 27));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(239, 68, 68);
                 _stateChip.ToolTip = elapsed.HasValue ? "Failed " + FormatElapsed(elapsed.Value) : "Failed";
                 _stateText.Text = string.Empty;
@@ -420,7 +421,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (_runtimeState == NodeRuntimeState.Timeout)
             {
-                ApplyRuntimeSummary("超时" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(154, 52, 18));
+                ApplyRuntimeSummary("��ʱ" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(154, 52, 18));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(249, 115, 22);
                 _stateChip.ToolTip = elapsed.HasValue ? "Timeout " + FormatElapsed(elapsed.Value) : "Timeout";
                 _stateText.Text = string.Empty;
@@ -429,14 +430,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (_runtimeState == NodeRuntimeState.Stopped)
             {
-                ApplyRuntimeSummary("已停止" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(71, 85, 105));
+                ApplyRuntimeSummary("��ֹͣ" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(71, 85, 105));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(100, 116, 139);
                 _stateChip.ToolTip = elapsed.HasValue ? "Stopped " + FormatElapsed(elapsed.Value) : "Stopped";
                 _stateText.Text = string.Empty;
                 return;
             }
 
-            ApplyRuntimeSummary("未运行", FlowDesignerControl.BrushFromRgb(100, 116, 139));
+            ApplyRuntimeSummary("δ����", FlowDesignerControl.BrushFromRgb(100, 116, 139));
             _stateChip.Background = FlowDesignerControl.BrushFromRgb(148, 163, 184);
             _stateChip.ToolTip = "Waiting";
             _stateText.Text = string.Empty;
@@ -579,13 +580,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private static string FormatElapsedSuffix(TimeSpan? elapsed)
         {
-            return elapsed.HasValue ? " · " + FormatElapsed(elapsed.Value) : string.Empty;
+            return elapsed.HasValue ? " �� " + FormatElapsed(elapsed.Value) : string.Empty;
         }
 
         private static string FormatMessageSuffix(object message)
         {
             var text = Convert.ToString(message, CultureInfo.InvariantCulture);
-            return string.IsNullOrWhiteSpace(text) ? string.Empty : " · " + ToShortText(text);
+            return string.IsNullOrWhiteSpace(text) ? string.Empty : " �� " + ToShortText(text);
         }
 
         private static Brush GetNodeAccentBrush(string nodeType)

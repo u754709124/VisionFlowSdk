@@ -8,12 +8,12 @@
 
 - `RuntimeFlowDefinition`
 - 节点坐标
-- 画布缩放与偏移
-- 节点折叠等设计态状态
+- 画布缩放与偏�?
+- 节点折叠等设计态状�?
 
 ### `.flowruntime`
 
-生产运行态文件，只包含运行所需信息：
+生产运行态文件，只包含运行所需信息�?
 
 - FlowId / FlowName / Version
 - Nodes
@@ -22,7 +22,7 @@
 - Settings
 - InputBindings
 
-`.flowruntime` 禁止包含 WPF 类型名、节点坐标、画布缩放、样式、Designer ViewModel 或 Debug-only UI 状态。
+`.flowruntime` 禁止包含 WPF 类型名、节点坐标、画布缩放、样式、Designer ViewModel �?Debug-only UI 状态�?
 
 ## Runtime 示例
 
@@ -67,4 +67,4 @@
 
 ## 扩展节点
 
-项目专属节点可以在 `settings` 和 `inputBindings` 中定义自己的协议字段。Core 只校验通用结构、端口、绑定和 Core 内置节点规则；设备/算法节点的语义校验由具体项目实现。
+项目专属节点可以�?`settings` �?`inputBindings` 中定义自己的协议字段。Core 只校验通用结构、端口、绑定和 Core 内置节点规则；设�?算法节点的语义校验由具体项目实现�?

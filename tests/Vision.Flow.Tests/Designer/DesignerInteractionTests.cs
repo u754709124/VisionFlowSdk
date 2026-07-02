@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -9,24 +9,25 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using Vision.Flow.Core.Constants;
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Descriptors;
-using Vision.Flow.Core.Devices;
-using Vision.Flow.Core.Publishing;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Queues;
-using Vision.Flow.Core.Serialization;
-using Vision.Flow.Core.Validation;
+using Vision.Flow.Core.Services.Serialization;
+using Vision.Flow.Core.Services.Validation;
+using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Contracts.Devices;
+using Vision.Flow.Core.Services.Publishing;
+using Vision.Flow.Core.Contracts.Nodes;
+using Vision.Flow.Core.Runtime.Engine;
+using Vision.Flow.Core.Runtime.Execution;
+using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // Designer 控件测试在 STA 线程运行，覆盖调试只读模式和节点运行状态摘要。
+    // Designer �ؼ������� STA �߳����У����ǵ���ֻ��ģʽ�ͽڵ�����״̬ժҪ��
     internal static class DesignerInteractionTests
     {
         public static Task PropertyPanelReadOnlyDisablesEditors()
@@ -157,9 +158,9 @@ namespace Vision.Flow.Tests
                 InvokePrivate(control, "MarkRunningNodeStatesStopped");
 
                 var texts = FindChildren<TextBlock>(card).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("已停止", StringComparison.OrdinalIgnoreCase) >= 0),
+                AssertEx.True(texts.Any(x => x.IndexOf("��ֹͣ", StringComparison.OrdinalIgnoreCase) >= 0),
                     "Stopping debug should move running cards out of Running and show a stopped state.");
-                AssertEx.False(texts.Any(x => x.IndexOf("运行中", StringComparison.OrdinalIgnoreCase) >= 0),
+                AssertEx.False(texts.Any(x => x.IndexOf("������", StringComparison.OrdinalIgnoreCase) >= 0),
                     "Stopped node card should not keep showing Running.");
             });
             return Task.FromResult(0);
@@ -226,14 +227,14 @@ namespace Vision.Flow.Tests
                 card.SetRuntimeState(NodeRuntimeState.Completed, TimeSpan.FromMilliseconds(12), null);
 
                 var texts = FindChildren<TextBlock>(card).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("成功", StringComparison.OrdinalIgnoreCase) >= 0 && x.IndexOf("12ms", StringComparison.OrdinalIgnoreCase) >= 0),
+                AssertEx.True(texts.Any(x => x.IndexOf("�ɹ�", StringComparison.OrdinalIgnoreCase) >= 0 && x.IndexOf("12ms", StringComparison.OrdinalIgnoreCase) >= 0),
                     "Completed node card should show success and elapsed time in the runtime summary.");
-                var summaryText = FindChildren<TextBlock>(card).FirstOrDefault(x => (x.Text ?? string.Empty).IndexOf("成功", StringComparison.OrdinalIgnoreCase) >= 0);
+                var summaryText = FindChildren<TextBlock>(card).FirstOrDefault(x => (x.Text ?? string.Empty).IndexOf("�ɹ�", StringComparison.OrdinalIgnoreCase) >= 0);
                 AssertRuntimeSummaryIsTextOnly(summaryText);
 
                 card.SetRuntimeState(NodeRuntimeState.Failed, TimeSpan.FromMilliseconds(34), "Camera timeout detail");
                 texts = FindChildren<TextBlock>(card).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("失败", StringComparison.OrdinalIgnoreCase) >= 0 && x.IndexOf("34ms", StringComparison.OrdinalIgnoreCase) >= 0),
+                AssertEx.True(texts.Any(x => x.IndexOf("ʧ��", StringComparison.OrdinalIgnoreCase) >= 0 && x.IndexOf("34ms", StringComparison.OrdinalIgnoreCase) >= 0),
                     "Failed node card should show failure and elapsed time in the runtime summary.");
                 AssertEx.True(Convert.ToString(card.ToolTip, CultureInfo.InvariantCulture).IndexOf("Camera timeout detail", StringComparison.OrdinalIgnoreCase) >= 0,
                     "Failed node card should keep the full failure reason in the tooltip.");

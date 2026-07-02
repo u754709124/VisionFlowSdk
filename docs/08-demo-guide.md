@@ -2,11 +2,11 @@
 
 ## Vision.Flow.Demo.WinForms
 
-用途：证明生产模式可以不打开 WPF Designer，直接加载 `.flowruntime` 并通过 `FlowRunner` 执行。
+用途：证明生产模式可以不打开 WPF Designer，直接加�?`.flowruntime` 并通过 `FlowRunner` 执行�?
 
-当前 Demo 使用 `samples/flows/core-basic.flowruntime`，只注册 Core 基础节点。
+当前 Demo 使用 `samples/flows/core-basic.flowruntime`，只注册 Core 基础节点�?
 
-功能：
+功能�?
 
 - 加载 `.flowruntime`
 - 注册 Core 基础节点
@@ -15,7 +15,7 @@
 - 显示 `FlowRuntimeEvent`
 - 显示输出摘要
 
-禁止：
+禁止�?
 
 - 打开 WPF Designer
 - 依赖 Canvas
@@ -23,9 +23,9 @@
 
 ## Vision.Flow.Demo.DesignerWpf
 
-用途：证明流程设计、调试和发布能力可用。
+用途：证明流程设计、调试和发布能力可用�?
 
-默认加载 Core 基础样例。具体项目可以宿主 `FlowDesignerControl` 并注入自己的节点注册表和调试设备。
+默认加载 Core 基础样例。具体项目可以宿�?`FlowDesignerControl` 并注入自己的节点注册表和调试设备�?
 
 ## Sample Flows
 

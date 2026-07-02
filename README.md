@@ -1,11 +1,11 @@
 # VisionFlowSdk
 
-`VisionFlowSdk` 是一个 UI 无关的工业视觉流程运行 SDK。当前 SDK 内置内容已收缩为：
+`VisionFlowSdk` 是一�?UI 无关的工业视觉流程运�?SDK。当�?SDK 内置内容已收缩为�?
 
-- `Vision.Flow.Core`：流程定义、执行引擎、发布/序列化、运行事件、变量池、Adapter 契约，以及基础流程节点。
-- `Vision.Flow.Designer.Wpf`：WPF 流程设计器，用于编辑、调试和发布 `.flowruntime`。
+- `Vision.Flow.Core`：流程定义、执行引擎、发�?序列化、运行事件、变量池、Adapter 契约，以及基础流程节点�?
+- `Vision.Flow.Designer.Wpf`：WPF 流程设计器，用于编辑、调试和发布 `.flowruntime`�?
 
-设备节点、算法节点、图像保存、数据库保存、拼图、融合等节点不再由 SDK 内置提供，应放在具体上位机项目或项目专属节点库中实现和注册。
+设备节点、算法节点、图像保存、数据库保存、拼图、融合等节点不再�?SDK 内置提供，应放在具体上位机项目或项目专属节点库中实现和注册�?
 
 ## 生产运行路径
 
@@ -17,23 +17,25 @@
   -> upper-machine devices / algorithms / storage
 ```
 
-生产 WinForms 上位机只需要引用 `Vision.Flow.Core.dll`。需要嵌入设计器或调试工具时再引用 `Vision.Flow.Designer.Wpf.dll`。
+生产 WinForms 上位机只需要引�?`Vision.Flow.Core.dll`。需要嵌入设计器或调试工具时再引�?`Vision.Flow.Designer.Wpf.dll`�?
 
 ## 公共 API 命名空间
 
-Core 公共类型按职责拆分命名空间，生产运行常用引用如下：
+Core 公共类型按职责拆分命名空间，生产运行常用引用如下�?
 
 ```csharp
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Contracts.Nodes;
+using Vision.Flow.Core.Runtime.Engine;
+using Vision.Flow.Core.Runtime.Execution;
+using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Serialization;
-using Vision.Flow.Core.Validation;
+using Vision.Flow.Core.Services.Serialization;
+using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Nodes;
 ```
 
-嵌入 WPF 设计器时使用：
+嵌入 WPF 设计器时使用�?
 
 ```csharp
 using Vision.Flow.Designer.Wpf.Controls;
@@ -57,7 +59,7 @@ docs
 
 ## Core 内置节点
 
-`CommonNodeRegistration.RegisterAll` 只注册以下基础节点：
+`CommonNodeRegistration.RegisterAll` 只注册以下基础节点�?
 
 ```text
 delay.wait
@@ -68,9 +70,9 @@ join.and
 condition.if
 ```
 
-这些类型位于 `Vision.Flow.Core.dll`，源码命名空间保留为 `Vision.Flow.Nodes`，方便既有调用方迁移。
+这些类型位于 `Vision.Flow.Core.dll`，源码命名空间保留为 `Vision.Flow.Nodes`，方便既有调用方迁移�?
 
-## 构建、测试、打包
+## 构建、测试、打�?
 
 ```powershell
 ./build/build.ps1
@@ -78,7 +80,7 @@ condition.if
 ./build/pack-sdk.ps1
 ```
 
-打包产物位于：
+打包产物位于�?
 
 ```text
 artifacts/sdk
@@ -87,7 +89,7 @@ artifacts/samples/flows
 
 ## 示例流程
 
-当前仓库示例只保留 Core 基础流程：
+当前仓库示例只保�?Core 基础流程�?
 
 ```text
 samples/flows/core-basic.flowdesign

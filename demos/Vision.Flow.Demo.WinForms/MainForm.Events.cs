@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -8,22 +8,23 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Vision.Flow.Nodes;
-using Vision.Flow.Core.Constants;
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Descriptors;
-using Vision.Flow.Core.Devices;
-using Vision.Flow.Core.Publishing;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Queues;
-using Vision.Flow.Core.Serialization;
-using Vision.Flow.Core.Validation;
+using Vision.Flow.Core.Services.Serialization;
+using Vision.Flow.Core.Services.Validation;
+using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Contracts.Devices;
+using Vision.Flow.Core.Services.Publishing;
+using Vision.Flow.Core.Contracts.Nodes;
+using Vision.Flow.Core.Runtime.Engine;
+using Vision.Flow.Core.Runtime.Execution;
+using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // 事件辅助方法集中处理运行事件显示、Token 摘要和输出预览。
+    // �¼������������д��������¼���ʾ��Token ժҪ�����Ԥ����
     public sealed partial class MainForm
     {
         private void AddEvent(string source, string eventName, string detail)
@@ -98,7 +99,7 @@ namespace Vision.Flow.Demo.WinForms
         {
             for (var row = 0; row < _eventGrid.Rows.Count; row++)
             {
-                // 事件表格面向人工查看，运行输出值直接从事件负载采集更可靠。
+                // �¼���������˹��鿴���������ֱֵ�Ӵ��¼����زɼ����ɿ���
             }
 
             return _eventSink.TryGetOutput(variableName);

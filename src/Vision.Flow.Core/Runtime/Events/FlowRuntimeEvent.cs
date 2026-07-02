@@ -1,30 +1,12 @@
-﻿using System;
-using System.Collections;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Web.Script.Serialization;
-using Vision.Flow.Core.Constants;
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Descriptors;
-using Vision.Flow.Core.Devices;
-using Vision.Flow.Core.Publishing;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
-using Vision.Flow.Core.Runtime.CameraFrames;
-using Vision.Flow.Core.Runtime.Events;
-using Vision.Flow.Core.Runtime.Queues;
-using Vision.Flow.Core.Serialization;
-using Vision.Flow.Core.Validation;
+using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Core.Runtime.Events
 {
     /// <summary>
-    /// 流程运行事件模型，用于 Runtime 向 UI、日志或生产上位机发布状态变化。
+    /// ���������¼�ģ�ͣ����� Runtime �� UI����־��������λ������״̬�仯��
     /// </summary>
     public sealed class FlowRuntimeEvent
     {
@@ -57,7 +39,7 @@ namespace Vision.Flow.Core.Runtime.Events
         public long ElapsedMs { get; set; }
 
         /// <summary>
-        /// 附加事件数据，键名应优先使用 `FlowRuntimeDataKeys` 常量。
+        /// �����¼����ݣ�����Ӧ����ʹ�� `FlowRuntimeDataKeys` ������
         /// </summary>
         public Dictionary<string, object> Data { get; set; }
 

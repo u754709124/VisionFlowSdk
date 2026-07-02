@@ -1,41 +1,57 @@
-﻿using System.Threading.Tasks;
-using Vision.Flow.Core.Constants;
-using Vision.Flow.Core.Definitions;
-using Vision.Flow.Core.Descriptors;
-using Vision.Flow.Core.Devices;
-using Vision.Flow.Core.Publishing;
-using Vision.Flow.Core.Registry;
-using Vision.Flow.Core.Runtime;
+using System.Threading.Tasks;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Queues;
-using Vision.Flow.Core.Serialization;
-using Vision.Flow.Core.Validation;
-using Vision.Flow.Designer.Wpf.Controls;
-using Vision.Flow.Designer.Wpf.ViewModels;
+using Vision.Flow.Core.Services.Serialization;
+using Vision.Flow.Core.Services.Validation;
 
 namespace Vision.Flow.Tests
 {
-    // 协议常量测试锁定 Core 内置节点和公共运行时字段，避免流程文件兼容值被误改。
+    // 协议常量测试保护节点、端口、事件和文件扩展名等 wire value，避免重构目录时误改生产文件协议。
     internal static class FlowProtocolConstantsTests
     {
         public static Task ConstantsKeepExistingWireValues()
         {
-            AssertEx.Equal("delay.wait", FlowNodeTypes.DelayWait, "延时节点类型必须保持兼容。");
-            AssertEx.Equal("log.write", FlowNodeTypes.LogWrite, "日志节点类型必须保持兼容。");
-            AssertEx.Equal("variable.set", FlowNodeTypes.VariableSet, "变量节点类型必须保持兼容。");
-            AssertEx.Equal("flow.split", FlowNodeTypes.FlowSplit, "分支节点类型必须保持兼容。");
-            AssertEx.Equal("join.and", FlowNodeTypes.JoinAnd, "AND 汇合节点类型必须保持兼容。");
-            AssertEx.Equal("condition.if", FlowNodeTypes.ConditionIf, "条件节点类型必须保持兼容。");
-            AssertEx.Equal("In", FlowPortNames.In, "输入端口名必须保持兼容。");
-            AssertEx.Equal("Next", FlowPortNames.Next, "默认成功端口名必须保持兼容。");
-            AssertEx.Equal("Error", FlowPortNames.Error, "错误端口名必须保持兼容。");
-            AssertEx.Equal("Input", FlowPortDirections.Input, "输入端口方向必须保持兼容。");
-            AssertEx.Equal("Output", FlowPortDirections.Output, "输出端口方向必须保持兼容。");
-            AssertEx.Equal("Control", FlowDataTypes.Control, "控制流数据类型必须保持兼容。");
-            AssertEx.Equal("VariableName", FlowRuntimeDataKeys.VariableName, "运行事件变量名键必须保持兼容。");
-            AssertEx.Equal("NodeIdDuplicate", FlowValidationIssueCodes.NodeIdDuplicate, "校验错误码必须保持兼容。");
-            AssertEx.Equal(".flowruntime", FlowFileExtensions.FlowRuntime, "运行态文件扩展名必须保持兼容。");
+            AssertEx.Equal("delay.wait", FlowNodeTypes.DelayWait, "delay node type wire value");
+            AssertEx.Equal("log.write", FlowNodeTypes.LogWrite, "log node type wire value");
+            AssertEx.Equal("variable.set", FlowNodeTypes.VariableSet, "variable node type wire value");
+            AssertEx.Equal("flow.split", FlowNodeTypes.FlowSplit, "split node type wire value");
+            AssertEx.Equal("join.and", FlowNodeTypes.JoinAnd, "join node type wire value");
+            AssertEx.Equal("condition.if", FlowNodeTypes.ConditionIf, "condition node type wire value");
+
+            AssertEx.Equal("In", FlowPortNames.In, "input control port wire value");
+            AssertEx.Equal("Next", FlowPortNames.Next, "default success port wire value");
+            AssertEx.Equal("Error", FlowPortNames.Error, "error port wire value");
+            AssertEx.Equal("True", FlowPortNames.True, "condition true port wire value");
+            AssertEx.Equal("False", FlowPortNames.False, "condition false port wire value");
+            AssertEx.Equal("Input", FlowPortDirections.Input, "input port direction wire value");
+            AssertEx.Equal("Output", FlowPortDirections.Output, "output port direction wire value");
+
+            AssertEx.Equal("Control", FlowDataTypes.Control, "control data type wire value");
+            AssertEx.Equal("String", FlowDataTypes.String, "string data type wire value");
+            AssertEx.Equal("Result", FlowOutputNames.Result, "result output wire value");
+            AssertEx.Equal("Value", FlowOutputNames.Value, "value output wire value");
+            AssertEx.Equal("ElapsedMs", FlowOutputNames.ElapsedMs, "elapsed output wire value");
+            AssertEx.Equal("DelayMs", FlowSettingNames.DelayMs, "delay setting wire value");
+            AssertEx.Equal("VariableName", FlowSettingNames.VariableName, "variable setting wire value");
+            AssertEx.Equal("LeftBinding", FlowSettingNames.LeftBinding, "condition left binding wire value");
+
+            AssertEx.Equal("VariableName", FlowRuntimeDataKeys.VariableName, "runtime event variable data key");
+            AssertEx.Equal("QueueName", FlowRuntimeDataKeys.QueueName, "runtime queue data key");
+            AssertEx.Equal("ElapsedMs", FlowRuntimeDataKeys.ElapsedMs, "runtime elapsed data key");
+            AssertEx.Equal("default", FlowQueueNames.Default, "default queue name wire value");
+            AssertEx.Equal("StopFlow", FlowQueueFullModeNames.StopFlow, "queue full mode wire value");
+
+            AssertEx.Equal("WaitNextFrame", CameraCallbackModes.WaitNextFrame, "camera callback mode wire value");
+            AssertEx.Equal("StreamFrames", CameraCallbackModes.StreamFrames, "camera callback mode wire value");
+            AssertEx.Equal("Batch", CameraStreamOutputModes.Batch, "camera stream output mode wire value");
+            AssertEx.Equal("Increment", FrameIndexSources.Increment, "frame index source wire value");
+
+            AssertEx.Equal("NodeIdDuplicate", FlowValidationIssueCodes.NodeIdDuplicate, "validation code wire value");
+            AssertEx.Equal("RuntimeContainsViewState", FlowValidationIssueCodes.RuntimeContainsViewState, "runtime view-state validation code wire value");
+            AssertEx.Equal(".flowdesign", FlowFileExtensions.FlowDesign, "design file extension wire value");
+            AssertEx.Equal(".flowruntime", FlowFileExtensions.FlowRuntime, "runtime file extension wire value");
             return Task.FromResult(0);
         }
     }
