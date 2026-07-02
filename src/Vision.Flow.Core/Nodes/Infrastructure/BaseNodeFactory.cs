@@ -57,5 +57,12 @@ namespace Vision.Flow.Nodes
 
             return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
         }
+
+        protected static TEnum GetEnumSetting<TEnum>(NodeDefinition definition, string name, TEnum defaultValue)
+            where TEnum : struct
+        {
+            var value = GetSetting(definition, name, null);
+            return FlowEnumConverter.ParseOrDefault(value, defaultValue);
+        }
     }
 }

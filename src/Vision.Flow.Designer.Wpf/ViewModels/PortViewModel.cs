@@ -16,8 +16,8 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
 
         public string Name { get; private set; }
 
-        public string Direction { get; private set; }
+        public FlowPortDirection Direction { get; private set; }
 
-        public string DataType { get; private set; }
+        public FlowDataType DataType { get; private set; }
     }
 }

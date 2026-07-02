@@ -14,7 +14,7 @@ namespace Vision.Flow.Core.Services.Serialization
                 throw new ArgumentNullException("definition");
             }
 
-            return CreateSerializer().Serialize(definition);
+            return CreateSerializer().Serialize(FlowSerializationMapper.ToSerializableRuntimeFlowDefinition(definition));
         }
 
         public static RuntimeFlowDefinition Deserialize(string json)

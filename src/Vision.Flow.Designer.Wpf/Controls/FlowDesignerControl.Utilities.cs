@@ -61,9 +61,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
-        internal static string CreatePortAnchorKey(string nodeId, string direction, string portName)
+        internal static string CreatePortAnchorKey(string nodeId, FlowPortDirection direction, string portName)
         {
-            return (nodeId ?? string.Empty) + "|" + (direction ?? string.Empty) + "|" + (portName ?? string.Empty);
+            return (nodeId ?? string.Empty) + "|" + FlowEnumConverter.ToWireValue(direction) + "|" + (portName ?? string.Empty);
         }
 
         internal static bool EdgeEquals(EdgeDefinition left, EdgeDefinition right)

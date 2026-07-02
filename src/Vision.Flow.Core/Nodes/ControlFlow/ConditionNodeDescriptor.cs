@@ -16,41 +16,41 @@ namespace Vision.Flow.Nodes
                 Description = "Routes execution through True or False according to a configured comparison.",
                 InputPorts =
                 {
-                    CreatePort("In", "In", "Input", "Execution input.")
+                    CreatePort(FlowPortNames.In, FlowPortNames.In, FlowPortDirection.Input, "Execution input.")
                 },
                 OutputPorts =
                 {
-                    CreatePort("True", "True", "Output", "Condition matched."),
-                    CreatePort("False", "False", "Output", "Condition did not match."),
-                    CreatePort("Error", "Error", "Output", "Condition evaluation failed.")
+                    CreatePort(FlowPortNames.True, FlowPortNames.True, FlowPortDirection.Output, "Condition matched."),
+                    CreatePort(FlowPortNames.False, FlowPortNames.False, FlowPortDirection.Output, "Condition did not match."),
+                    CreatePort(FlowPortNames.Error, FlowPortNames.Error, FlowPortDirection.Output, "Condition evaluation failed.")
                 },
                 Settings =
                 {
-                    CreateStringSetting("LeftBinding", "Left Binding", null, true, "Expression used to resolve the left value."),
-                    CreateStringSetting("Operator", "Operator", "Equal", true, "Equal, NotEqual, GreaterThan, LessThan, Contains, IsNull, or IsNotNull."),
-                    CreateObjectSetting("RightValue", "Right Value", null, false, "Constant right value."),
-                    CreateStringSetting("RightBinding", "Right Binding", null, false, "Optional expression used to resolve the right value.")
+                    CreateStringSetting(FlowSettingNames.LeftBinding, "Left Binding", null, true, "Expression used to resolve the left value."),
+                    CreateStringSetting(FlowSettingNames.Operator, "Operator", FlowEnumConverter.ToWireValue(ConditionOperator.Equal), true, "Equal, NotEqual, GreaterThan, LessThan, Contains, IsNull, or IsNotNull."),
+                    CreateObjectSetting(FlowSettingNames.RightValue, "Right Value", null, false, "Constant right value."),
+                    CreateStringSetting(FlowSettingNames.RightBinding, "Right Binding", null, false, "Optional expression used to resolve the right value.")
                 },
                 Outputs =
                 {
-                    CreateOutput("Result", "Result", "Boolean", "Condition evaluation result."),
-                    CreateOutput("IsMatched", "Is Matched", "Boolean", "Alias for Result."),
-                    CreateOutput("Left", "Left", "Object", "Resolved left value."),
-                    CreateOutput("Right", "Right", "Object", "Resolved right value."),
-                    CreateOutput("Operator", "Operator", "String", "Operator used for evaluation.")
+                    CreateOutput(FlowOutputNames.Result, "Result", FlowDataType.Boolean, "Condition evaluation result."),
+                    CreateOutput(FlowOutputNames.IsMatched, "Is Matched", FlowDataType.Boolean, "Alias for Result."),
+                    CreateOutput("Left", "Left", FlowDataType.Object, "Resolved left value."),
+                    CreateOutput("Right", "Right", FlowDataType.Object, "Resolved right value."),
+                    CreateOutput(FlowSettingNames.Operator, "Operator", FlowDataType.String, "Operator used for evaluation.")
                 }
             };
         }
 
-        private static NodePortDescriptor CreatePort(string name, string displayName, string direction, string description)
+        private static NodePortDescriptor CreatePort(string name, string displayName, FlowPortDirection direction, string description)
         {
             return new NodePortDescriptor
             {
                 Name = name,
                 DisplayName = displayName,
                 Direction = direction,
-                DataType = "Control",
-                IsRequired = string.Equals(direction, "Input", StringComparison.OrdinalIgnoreCase),
+                DataType = FlowDataType.Control,
+                IsRequired = direction == FlowPortDirection.Input,
                 Description = description
             };
         }
@@ -61,7 +61,7 @@ namespace Vision.Flow.Nodes
             {
                 Name = name,
                 DisplayName = displayName,
-                DataType = "String",
+                DataType = FlowDataType.String,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
                 Description = description
@@ -74,14 +74,14 @@ namespace Vision.Flow.Nodes
             {
                 Name = name,
                 DisplayName = displayName,
-                DataType = "Object",
+                DataType = FlowDataType.Object,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
                 Description = description
             };
         }
 
-        private static NodeOutputDescriptor CreateOutput(string name, string displayName, string dataType, string description)
+        private static NodeOutputDescriptor CreateOutput(string name, string displayName, FlowDataType dataType, string description)
         {
             return new NodeOutputDescriptor
             {

@@ -96,6 +96,68 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task RuntimeEnumSettingsSerializeAsWireStrings()
+        {
+            var runtime = new RuntimeFlowDefinition
+            {
+                FlowId = "enum-settings",
+                FlowName = "Enum Settings",
+                Version = "1.0.0"
+            };
+
+            runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "condition1",
+                Type = FlowNodeTypes.ConditionIf,
+                Name = "Condition",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { FlowSettingNames.LeftBinding, "{{ token.PositionId }}" },
+                    { FlowSettingNames.Operator, ConditionOperator.Equal },
+                    { FlowSettingNames.RightValue, "P01" }
+                }
+            });
+            runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "join1",
+                Type = FlowNodeTypes.JoinAnd,
+                Name = "Join",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { FlowSettingNames.JoinKeyBinding, "{{ token.PositionId }}" },
+                    { FlowSettingNames.ExpectedInputCount, 2 },
+                    { FlowSettingNames.TimeoutMs, 0 },
+                    { FlowSettingNames.DuplicatePolicy, FlowDuplicatePolicy.Ignore }
+                }
+            });
+            runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "log1",
+                Type = FlowNodeTypes.LogWrite,
+                Name = "Log",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { FlowSettingNames.Level, FlowLogLevel.Warning },
+                    { FlowSettingNames.Message, "enum serialization" }
+                }
+            });
+
+            var json = RuntimeFlowSerializer.Serialize(runtime);
+            var restored = RuntimeFlowSerializer.Deserialize(json);
+
+            AssertEx.True(json.IndexOf("\"Operator\":\"Equal\"", StringComparison.OrdinalIgnoreCase) >= 0, "Operator enum should serialize as a wire string.");
+            AssertEx.True(json.IndexOf("\"DuplicatePolicy\":\"Ignore\"", StringComparison.OrdinalIgnoreCase) >= 0, "DuplicatePolicy enum should serialize as a wire string.");
+            AssertEx.True(json.IndexOf("\"Level\":\"Warning\"", StringComparison.OrdinalIgnoreCase) >= 0, "Log level enum should serialize as a wire string.");
+            AssertEx.False(json.IndexOf("\"Operator\":0", StringComparison.OrdinalIgnoreCase) >= 0, "Operator enum must not serialize as a number.");
+            AssertEx.Equal("Equal", Convert.ToString(restored.Nodes[0].Settings[FlowSettingNames.Operator], CultureInfo.InvariantCulture), "Operator wire value should deserialize as the file string.");
+            AssertEx.Equal("Ignore", Convert.ToString(restored.Nodes[1].Settings[FlowSettingNames.DuplicatePolicy], CultureInfo.InvariantCulture), "DuplicatePolicy wire value should deserialize as the file string.");
+            AssertEx.Equal("Warning", Convert.ToString(restored.Nodes[2].Settings[FlowSettingNames.Level], CultureInfo.InvariantCulture), "Log level wire value should deserialize as the file string.");
+            return Task.FromResult(0);
+        }
+
         private static RuntimeFlowDefinition CreateSampleRuntime()
         {
             var runtime = new RuntimeFlowDefinition

@@ -136,7 +136,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 _rows.Children.Add(CreateSection("Outputs"));
                 foreach (var output in descriptor.Outputs)
                 {
-                    _rows.Children.Add(CreateMutedText(output.Name + " : " + output.DataType));
+                    _rows.Children.Add(CreateMutedText(output.Name + " : " + FlowEnumConverter.ToWireValue(output.DataType)));
                 }
             }
         }
@@ -144,7 +144,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private void AddSettingField(NodeSettingDescriptor setting, object value, Action<object> setter)
         {
             var label = setting.DisplayName + " (" + setting.Name + ")";
-            if (string.Equals(setting.DataType, "Boolean", StringComparison.OrdinalIgnoreCase))
+            if (setting.DataType == FlowDataType.Boolean)
             {
                 _rows.Children.Add(CreateLabel(label));
                 var checkBox = new CheckBox
@@ -355,39 +355,35 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
             else if (string.Equals(setting.Name, FlowSettingNames.MatchMode, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add(CameraFrameMatchModes.TriggerId);
-                items.Add(CameraFrameMatchModes.Any);
-                items.Add(CameraFrameMatchModes.ScanGroupId);
-                items.Add(CameraFrameMatchModes.TimeWindow);
+                AddWireValues<CameraFrameMatchMode>(items);
             }
             else if (string.Equals(setting.Name, FlowSettingNames.CallbackMode, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add(CameraCallbackModes.WaitNextFrame);
-                items.Add(CameraCallbackModes.StreamFrames);
+                AddWireValues<CameraCallbackMode>(items);
             }
             else if (string.Equals(setting.Name, FlowSettingNames.StreamOutputMode, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add(CameraStreamOutputModes.Batch);
-                items.Add(CameraStreamOutputModes.PerFrame);
+                AddWireValues<CameraStreamOutputMode>(items);
             }
             else if (string.Equals(setting.Name, FlowSettingNames.FrameIndexSource, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add(FrameIndexSources.Increment);
-                items.Add(FrameIndexSources.Metadata);
+                AddWireValues<FrameIndexSource>(items);
             }
             else if (string.Equals(setting.Name, FlowSettingNames.DuplicatePolicy, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add(FlowDuplicatePolicies.Error);
-                items.Add(FlowDuplicatePolicies.Ignore);
-                items.Add(FlowDuplicatePolicies.Replace);
+                AddWireValues<FlowDuplicatePolicy>(items);
+            }
+            else if (string.Equals(setting.Name, FlowSettingNames.Operator, StringComparison.OrdinalIgnoreCase))
+            {
+                AddWireValues<ConditionOperator>(items);
+            }
+            else if (string.Equals(setting.Name, FlowSettingNames.Level, StringComparison.OrdinalIgnoreCase))
+            {
+                AddWireValues<FlowLogLevel>(items);
             }
             else if (string.Equals(setting.Name, FlowSettingNames.QueueFullMode, StringComparison.OrdinalIgnoreCase))
             {
-                items.Add(FlowQueueFullModeNames.Wait);
-                items.Add(FlowQueueFullModeNames.Reject);
-                items.Add(FlowQueueFullModeNames.Drop);
-                items.Add(FlowQueueFullModeNames.StopFlow);
-                items.Add(FlowQueueFullModeNames.NotifyOnly);
+                AddWireValues<FlowTaskQueueFullMode>(items);
             }
             else if (string.Equals(setting.Name, FlowSettingNames.QueueName, StringComparison.OrdinalIgnoreCase))
             {
@@ -399,6 +395,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             return items;
+        }
+
+        private static void AddWireValues<TEnum>(IList<string> items)
+            where TEnum : struct
+        {
+            var values = FlowEnumConverter.GetWireValues<TEnum>();
+            for (var index = 0; index < values.Length; index++)
+            {
+                items.Add(values[index]);
+            }
         }
 
         private static TextBlock CreateTitle(string text)
@@ -482,19 +488,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return ParseFieldMappings(text);
             }
 
-            if (string.Equals(setting.DataType, "Int32", StringComparison.OrdinalIgnoreCase))
+            if (setting.DataType == FlowDataType.Int32)
             {
                 int intValue;
                 return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue) ? intValue : 0;
             }
 
-            if (string.Equals(setting.DataType, "Double", StringComparison.OrdinalIgnoreCase))
+            if (setting.DataType == FlowDataType.Double)
             {
                 double doubleValue;
                 return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out doubleValue) ? doubleValue : 0.0;
             }
 
-            if (string.Equals(setting.DataType, "Boolean", StringComparison.OrdinalIgnoreCase))
+            if (setting.DataType == FlowDataType.Boolean)
             {
                 bool boolValue;
                 return bool.TryParse(text, out boolValue) && boolValue;

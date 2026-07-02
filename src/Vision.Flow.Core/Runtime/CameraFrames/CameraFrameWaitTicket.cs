@@ -8,12 +8,12 @@ namespace Vision.Flow.Core.Runtime.CameraFrames
     {
         public CameraFrameWaitTicket()
         {
-            MatchMode = CameraFrameMatchModes.TriggerId;
+            MatchMode = CameraFrameMatchMode.TriggerId;
         }
 
         public string CameraId { get; set; }
 
-        public string MatchMode { get; set; }
+        public CameraFrameMatchMode MatchMode { get; set; }
 
         public string TriggerId { get; set; }
 
@@ -53,47 +53,35 @@ namespace Vision.Flow.Core.Runtime.CameraFrames
                 return false;
             }
 
-            var mode = string.IsNullOrWhiteSpace(MatchMode) ? CameraFrameMatchModes.TriggerId : MatchMode;
-            if (string.Equals(mode, CameraFrameMatchModes.Any, StringComparison.OrdinalIgnoreCase))
+            switch (MatchMode)
             {
-                return true;
+                case CameraFrameMatchMode.Any:
+                    return true;
+                case CameraFrameMatchMode.TriggerId:
+                    return !string.IsNullOrWhiteSpace(TriggerId) &&
+                        string.Equals(frame.TriggerId, TriggerId, StringComparison.OrdinalIgnoreCase);
+                case CameraFrameMatchMode.ScanGroupId:
+                    var frameScanGroupId = GetMetadataString(frame, FlowMetadataKeys.ScanGroupId);
+                    return !string.IsNullOrWhiteSpace(ScanGroupId) &&
+                        string.Equals(frameScanGroupId, ScanGroupId, StringComparison.OrdinalIgnoreCase);
+                case CameraFrameMatchMode.TimeWindow:
+                    return NotBeforeUtc.HasValue;
+                default:
+                    return false;
             }
-
-            if (string.Equals(mode, CameraFrameMatchModes.TriggerId, StringComparison.OrdinalIgnoreCase))
-            {
-                return !string.IsNullOrWhiteSpace(TriggerId) &&
-                    string.Equals(frame.TriggerId, TriggerId, StringComparison.OrdinalIgnoreCase);
-            }
-
-            if (string.Equals(mode, CameraFrameMatchModes.ScanGroupId, StringComparison.OrdinalIgnoreCase))
-            {
-                var frameScanGroupId = GetMetadataString(frame, FlowMetadataKeys.ScanGroupId);
-                return !string.IsNullOrWhiteSpace(ScanGroupId) &&
-                    string.Equals(frameScanGroupId, ScanGroupId, StringComparison.OrdinalIgnoreCase);
-            }
-
-            if (string.Equals(mode, CameraFrameMatchModes.TimeWindow, StringComparison.OrdinalIgnoreCase))
-            {
-                return NotBeforeUtc.HasValue;
-            }
-
-            return false;
         }
 
         public string Describe()
         {
-            var mode = string.IsNullOrWhiteSpace(MatchMode) ? CameraFrameMatchModes.TriggerId : MatchMode;
-            if (string.Equals(mode, CameraFrameMatchModes.TriggerId, StringComparison.OrdinalIgnoreCase))
+            switch (MatchMode)
             {
-                return "TriggerId=" + TriggerId;
+                case CameraFrameMatchMode.TriggerId:
+                    return "TriggerId=" + TriggerId;
+                case CameraFrameMatchMode.ScanGroupId:
+                    return "ScanGroupId=" + ScanGroupId;
+                default:
+                    return "MatchMode=" + FlowEnumConverter.ToWireValue(MatchMode);
             }
-
-            if (string.Equals(mode, CameraFrameMatchModes.ScanGroupId, StringComparison.OrdinalIgnoreCase))
-            {
-                return "ScanGroupId=" + ScanGroupId;
-            }
-
-            return "MatchMode=" + mode;
         }
 
         private static string GetMetadataString(CameraFrameData frame, string name)

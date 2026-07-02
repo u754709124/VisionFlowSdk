@@ -9,9 +9,9 @@ namespace Vision.Flow.Core.Domain.Nodes
 
         public string DisplayName { get; set; }
 
-        public string Direction { get; set; }
+        public FlowPortDirection Direction { get; set; }
 
-        public string DataType { get; set; }
+        public FlowDataType DataType { get; set; }
 
         public bool IsRequired { get; set; }
 

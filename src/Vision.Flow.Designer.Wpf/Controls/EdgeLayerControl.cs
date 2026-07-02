@@ -86,13 +86,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 var fallbackEnd = new Point(to.X, to.Y + PortAnchorY);
                 var start = GetPortAnchor(
                     portAnchors,
-                    FlowDesignerControl.CreatePortAnchorKey(edge.FromNodeId, "Output", edge.FromPort),
-                    FlowDesignerControl.CreatePortAnchorKey(edge.FromNodeId, "Output", null),
+                    FlowDesignerControl.CreatePortAnchorKey(edge.FromNodeId, FlowPortDirection.Output, edge.FromPort),
+                    FlowDesignerControl.CreatePortAnchorKey(edge.FromNodeId, FlowPortDirection.Output, null),
                     fallbackStart);
                 var end = GetPortAnchor(
                     portAnchors,
-                    FlowDesignerControl.CreatePortAnchorKey(edge.ToNodeId, "Input", edge.ToPort),
-                    FlowDesignerControl.CreatePortAnchorKey(edge.ToNodeId, "Input", null),
+                    FlowDesignerControl.CreatePortAnchorKey(edge.ToNodeId, FlowPortDirection.Input, edge.ToPort),
+                    FlowDesignerControl.CreatePortAnchorKey(edge.ToNodeId, FlowPortDirection.Input, null),
                     fallbackEnd);
                 Children.Add(CreateEdgeVisual(start, end, edge, FlowDesignerControl.EdgeEquals(edge, selectedEdge)));
             }

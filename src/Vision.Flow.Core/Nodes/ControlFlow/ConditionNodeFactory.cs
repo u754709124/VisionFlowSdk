@@ -22,10 +22,10 @@ namespace Vision.Flow.Nodes
         {
             return new ConditionNodeConfig
             {
-                LeftBinding = GetStringSetting(definition, "LeftBinding", null),
-                Operator = GetStringSetting(definition, "Operator", "Equal"),
-                RightValue = GetSetting(definition, "RightValue", null),
-                RightBinding = GetStringSetting(definition, "RightBinding", null)
+                LeftBinding = GetStringSetting(definition, FlowSettingNames.LeftBinding, null),
+                Operator = GetEnumSetting(definition, FlowSettingNames.Operator, ConditionOperator.Equal),
+                RightValue = GetSetting(definition, FlowSettingNames.RightValue, null),
+                RightBinding = GetStringSetting(definition, FlowSettingNames.RightBinding, null)
             };
         }
 

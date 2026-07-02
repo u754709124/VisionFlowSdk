@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using Vision.Flow.Core.Domain.Nodes;
 
 namespace Vision.Flow.Core.Services.Serialization
 {
@@ -9,6 +10,11 @@ namespace Vision.Flow.Core.Services.Serialization
     {
         private static object NormalizeObject(object value)
         {
+            if (value != null && value.GetType().IsEnum)
+            {
+                return FlowEnumConverter.NormalizeValue(value);
+            }
+
             var dictionary = AsDictionaryOrNull(value);
             if (dictionary != null)
             {

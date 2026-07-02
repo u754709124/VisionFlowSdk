@@ -17,40 +17,40 @@ namespace Vision.Flow.Nodes
                 Description = "Collects multiple inputs by JoinKey and continues when all expected inputs arrive.",
                 InputPorts =
                 {
-                    CreatePort("In", "In", "Input", "Execution input.")
+                    CreatePort(FlowPortNames.In, FlowPortNames.In, FlowPortDirection.Input, "Execution input.")
                 },
                 OutputPorts =
                 {
-                    CreatePort("Next", "Next", "Output", "All expected inputs have arrived."),
-                    CreatePort("Error", "Error", "Output", "Join configuration or duplicate input error.")
+                    CreatePort(FlowPortNames.Next, FlowPortNames.Next, FlowPortDirection.Output, "All expected inputs have arrived."),
+                    CreatePort(FlowPortNames.Error, FlowPortNames.Error, FlowPortDirection.Output, "Join configuration or duplicate input error.")
                 },
                 Settings =
                 {
-                    CreateStringSetting("JoinKeyBinding", "Join Key Binding", null, true, "Expression used to resolve the join key, for example {{ token.PositionId }}."),
-                    CreateIntSetting("ExpectedInputCount", "Expected Inputs", 2, true, "Number of inputs required for the join key."),
-                    CreateIntSetting("TimeoutMs", "Timeout (ms)", 0, false, "Reserved timeout. Zero disables timeout handling."),
-                    CreateStringSetting("DuplicatePolicy", "Duplicate Policy", "Ignore", true, "Ignore, Replace, or Error when the same token arrives twice.")
+                    CreateStringSetting(FlowSettingNames.JoinKeyBinding, "Join Key Binding", null, true, "Expression used to resolve the join key, for example {{ token.PositionId }}."),
+                    CreateIntSetting(FlowSettingNames.ExpectedInputCount, "Expected Inputs", 2, true, "Number of inputs required for the join key."),
+                    CreateIntSetting(FlowSettingNames.TimeoutMs, "Timeout (ms)", 0, false, "Reserved timeout. Zero disables timeout handling."),
+                    CreateStringSetting(FlowSettingNames.DuplicatePolicy, "Duplicate Policy", FlowEnumConverter.ToWireValue(FlowDuplicatePolicy.Ignore), true, "Ignore, Replace, or Error when the same token arrives twice.")
                 },
                 Outputs =
                 {
-                    CreateOutput("Result", "Result", "Boolean", "True when the join completes."),
-                    CreateOutput("IsMatched", "Is Matched", "Boolean", "True when all inputs are matched."),
-                    CreateOutput("JoinKey", "Join Key", "String", "Resolved join key."),
-                    CreateOutput("ActualInputCount", "Actual Inputs", "Int32", "Number of inputs currently collected."),
-                    CreateOutput("ExpectedInputCount", "Expected Inputs", "Int32", "Expected input count.")
+                    CreateOutput(FlowOutputNames.Result, "Result", FlowDataType.Boolean, "True when the join completes."),
+                    CreateOutput(FlowOutputNames.IsMatched, "Is Matched", FlowDataType.Boolean, "True when all inputs are matched."),
+                    CreateOutput(FlowOutputNames.JoinKey, "Join Key", FlowDataType.String, "Resolved join key."),
+                    CreateOutput(FlowOutputNames.ActualInputCount, "Actual Inputs", FlowDataType.Int32, "Number of inputs currently collected."),
+                    CreateOutput(FlowOutputNames.ExpectedInputCount, "Expected Inputs", FlowDataType.Int32, "Expected input count.")
                 }
             };
         }
 
-        private static NodePortDescriptor CreatePort(string name, string displayName, string direction, string description)
+        private static NodePortDescriptor CreatePort(string name, string displayName, FlowPortDirection direction, string description)
         {
             return new NodePortDescriptor
             {
                 Name = name,
                 DisplayName = displayName,
                 Direction = direction,
-                DataType = "Control",
-                IsRequired = string.Equals(direction, "Input", StringComparison.OrdinalIgnoreCase),
+                DataType = FlowDataType.Control,
+                IsRequired = direction == FlowPortDirection.Input,
                 Description = description
             };
         }
@@ -61,7 +61,7 @@ namespace Vision.Flow.Nodes
             {
                 Name = name,
                 DisplayName = displayName,
-                DataType = "String",
+                DataType = FlowDataType.String,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
                 Description = description
@@ -74,14 +74,14 @@ namespace Vision.Flow.Nodes
             {
                 Name = name,
                 DisplayName = displayName,
-                DataType = "Int32",
+                DataType = FlowDataType.Int32,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
                 Description = description
             };
         }
 
-        private static NodeOutputDescriptor CreateOutput(string name, string displayName, string dataType, string description)
+        private static NodeOutputDescriptor CreateOutput(string name, string displayName, FlowDataType dataType, string description)
         {
             return new NodeOutputDescriptor
             {

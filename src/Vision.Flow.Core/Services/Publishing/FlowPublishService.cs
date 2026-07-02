@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using Vision.Flow.Core.Contracts.Nodes;
 using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Services.Validation;
 
 namespace Vision.Flow.Core.Services.Publishing
@@ -183,6 +184,11 @@ namespace Vision.Flow.Core.Services.Publishing
             if (value == null)
             {
                 return null;
+            }
+
+            if (value.GetType().IsEnum)
+            {
+                return FlowEnumConverter.NormalizeValue(value);
             }
 
             var binding = value as VariableBinding;

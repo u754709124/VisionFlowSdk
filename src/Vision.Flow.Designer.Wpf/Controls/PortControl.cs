@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
@@ -18,7 +19,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public PortControl(PortViewModel port)
         {
             Port = port;
-            var isInput = port != null && string.Equals(port.Direction, "Input", StringComparison.OrdinalIgnoreCase);
+            var isInput = port != null && port.Direction == FlowPortDirection.Input;
             _normalFill = FlowDesignerControl.BrushFromRgb(59, 130, 246);
             _hoverFill = FlowDesignerControl.BrushFromRgb(37, 99, 235);
             _editCursor = isInput ? Cursors.Cross : Cursors.Hand;
@@ -31,7 +32,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Background = Brushes.Transparent;
             BorderThickness = new Thickness(0);
             Cursor = _editCursor;
-            ToolTip = (isInput ? "Input: " : "Output: ") + (port == null ? string.Empty : port.Name + " (" + port.DataType + ")");
+            ToolTip = (isInput ? "Input: " : "Output: ") + (port == null ? string.Empty : port.Name + " (" + FlowEnumConverter.ToWireValue(port.DataType) + ")");
             SnapsToDevicePixels = true;
 
             var grid = new Grid();

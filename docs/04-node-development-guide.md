@@ -90,3 +90,22 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 - 输出变量
 - RuntimeEvent
 - 序列化/发布兼容性
+
+## Descriptor 枚举字段
+
+`NodePortDescriptor.Direction` 使用 `FlowPortDirection`，`NodePortDescriptor.DataType`、`NodeSettingDescriptor.DataType` 和 `NodeOutputDescriptor.DataType` 使用 `FlowDataType`。节点开发时不要再为这些固定集合填写字符串。
+
+示例：
+
+```csharp
+new NodePortDescriptor
+{
+    Name = FlowPortNames.In,
+    DisplayName = FlowPortNames.In,
+    Direction = FlowPortDirection.Input,
+    DataType = FlowDataType.Control,
+    IsRequired = true
+}
+```
+
+节点配置中的固定策略也应优先使用枚举，例如 `ConditionOperator.Equal`、`FlowDuplicatePolicy.Ignore`、`FlowLogLevel.Info`。当这些值进入 `NodeDefinition.Settings` 或流程文件时，由 `FlowEnumConverter` 转换为稳定字符串协议值。

@@ -641,14 +641,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     continue;
                 }
 
-                AddPortAnchors(anchors, item.Key, "Input", card.InputPortControls);
-                AddPortAnchors(anchors, item.Key, "Output", card.OutputPortControls);
+                AddPortAnchors(anchors, item.Key, FlowPortDirection.Input, card.InputPortControls);
+                AddPortAnchors(anchors, item.Key, FlowPortDirection.Output, card.OutputPortControls);
             }
 
             return anchors;
         }
 
-        private void AddPortAnchors(IDictionary<string, Point> anchors, string nodeId, string direction, IEnumerable<PortControl> ports)
+        private void AddPortAnchors(IDictionary<string, Point> anchors, string nodeId, FlowPortDirection direction, IEnumerable<PortControl> ports)
         {
             if (anchors == null || string.IsNullOrWhiteSpace(nodeId) || ports == null)
             {
@@ -824,7 +824,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             var port = FindAncestor<PortControl>(hit.VisualHit);
-            if (port == null || port.Port == null || !string.Equals(port.Port.Direction, "Input", StringComparison.OrdinalIgnoreCase))
+            if (port == null || port.Port == null || port.Port.Direction != FlowPortDirection.Input)
             {
                 return null;
             }

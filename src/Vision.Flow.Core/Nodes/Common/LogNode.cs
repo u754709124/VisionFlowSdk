@@ -14,11 +14,11 @@ namespace Vision.Flow.Nodes
     {
         public LogNodeConfig()
         {
-            Level = "Info";
+            Level = FlowLogLevel.Info;
             Message = string.Empty;
         }
 
-        public string Level { get; set; }
+        public FlowLogLevel Level { get; set; }
 
         public string Message { get; set; }
     }
@@ -41,8 +41,8 @@ namespace Vision.Flow.Nodes
         {
             return new LogNodeConfig
             {
-                Level = GetStringSetting(definition, "Level", "Info"),
-                Message = GetStringSetting(definition, "Message", string.Empty)
+                Level = GetEnumSetting(definition, FlowSettingNames.Level, FlowLogLevel.Info),
+                Message = GetStringSetting(definition, FlowSettingNames.Message, string.Empty)
             };
         }
 
@@ -65,13 +65,10 @@ namespace Vision.Flow.Nodes
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var level = ResolveString(context, "Level", _config.Level);
-            if (string.IsNullOrWhiteSpace(level))
-            {
-                level = "Info";
-            }
+            var level = ResolveEnum(context, FlowSettingNames.Level, _config.Level);
+            var levelText = FlowEnumConverter.ToWireValue(level);
 
-            var message = ResolveString(context, "Message", _config.Message);
+            var message = ResolveString(context, FlowSettingNames.Message, _config.Message);
             if (message == null)
             {
                 message = string.Empty;
@@ -84,18 +81,18 @@ namespace Vision.Flow.Nodes
                 context.Node,
                 NodeRuntimeState.Completed,
                 message,
-                "Next");
+                FlowPortNames.Next);
             runtimeEvent.Data[FlowRuntimeDataKeys.Kind] = "Log";
-            runtimeEvent.Data[FlowRuntimeDataKeys.LogLevel] = level;
+            runtimeEvent.Data[FlowRuntimeDataKeys.LogLevel] = levelText;
             runtimeEvent.Data[FlowRuntimeDataKeys.Message] = message;
             await context.Events.PublishAsync(runtimeEvent, cancellationToken).ConfigureAwait(false);
 
             return NodeExecutionResult.Success(
-                "Next",
+                FlowPortNames.Next,
                 new Dictionary<string, object>
                 {
-                    { "Level", level },
-                    { "Message", message }
+                    { FlowSettingNames.Level, levelText },
+                    { FlowSettingNames.Message, message }
                 });
         }
 
@@ -103,6 +100,12 @@ namespace Vision.Flow.Nodes
         {
             var value = context.GetInputValue(name);
             return value == null ? defaultValue : Convert.ToString(value);
+        }
+
+        private static FlowLogLevel ResolveEnum(FlowExecutionContext context, string name, FlowLogLevel defaultValue)
+        {
+            var value = context.GetInputValue(name);
+            return FlowEnumConverter.ParseOrDefault(value, defaultValue);
         }
     }
 
@@ -123,8 +126,8 @@ namespace Vision.Flow.Nodes
                     {
                         Name = "In",
                         DisplayName = "In",
-                        Direction = "Input",
-                        DataType = "Control",
+                        Direction = FlowPortDirection.Input,
+                        DataType = FlowDataType.Control,
                         IsRequired = true,
                         Description = "Execution input."
                     }
@@ -135,8 +138,8 @@ namespace Vision.Flow.Nodes
                     {
                         Name = "Next",
                         DisplayName = "Next",
-                        Direction = "Output",
-                        DataType = "Control",
+                        Direction = FlowPortDirection.Output,
+                        DataType = FlowDataType.Control,
                         Description = "Continues after publishing the log."
                     }
                 },
@@ -144,18 +147,18 @@ namespace Vision.Flow.Nodes
                 {
                     new NodeSettingDescriptor
                     {
-                        Name = "Level",
+                        Name = FlowSettingNames.Level,
                         DisplayName = "Level",
-                        DataType = "String",
-                        DefaultValue = "Info",
+                        DataType = FlowDataType.String,
+                        DefaultValue = FlowEnumConverter.ToWireValue(FlowLogLevel.Info),
                         IsRequired = false,
                         Description = "Log level, such as Info, Warning, or Error."
                     },
                     new NodeSettingDescriptor
                     {
-                        Name = "Message",
+                        Name = FlowSettingNames.Message,
                         DisplayName = "Message",
-                        DataType = "String",
+                        DataType = FlowDataType.String,
                         DefaultValue = string.Empty,
                         IsRequired = false,
                         Description = "Message to publish."
@@ -165,16 +168,16 @@ namespace Vision.Flow.Nodes
                 {
                     new NodeOutputDescriptor
                     {
-                        Name = "Level",
+                        Name = FlowSettingNames.Level,
                         DisplayName = "Level",
-                        DataType = "String",
+                        DataType = FlowDataType.String,
                         Description = "The resolved log level."
                     },
                     new NodeOutputDescriptor
                     {
-                        Name = "Message",
+                        Name = FlowSettingNames.Message,
                         DisplayName = "Message",
-                        DataType = "String",
+                        DataType = FlowDataType.String,
                         Description = "The resolved log message."
                     }
                 }

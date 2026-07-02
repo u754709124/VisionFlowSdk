@@ -14,7 +14,7 @@ namespace Vision.Flow.Core.Services.Serialization
                 throw new ArgumentNullException("document");
             }
 
-            return CreateSerializer().Serialize(document);
+            return CreateSerializer().Serialize(FlowSerializationMapper.ToSerializableDesignDocument(document));
         }
 
         public static FlowDesignDocument Deserialize(string json)

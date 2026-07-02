@@ -172,10 +172,6 @@ namespace Vision.Flow.Core.Runtime.CameraFrames
         {
             var normalized = ticket == null ? new CameraFrameWaitTicket() : ticket.Clone();
             normalized.CameraId = string.IsNullOrWhiteSpace(normalized.CameraId) ? cameraId : normalized.CameraId;
-            if (string.IsNullOrWhiteSpace(normalized.MatchMode))
-            {
-                normalized.MatchMode = CameraFrameMatchModes.TriggerId;
-            }
 
             if (stream && !normalized.NotBeforeUtc.HasValue)
             {

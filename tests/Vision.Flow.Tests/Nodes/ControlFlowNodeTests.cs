@@ -76,6 +76,20 @@ namespace Vision.Flow.Tests
                 "Duplicate join input should publish NodeFailed.");
         }
 
+        public static async Task AndJoinAcceptsStrongDuplicatePolicy()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateAndJoinFlow(FlowDuplicatePolicy.Error, includeErrorHandler: true), executionLog, sink);
+            var token = new FlowToken { TokenId = "duplicate-token-enum", PositionId = "P01" };
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", token).ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", token).ConfigureAwait(false);
+
+            AssertEx.SequenceEqual(new[] { "ErrorHandler" }, executionLog, "DuplicatePolicy enum should route duplicate inputs through Error.");
+        }
+
         public static async Task ConditionTrueFalseRoutes()
         {
             var executionLog = new List<string>();
@@ -91,6 +105,18 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(1, CountOutputValues(sink, "condition1", "IsMatched", false), "False branch should produce IsMatched=false once.");
         }
 
+        public static async Task ConditionAcceptsStrongOperator()
+        {
+            var executionLog = new List<string>();
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateConditionFlow(ConditionOperator.Equal), executionLog, sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "condition-token-enum", PositionId = "P01" }).ConfigureAwait(false);
+
+            AssertEx.SequenceEqual(new[] { "TrueNode" }, executionLog, "Condition operator enum should route matching tokens.");
+        }
+
         private static IFlowRunner CreateRunner(RuntimeFlowDefinition flow, IList<string> executionLog, InMemoryFlowEventSink sink)
         {
             var registry = new NodeRegistry();
@@ -100,6 +126,16 @@ namespace Vision.Flow.Tests
         }
 
         private static RuntimeFlowDefinition CreateAndJoinFlow(string duplicatePolicy, bool includeErrorHandler)
+        {
+            return CreateAndJoinFlow((object)duplicatePolicy, includeErrorHandler);
+        }
+
+        private static RuntimeFlowDefinition CreateAndJoinFlow(FlowDuplicatePolicy duplicatePolicy, bool includeErrorHandler)
+        {
+            return CreateAndJoinFlow((object)duplicatePolicy, includeErrorHandler);
+        }
+
+        private static RuntimeFlowDefinition CreateAndJoinFlow(object duplicatePolicy, bool includeErrorHandler)
         {
             var flow = new RuntimeFlowDefinition
             {
@@ -137,6 +173,16 @@ namespace Vision.Flow.Tests
 
         private static RuntimeFlowDefinition CreateConditionFlow()
         {
+            return CreateConditionFlow("Equal");
+        }
+
+        private static RuntimeFlowDefinition CreateConditionFlow(ConditionOperator operatorName)
+        {
+            return CreateConditionFlow((object)operatorName);
+        }
+
+        private static RuntimeFlowDefinition CreateConditionFlow(object operatorName)
+        {
             var flow = new RuntimeFlowDefinition
             {
                 FlowId = "condition",
@@ -153,7 +199,7 @@ namespace Vision.Flow.Tests
                 Settings =
                 {
                     { "LeftBinding", "{{ token.PositionId }}" },
-                    { "Operator", "Equal" },
+                    { "Operator", operatorName },
                     { "RightValue", "P01" }
                 }
             });

@@ -112,8 +112,8 @@ namespace Vision.Flow.Nodes
                     {
                         Name = FlowPortNames.In,
                         DisplayName = FlowPortNames.In,
-                        Direction = FlowPortDirections.Input,
-                        DataType = FlowDataTypes.Control,
+                        Direction = FlowPortDirection.Input,
+                        DataType = FlowDataType.Control,
                         IsRequired = true,
                         Description = "Execution input."
                     }
@@ -124,16 +124,16 @@ namespace Vision.Flow.Nodes
                     {
                         Name = FlowPortNames.Next,
                         DisplayName = FlowPortNames.Next,
-                        Direction = FlowPortDirections.Output,
-                        DataType = FlowDataTypes.Control,
+                        Direction = FlowPortDirection.Output,
+                        DataType = FlowDataType.Control,
                         Description = "Continues after the delay."
                     },
                     new NodePortDescriptor
                     {
                         Name = FlowPortNames.Error,
                         DisplayName = FlowPortNames.Error,
-                        Direction = FlowPortDirections.Output,
-                        DataType = FlowDataTypes.Control,
+                        Direction = FlowPortDirection.Output,
+                        DataType = FlowDataType.Control,
                         Description = "Routes invalid delay configuration."
                     }
                 },
@@ -143,7 +143,7 @@ namespace Vision.Flow.Nodes
                     {
                         Name = FlowOutputNames.DelayMs,
                         DisplayName = "Delay (ms)",
-                        DataType = FlowDataTypes.Int32,
+                        DataType = FlowDataType.Int32,
                         DefaultValue = 0,
                         IsRequired = true,
                         Description = "Delay duration in milliseconds."
@@ -155,7 +155,7 @@ namespace Vision.Flow.Nodes
                     {
                         Name = FlowSettingNames.DelayMs,
                         DisplayName = "Delay (ms)",
-                        DataType = FlowDataTypes.Int32,
+                        DataType = FlowDataType.Int32,
                         Description = "The resolved delay duration."
                     }
                 }

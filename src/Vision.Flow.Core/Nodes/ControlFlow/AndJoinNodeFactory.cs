@@ -22,10 +22,10 @@ namespace Vision.Flow.Nodes
         {
             return new AndJoinNodeConfig
             {
-                JoinKeyBinding = GetStringSetting(definition, "JoinKeyBinding", null),
-                ExpectedInputCount = GetInt32Setting(definition, "ExpectedInputCount", 2),
-                TimeoutMs = GetInt32Setting(definition, "TimeoutMs", 0),
-                DuplicatePolicy = GetStringSetting(definition, "DuplicatePolicy", "Ignore")
+                JoinKeyBinding = GetStringSetting(definition, FlowSettingNames.JoinKeyBinding, null),
+                ExpectedInputCount = GetInt32Setting(definition, FlowSettingNames.ExpectedInputCount, 2),
+                TimeoutMs = GetInt32Setting(definition, FlowSettingNames.TimeoutMs, 0),
+                DuplicatePolicy = GetEnumSetting(definition, FlowSettingNames.DuplicatePolicy, FlowDuplicatePolicy.Ignore)
             };
         }
 

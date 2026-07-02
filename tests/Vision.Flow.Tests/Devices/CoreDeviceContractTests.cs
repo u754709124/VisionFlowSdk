@@ -33,7 +33,7 @@ namespace Vision.Flow.Tests
                     new CameraFrameWaitTicket
                     {
                         CameraId = "Camera01",
-                        MatchMode = CameraFrameMatchModes.TriggerId,
+                        MatchMode = CameraFrameMatchMode.TriggerId,
                         TriggerId = "trigger-001"
                     },
                     1000,
@@ -46,6 +46,29 @@ namespace Vision.Flow.Tests
                 AssertEx.Equal("Camera01", frame.CameraId, "Frame camera id should match.");
                 AssertEx.Equal("trigger-001", frame.TriggerId, "Frame trigger id should match.");
                 AssertEx.Equal("frame-001", frame.FrameId, "Frame id should match.");
+            }
+        }
+
+        public static async Task CameraFrameRouterRoutesWithStrongMatchMode()
+        {
+            using (var router = new DefaultCameraFrameRouter())
+            {
+                var camera = new TestCameraAdapter("Camera01");
+                var waitTask = router.WaitForFrameAsync(
+                    camera,
+                    new CameraFrameWaitTicket
+                    {
+                        CameraId = "Camera01",
+                        MatchMode = CameraFrameMatchMode.Any
+                    },
+                    1000,
+                    CancellationToken.None);
+
+                camera.EmitFrame("trigger-any", "frame-any");
+                var frame = await waitTask.ConfigureAwait(false);
+
+                AssertEx.NotNull(frame, "Frame router should return a frame when MatchMode is Any.");
+                AssertEx.Equal("frame-any", frame.FrameId, "Frame id should match the emitted frame.");
             }
         }
 

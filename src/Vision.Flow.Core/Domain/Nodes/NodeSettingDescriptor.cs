@@ -9,7 +9,7 @@ namespace Vision.Flow.Core.Domain.Nodes
 
         public string DisplayName { get; set; }
 
-        public string DataType { get; set; }
+        public FlowDataType DataType { get; set; }
 
         public object DefaultValue { get; set; }
 

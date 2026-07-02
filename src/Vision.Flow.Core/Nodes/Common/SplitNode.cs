@@ -64,8 +64,8 @@ namespace Vision.Flow.Nodes
                     {
                         Name = FlowPortNames.In,
                         DisplayName = FlowPortNames.In,
-                        Direction = FlowPortDirections.Input,
-                        DataType = FlowDataTypes.Control,
+                        Direction = FlowPortDirection.Input,
+                        DataType = FlowDataType.Control,
                         IsRequired = true,
                         Description = "Execution input."
                     }
@@ -76,8 +76,8 @@ namespace Vision.Flow.Nodes
                     {
                         Name = FlowPortNames.Next,
                         DisplayName = FlowPortNames.Next,
-                        Direction = FlowPortDirections.Output,
-                        DataType = FlowDataTypes.Control,
+                        Direction = FlowPortDirection.Output,
+                        DataType = FlowDataType.Control,
                         Description = "Default output branch."
                     }
                 }

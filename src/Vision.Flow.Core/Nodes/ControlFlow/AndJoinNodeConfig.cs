@@ -1,3 +1,5 @@
+using Vision.Flow.Core.Domain.Nodes;
+
 namespace Vision.Flow.Nodes
 {
     public sealed class AndJoinNodeConfig
@@ -6,7 +8,7 @@ namespace Vision.Flow.Nodes
         {
             ExpectedInputCount = 2;
             TimeoutMs = 0;
-            DuplicatePolicy = "Ignore";
+            DuplicatePolicy = FlowDuplicatePolicy.Ignore;
         }
 
         public string JoinKeyBinding { get; set; }
@@ -15,6 +17,6 @@ namespace Vision.Flow.Nodes
 
         public int TimeoutMs { get; set; }
 
-        public string DuplicatePolicy { get; set; }
+        public FlowDuplicatePolicy DuplicatePolicy { get; set; }
     }
 }

@@ -8,17 +8,6 @@ namespace Vision.Flow.Core.Services.Validation
     // 节点专项规则仅覆盖 Core 内置基础节点；设备和算法节点由具体项目注册并自行约束。
     public sealed partial class FlowValidator
     {
-        private static readonly string[] ConditionOperators = new[]
-        {
-            "Equal",
-            "NotEqual",
-            "GreaterThan",
-            "LessThan",
-            "Contains",
-            "IsNull",
-            "IsNotNull"
-        };
-
         private static void ValidateNodeSpecificRules(
             IList<NodeDefinition> nodes,
             FlowValidationResult result)
@@ -58,8 +47,14 @@ namespace Vision.Flow.Core.Services.Validation
 
         private static void ValidateConditionNode(NodeDefinition node, string fieldPrefix, FlowValidationResult result)
         {
-            var operatorName = GetSettingString(node, FlowSettingNames.Operator, "Equal");
-            if (!IsOneOf(operatorName, ConditionOperators))
+            object operatorName;
+            if (!TryGetIgnoreCase(node.Settings, FlowSettingNames.Operator, out operatorName))
+            {
+                operatorName = ConditionOperator.Equal;
+            }
+
+            ConditionOperator parsedOperator;
+            if (!FlowEnumConverter.TryParse(operatorName, out parsedOperator))
             {
                 result.AddError(FlowValidationIssueCodes.SettingValueInvalid, "Operator must be Equal, NotEqual, GreaterThan, LessThan, Contains, IsNull, or IsNotNull.", nodeId: node.Id, field: fieldPrefix + FlowSettingNames.Operator);
             }
@@ -67,8 +62,14 @@ namespace Vision.Flow.Core.Services.Validation
 
         private static void ValidateDuplicatePolicy(NodeDefinition node, string fieldPrefix, FlowValidationResult result)
         {
-            var duplicatePolicy = GetSettingString(node, FlowSettingNames.DuplicatePolicy, FlowDuplicatePolicies.Error);
-            if (!IsOneOf(duplicatePolicy, FlowDuplicatePolicies.Error, FlowDuplicatePolicies.Ignore, FlowDuplicatePolicies.Replace))
+            object duplicatePolicy;
+            if (!TryGetIgnoreCase(node.Settings, FlowSettingNames.DuplicatePolicy, out duplicatePolicy))
+            {
+                duplicatePolicy = FlowDuplicatePolicy.Error;
+            }
+
+            FlowDuplicatePolicy parsedPolicy;
+            if (!FlowEnumConverter.TryParse(duplicatePolicy, out parsedPolicy))
             {
                 result.AddError(FlowValidationIssueCodes.DuplicatePolicyInvalid, "DuplicatePolicy must be Error, Ignore, or Replace.", nodeId: node.Id, field: fieldPrefix + FlowSettingNames.DuplicatePolicy);
             }

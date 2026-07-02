@@ -340,27 +340,27 @@ namespace Vision.Flow.Tests
             {
                 Name = "Message",
                 DisplayName = "Message",
-                DataType = "String"
+                DataType = FlowDataType.String
             });
             descriptor.Settings.Add(new NodeSettingDescriptor
             {
                 Name = "Enabled",
                 DisplayName = "Enabled",
-                DataType = "Boolean"
+                DataType = FlowDataType.Boolean
             });
             descriptor.InputPorts.Add(new NodePortDescriptor
             {
                 Name = "Image",
                 DisplayName = "Image",
-                Direction = "Input",
-                DataType = "Image"
+                Direction = FlowPortDirection.Input,
+                DataType = FlowDataType.Object
             });
             descriptor.OutputPorts.Add(new NodePortDescriptor
             {
                 Name = FlowPortNames.Next,
                 DisplayName = "Next",
-                Direction = "Output",
-                DataType = "Control"
+                Direction = FlowPortDirection.Output,
+                DataType = FlowDataType.Control
             });
             return descriptor;
         }

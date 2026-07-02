@@ -49,3 +49,9 @@ using Vision.Flow.Designer.Wpf.Controls;
 Designer 调试运行会把当前 `.flowdesign` 发布为运行态定义，再通过同一个 `FlowRunner` 执行，并订阅 `FlowRuntimeEvent` 高亮节点和显示日志。
 
 生产进程必须使用 `.flowruntime`，不依赖 Designer 控件、画布或 ViewModel。
+
+## 枚举编辑体验
+
+Designer 根据 `FlowDataType` 选择属性编辑控件：`Boolean` 使用复选框，`Int32` / `Double` 使用数字文本转换，其他类型使用文本或下拉框。
+
+端口连线规则使用 `FlowPortDirection` 判断输入/输出方向。条件操作符、AND Join 重复策略、日志等级、相机帧模式和队列满载策略的下拉项由 `FlowEnumConverter.GetWireValues<TEnum>()` 生成，并写回字符串协议值，保证保存后的 `.flowdesign` / `.flowruntime` 仍然可读。

@@ -43,6 +43,51 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task CommonDescriptorsUseStrongEnumTypes()
+        {
+            var delay = DelayNodeDescriptor.Create();
+            AssertEx.Equal(FlowPortDirection.Input, delay.InputPorts[0].Direction, "Input port direction should be strongly typed.");
+            AssertEx.Equal(FlowDataType.Control, delay.InputPorts[0].DataType, "Input port data type should be strongly typed.");
+            AssertEx.Equal(FlowPortDirection.Output, delay.OutputPorts[0].Direction, "Output port direction should be strongly typed.");
+            AssertEx.Equal(FlowDataType.Int32, delay.Settings[0].DataType, "DelayMs setting data type should be strongly typed.");
+            AssertEx.Equal(FlowDataType.Int32, delay.Outputs[0].DataType, "DelayMs output data type should be strongly typed.");
+
+            var log = LogNodeDescriptor.Create();
+            AssertEx.Equal(FlowDataType.String, log.Settings[0].DataType, "Log level setting still edits as a string wire value.");
+            AssertEx.Equal(FlowLogLevel.Info, new LogNodeConfig().Level, "Log config should use a strongly typed default level.");
+
+            var condition = ConditionNodeDescriptor.Create();
+            AssertEx.Equal(FlowDataType.Boolean, condition.Outputs[0].DataType, "Condition result output should be strongly typed.");
+            AssertEx.Equal(ConditionOperator.Equal, new ConditionNodeConfig().Operator, "Condition config should use a strongly typed default operator.");
+            AssertEx.Equal(FlowDuplicatePolicy.Ignore, new AndJoinNodeConfig().DuplicatePolicy, "AND Join config should use a strongly typed default duplicate policy.");
+            return Task.FromResult(0);
+        }
+
+        public static async Task LogNodeAcceptsStrongEnumLevel()
+        {
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateCommonRunner(CreateSingleCommonNodeFlow(
+                "log1",
+                LogNodeFactory.TypeName,
+                delegate(NodeDefinition node)
+                {
+                    node.Settings[FlowSettingNames.Level] = FlowLogLevel.Warning;
+                    node.Settings[FlowSettingNames.Message] = "Part reached station.";
+                }),
+                sink);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-log-enum" }).ConfigureAwait(false);
+
+            var logEvent = sink.Events.FirstOrDefault(x =>
+                x.EventType == FlowRuntimeEventType.NodeCompleted &&
+                string.Equals(x.NodeId, "log1", StringComparison.OrdinalIgnoreCase) &&
+                x.Data.ContainsKey(FlowRuntimeDataKeys.LogLevel));
+
+            AssertEx.NotNull(logEvent, "LogNode should publish a runtime event for enum log levels.");
+            AssertEx.Equal("Warning", Convert.ToString(logEvent.Data[FlowRuntimeDataKeys.LogLevel], CultureInfo.InvariantCulture), "Log event should publish the enum wire value.");
+        }
+
         public static async Task LogNodePublishesRuntimeEvent()
         {
             var sink = new InMemoryFlowEventSink();
