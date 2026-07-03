@@ -17,9 +17,6 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("flow.split", FlowNodeTypes.FlowSplit, "split node type wire value");
             AssertEx.Equal("join.and", FlowNodeTypes.JoinAnd, "join node type wire value");
             AssertEx.Equal("condition.if", FlowNodeTypes.ConditionIf, "condition node type wire value");
-            AssertEx.Equal("camera.soft_trigger", FlowNodeTypes.CameraSoftTrigger, "camera soft trigger node type wire value");
-            AssertEx.Equal("camera.hard_trigger", FlowNodeTypes.CameraHardTrigger, "camera hard trigger node type wire value");
-            AssertEx.Equal("camera.parameter.set", FlowNodeTypes.CameraParameterSet, "camera parameter set node type wire value");
 
             AssertEx.Equal("In", FlowPortNames.In, "input control port wire value");
             AssertEx.Equal("Next", FlowPortNames.Next, "default success port wire value");

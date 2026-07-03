@@ -2,7 +2,7 @@
 
 ## 内置节点边界
 
-SDK Core 内置基础流程节点和通用相机节点：
+SDK Core 只内置基础流程节点：
 
 ```text
 delay.wait
@@ -11,12 +11,9 @@ variable.set
 flow.split
 join.and
 condition.if
-camera.soft_trigger
-camera.hard_trigger
-camera.parameter.set
 ```
 
-算法、图像保存、数据库保存、拼图、扫描、融合等节点仍应放在具体项目或项目专属节点库中。
+相机、算法、图像保存、数据库保存、拼图、扫描、融合等节点仍应放在具体项目或项目专属节点库中。
 
 ## 新节点必须包含
 
@@ -57,7 +54,7 @@ station.fusion.final
 
 ## Adapter 访问
 
-相机节点只能通过 Core 中的 Adapter 契约访问相机：
+项目专属相机节点只能通过 Core 中的 Adapter 契约访问相机：
 
 ```csharp
 var camera = context.Devices.GetCamera(cameraId);

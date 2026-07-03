@@ -14,14 +14,6 @@ namespace Vision.Flow.Core.Domain.Nodes
         public const string ActualInputCount = "ActualInputCount";
         public const string ExpectedInputCount = "ExpectedInputCount";
         public const string Image = "Image";
-        public const string Frame = "Frame";
-        public const string FrameId = "FrameId";
-        public const string GrabTime = "GrabTime";
-        public const string Metadata = "Metadata";
-        public const string CameraId = "CameraId";
-        public const string TriggerId = "TriggerId";
-        public const string Frames = "Frames";
-        public const string FrameCount = "FrameCount";
         public const string ElapsedMs = "ElapsedMs";
     }
 }

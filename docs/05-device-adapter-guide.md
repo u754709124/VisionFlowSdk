@@ -2,7 +2,7 @@
 
 ## 目的
 
-Adapter 契约让 Core 相机节点和项目专属节点可以调用现有上位机设备逻辑，同时避免 Core 直接引用具体 SDK。
+Adapter 契约让项目专属节点可以调用现有上位机设备逻辑，同时避免 Core 直接引用具体 SDK。
 
 ## 当前边界
 
@@ -13,7 +13,7 @@ Core 保留相机和图像基础契约：
 - `CameraFrameData`
 - `IVisionImage`
 
-Core 内置三个通用相机节点：`camera.soft_trigger`、`camera.hard_trigger`、`camera.parameter.set`。真实相机 SDK、Fake 设备、Demo 设备和项目专属算法/保存/数据库节点仍由具体项目实现。
+Core 不再内置相机节点。真实相机 SDK、Fake 设备、Demo 设备、相机节点和项目专属算法/保存/数据库节点均由具体项目实现。
 
 光源、运控、Recipe、图像保存、数据库保存和队列服务不作为 Core 公共契约发布；项目如需这些能力，应在项目专属节点库或上位机应用中定义自己的接口。
 
@@ -28,7 +28,7 @@ Task SetParameterAsync(string parameterName, object value, CancellationToken can
 IReadOnlyList<CameraParameterDescriptor> GetParameterDescriptors();
 ```
 
-`GrabOneAsync` 用于软触发节点单次采集。`FrameArrived` 用于硬触发节点订阅外部硬触发图像回调。参数设置节点只允许写入 `CameraParameterDescriptor.IsWritable=true` 的参数。
+`GrabOneAsync` 可用于项目专属软触发节点单次采集。`FrameArrived` 可用于项目专属硬触发节点订阅外部硬触发图像回调。参数设置节点只允许写入 `CameraParameterDescriptor.IsWritable=true` 的参数。
 
 ## 规则
 

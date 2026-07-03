@@ -42,8 +42,8 @@ using Vision.Flow.Designer.Wpf.Controls;
 ## 5. 关键约束
 
 - Core 不依赖 UI。
-- Core 内置节点包含基础流程节点和通用相机节点。
-- 通用相机节点只通过 `ICameraAdapter` 访问设备，不引用具体相机 SDK。
-- 算法、保存、拼图、扫描和融合节点放到具体项目或项目专属节点库。
+- Core 内置节点只包含基础流程节点。
+- 项目专属相机节点只通过 `ICameraAdapter` 访问设备，不引用具体相机 SDK。
+- 相机、算法、保存、拼图、扫描和融合节点放到具体项目或项目专属节点库。
 - 真实设备逻辑通过 Core Adapter 契约或项目兼容契约接入。
 - 生产运行加载 `.flowruntime`，不打开 WPF Designer。

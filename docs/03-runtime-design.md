@@ -22,7 +22,7 @@ Vision.Flow.Core.Runtime.Engine.RuntimeFlowPlan
 
 ```text
 StartAsync()
-  -> start listener nodes, such as camera.hard_trigger
+  -> start listener nodes, such as project camera hard-trigger nodes
 TriggerAsync(entryName, token)
   -> find Entry.TargetNodeId
   -> execute node
@@ -34,11 +34,11 @@ StopAsync()
   -> publish FlowStopped
 ```
 
-硬触发相机节点通过 `IFlowListenerNode` 在 `StartAsync` 阶段订阅 `ICameraAdapter.FrameArrived`。相机回调线程只做轻量帧克隆和后台投递，后续节点由 `FlowRunner.DispatchAsync` 在后台任务中调度。
+项目专属硬触发相机节点通过 `IFlowListenerNode` 在 `StartAsync` 阶段订阅 `ICameraAdapter.FrameArrived`。相机回调线程只做轻量帧克隆和后台投递，后续节点由 `FlowRunner.DispatchAsync` 在后台任务中调度。
 
 ## Core 内置节点
 
-Core 内置节点包括基础流程节点和通用相机节点：
+Core 内置节点只包括基础流程节点：
 
 ```text
 delay.wait
@@ -47,12 +47,9 @@ variable.set
 flow.split
 join.and
 condition.if
-camera.soft_trigger
-camera.hard_trigger
-camera.parameter.set
 ```
 
-`camera.soft_trigger` 调用 `ICameraAdapter.GrabOneAsync` 获取单帧。`camera.hard_trigger` 订阅相机硬触发回调。`camera.parameter.set` 设置一个可写相机参数。三者都只依赖 Core Adapter 契约，不引用具体相机 SDK。
+相机软触发、硬触发和参数设置等设备节点应放在项目专属节点库中，并只通过 Core Adapter 契约访问设备，不引用具体相机 SDK。
 
 ## Runtime 服务
 

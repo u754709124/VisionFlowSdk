@@ -5,8 +5,6 @@ namespace Vision.Flow.Core.Domain.Nodes
     /// </summary>
     public static class FlowSettingNames
     {
-        public const string CameraId = "CameraId";
-        public const string TriggerId = "TriggerId";
         public const string TimeoutMs = "TimeoutMs";
         public const string JoinKeyBinding = "JoinKeyBinding";
         public const string ExpectedInputCount = "ExpectedInputCount";
@@ -25,7 +23,6 @@ namespace Vision.Flow.Core.Domain.Nodes
         public const string Binding = "Binding";
         public const string Expression = "Expression";
         public const string Name = "Name";
-        public const string ParameterName = "ParameterName";
         public const string Disabled = "Disabled";
     }
 }

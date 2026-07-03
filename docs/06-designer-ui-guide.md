@@ -25,12 +25,9 @@ variable.set
 flow.split
 join.and
 condition.if
-camera.soft_trigger
-camera.hard_trigger
-camera.parameter.set
 ```
 
-宿主可以通过构造函数传入自己的 `NodeRegistry`，从而显示和调试项目专属算法、保存、数据库等节点。
+宿主可以通过构造函数传入自己的 `NodeRegistry`，从而显示和调试项目专属相机、算法、保存、数据库等节点。
 
 嵌入设计器控件时引用：
 
@@ -47,7 +44,7 @@ using Vision.Flow.Designer.Wpf.Controls;
 {{ token.TokenId }}
 ```
 
-`CameraId` 默认提供 `Camera01` 作为示例下拉项；具体项目可以通过传入自己的节点注册表和调试设备来扩展实际体验。
+具体项目可以通过传入自己的节点注册表、节点 Descriptor 和调试设备来扩展属性面板的实际体验。
 
 ## 调试运行
 

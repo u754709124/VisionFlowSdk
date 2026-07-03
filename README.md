@@ -2,10 +2,10 @@
 
 `VisionFlowSdk` 是一个 UI 无关的工业视觉流程运行 SDK。当前 SDK 内置内容已收缩为：
 
-- `Vision.Flow.Core`：流程定义、执行引擎、发布/序列化、运行事件、变量池、Adapter 契约、基础流程节点和通用相机节点。
+- `Vision.Flow.Core`：流程定义、执行引擎、发布/序列化、运行事件、变量池、Adapter 契约和基础流程节点。
 - `Vision.Flow.Designer.Wpf`：WPF 流程设计器，用于编辑、调试和发布 `.flowruntime`。
 
-算法节点、图像保存、数据库保存、拼图、扫描和融合等节点不再由 SDK 内置提供，应放在具体上位机项目或项目专属节点库中实现和注册。
+相机节点、算法节点、图像保存、数据库保存、拼图、扫描和融合等节点不再由 SDK 内置提供，应放在具体上位机项目或项目专属节点库中实现和注册。
 
 ## 生产运行路径
 
@@ -17,9 +17,9 @@
   -> upper-machine devices / algorithms / storage
 ```
 
-生产 WinForms 上位机只需要引用 `Vision.Flow.Core.dll`。需要嵌入设计器或调试工具时再引用 `Vision.Flow.Designer.Wpf.dll`。
+生产 WinForms 上位机至少引用 `Vision.Flow.Core.dll`，并按需引用自己的项目专属节点库。需要嵌入设计器或调试工具时再引用 `Vision.Flow.Designer.Wpf.dll`。
 
-Core Adapter 公共面保留相机查找、相机适配器、相机帧和图像引用契约。Core 内置通用相机节点，但不引用具体相机 SDK。光源、运控、Recipe、保存、数据库、队列以及扫描/融合分组能力由具体项目或项目专属节点库自行定义。
+Core Adapter 公共面保留相机查找、相机适配器、相机帧和图像引用契约。相机节点不再由 Core 内置，需由具体项目或项目专属节点库通过这些契约实现。光源、运控、Recipe、保存、数据库、队列以及扫描/融合分组能力也由具体项目或项目专属节点库自行定义。
 
 ## 公共 API 命名空间
 
@@ -70,14 +70,9 @@ variable.set
 flow.split
 join.and
 condition.if
-camera.soft_trigger
-camera.hard_trigger
-camera.parameter.set
 ```
 
-其中 `camera.soft_trigger` 调用 `ICameraAdapter.GrabOneAsync` 获取单帧，`camera.hard_trigger` 在流程启动时订阅 `ICameraAdapter.FrameArrived`，`camera.parameter.set` 写入一个可写相机参数。
-
-这些类型位于 `Vision.Flow.Core.dll`，源码命名空间保留为 `Vision.Flow.Nodes`，方便既有调用方迁移。
+这些类型位于 `Vision.Flow.Core.dll`，源码命名空间保留为 `Vision.Flow.Nodes`。相机、算法、保存和数据库等项目节点应由项目节点库提供自己的 NodeType、Descriptor、Factory 和测试。
 
 ## 构建、测试、打包
 

@@ -13,6 +13,5 @@ namespace Vision.Flow.Core.Domain.Nodes
         public const string True = "True";
         public const string False = "False";
         public const string Completed = "Completed";
-        public const string Frame = "Frame";
     }
 }

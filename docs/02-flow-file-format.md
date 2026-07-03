@@ -69,17 +69,17 @@
 
 项目专属节点可以在 `settings` 和 `inputBindings` 中定义自己的协议字段。Core 只校验通用结构、端口、绑定和 Core 内置节点规则；算法、保存、数据库和复杂图像队列等语义校验由具体项目实现。
 
-## 相机节点协议
+## 项目专属相机节点协议
 
-Core 内置相机节点使用稳定 NodeType：
+相机节点不再由 Core 内置。项目专属节点库应定义自己的稳定 NodeType，例如：
 
 ```text
-camera.soft_trigger
-camera.hard_trigger
-camera.parameter.set
+station.camera.soft_trigger
+station.camera.hard_trigger
+station.camera.parameter.set
 ```
 
-这些节点的设备访问通过 `CameraId` 设置绑定到运行时 `IDeviceRegistry` 中的 `ICameraAdapter`。流程文件只保存节点类型、端口、设置和变量绑定，不保存具体相机 SDK 类型或运行时回调状态。
+这些节点的设备访问可通过 `CameraId` 设置绑定到运行时 `IDeviceRegistry` 中的 `ICameraAdapter`。流程文件只保存节点类型、端口、设置和变量绑定，不保存具体相机 SDK 类型或运行时回调状态。
 
 ## 枚举与文件协议值
 

@@ -40,7 +40,7 @@ using Vision.Flow.Nodes;
 var nodes = new NodeRegistry();
 CommonNodeRegistration.RegisterAll(nodes);
 
-// 具体项目在这里注册自己的算法、保存、数据库等节点。
+// 具体项目在这里注册自己的相机、算法、保存、数据库等节点。
 nodes.Register(new StationRecipeNodeFactory(existingRecipeSystem));
 
 var devices = new StationDeviceRegistry(existingCameraAdapters);
@@ -49,11 +49,7 @@ var eventSink = new StationEventSink();
 var runner = new FlowEngine(nodes, eventSink, devices).CreateRunner(flow);
 ```
 
-Core 内置相机节点通过 `IDeviceRegistry` 获取 `ICameraAdapter`：
-
-- `camera.soft_trigger` 调用 `GrabOneAsync` 获取单帧。
-- `camera.hard_trigger` 在 `StartAsync` 时订阅 `FrameArrived`，收到帧后后台调度后续节点。
-- `camera.parameter.set` 调用 `SetParameterAsync` 写入可写参数。
+项目专属相机节点应通过 `IDeviceRegistry` 获取 `ICameraAdapter`，并在自己的节点库中实现软触发、硬触发监听或参数设置等行为。
 
 ## Flow Files
 

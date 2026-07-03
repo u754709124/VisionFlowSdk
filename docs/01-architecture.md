@@ -29,12 +29,9 @@ variable.set
 flow.split
 join.and
 condition.if
-camera.soft_trigger
-camera.hard_trigger
-camera.parameter.set
 ```
 
-Core 只内置通用相机节点，不引用具体相机 SDK。算法、存储、拼图、扫描、融合等项目专属节点由具体项目实现，并通过 `NodeRegistry` 注册。
+Core 只内置 UI 无关基础流程节点，不引用具体相机 SDK 或上位机业务项目。相机、算法、存储、拼图、扫描、融合等项目专属节点由具体项目实现，并通过 `NodeRegistry` 注册。
 
 ### Vision.Flow.Designer.Wpf
 
@@ -85,6 +82,6 @@ Upper-machine app
 
 ## Runtime 服务
 
-Core 保留 `IDeviceRegistry`、`ICameraAdapter`、`CameraFrameData` 和 `IVisionImage` 等相机/图像基础契约。`camera.soft_trigger` 调用 `ICameraAdapter.GrabOneAsync`，`camera.hard_trigger` 订阅 `ICameraAdapter.FrameArrived` 并通过 `FlowRunner.DispatchAsync` 后台调度后续节点，`camera.parameter.set` 调用 `SetParameterAsync` 写入可写参数。
+Core 保留 `IDeviceRegistry`、`ICameraAdapter`、`CameraFrameData` 和 `IVisionImage` 等相机/图像基础契约。项目专属相机节点应通过这些 Adapter 契约调用 `GrabOneAsync`、订阅 `FrameArrived` 或写入可写参数，不直接引用具体相机 SDK。
 
 光源、运控、Recipe、保存、数据库、队列和扫描/融合分组能力由项目专属节点库自行定义和注册。

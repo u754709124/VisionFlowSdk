@@ -38,9 +38,6 @@ namespace Vision.Flow.Tests
             AssertFactoryRegistered(registry, VariableSetNodeFactory.TypeName);
             AssertFactoryRegistered(registry, AndJoinNodeFactory.TypeName);
             AssertFactoryRegistered(registry, ConditionNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, CameraSoftTriggerNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, CameraHardTriggerNodeFactory.TypeName);
-            AssertFactoryRegistered(registry, CameraParameterSetNodeFactory.TypeName);
             return Task.FromResult(0);
         }
 
