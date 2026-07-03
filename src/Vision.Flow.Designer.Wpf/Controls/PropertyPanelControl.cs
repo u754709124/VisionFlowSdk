@@ -14,7 +14,6 @@ using Microsoft.Win32;
 using Vision.Flow.Nodes;
 using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
@@ -334,18 +333,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (string.Equals(setting.Name, "CameraId", StringComparison.OrdinalIgnoreCase))
             {
                 items.Add("Camera01");
-            }
-            else if (string.Equals(setting.Name, FlowSettingNames.MatchMode, StringComparison.OrdinalIgnoreCase))
-            {
-                AddWireValues<CameraFrameMatchMode>(items);
-            }
-            else if (string.Equals(setting.Name, FlowSettingNames.CallbackMode, StringComparison.OrdinalIgnoreCase))
-            {
-                AddWireValues<CameraCallbackMode>(items);
-            }
-            else if (string.Equals(setting.Name, FlowSettingNames.StreamOutputMode, StringComparison.OrdinalIgnoreCase))
-            {
-                AddWireValues<CameraStreamOutputMode>(items);
             }
             else if (string.Equals(setting.Name, FlowSettingNames.DuplicatePolicy, StringComparison.OrdinalIgnoreCase))
             {

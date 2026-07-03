@@ -4,12 +4,12 @@
 
 用途：证明生产模式可以不打开 WPF Designer，直接加载 `.flowruntime` 并通过 `FlowRunner` 执行。
 
-当前 Demo 使用 `samples/flows/core-basic.flowruntime`，只注册 Core 基础节点。
+当前 Demo 使用 `samples/flows/core-basic.flowruntime`，注册 Core 内置节点。
 
 功能：
 
 - 加载 `.flowruntime`
-- 注册 Core 基础节点
+- 注册 Core 内置节点
 - 启动 / 停止 `FlowRunner`
 - 手动触发入口
 - 显示 `FlowRuntimeEvent`

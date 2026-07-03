@@ -16,11 +16,11 @@ samples/flows
 
 ### Vision.Flow.Core
 
-负责流程定义、运行态模型、节点接口、执行引擎、变量池、运行事件、校验、发布、序列化、Adapter 契约和 Core 基础节点。
+负责流程定义、运行态模型、节点接口、执行引擎、变量池、运行事件、校验、发布、序列化、Adapter 契约和 Core 内置节点。
 
 公共 API 按职责放在 `Vision.Flow.Core.Domain.Flows`、`Vision.Flow.Core.Contracts.Nodes`、`Vision.Flow.Core.Runtime.Engine / Vision.Flow.Core.Runtime.Execution / Vision.Flow.Core.Runtime.State`、`Vision.Flow.Core.Services.Serialization`、`Vision.Flow.Core.Services.Validation` 等命名空间中。内置节点源码命名空间仍为 `Vision.Flow.Nodes`，编译产物仍属于 `Vision.Flow.Core.dll`。
 
-Core 内置节点只包含：
+Core 内置节点包含：
 
 ```text
 delay.wait
@@ -29,9 +29,12 @@ variable.set
 flow.split
 join.and
 condition.if
+camera.soft_trigger
+camera.hard_trigger
+camera.parameter.set
 ```
 
-设备、算法、存储、拼图、融合等节点由具体项目实现，并通过 `NodeRegistry` 注册。
+Core 只内置通用相机节点，不引用具体相机 SDK。算法、存储、拼图、扫描、融合等项目专属节点由具体项目实现，并通过 `NodeRegistry` 注册。
 
 ### Vision.Flow.Designer.Wpf
 
@@ -39,7 +42,7 @@ condition.if
 
 设计器控件公开在 `Vision.Flow.Designer.Wpf.Controls`，ViewModel 放在 `Vision.Flow.Designer.Wpf.ViewModels`。
 
-Designer 默认使用 Core 基础节点库，也允许宿主注入包含项目专属节点的 `NodeRegistry`。
+Designer 默认使用 Core 内置节点库，也允许宿主注入包含项目专属节点的 `NodeRegistry`。
 
 ## 依赖方向
 
@@ -70,9 +73,11 @@ Production Runtime -> Designer UI
 Upper-machine app
   -> register Core built-in node factories
   -> register project-specific node factories
+  -> register device adapters
   -> load .flowruntime
   -> create FlowRunner
-  -> trigger entries from station events
+  -> start listener nodes
+  -> trigger entries or dispatch continuations from station events
   -> consume FlowRuntimeEvent
 ```
 
@@ -80,4 +85,6 @@ Upper-machine app
 
 ## Runtime 服务
 
-Core 仅保留 `IDeviceRegistry` 的相机查找能力、`ICameraFrameRouter` 和 `IVisionImage` 等相机/图像基础契约。光源、运控、Recipe、保存、数据库、队列和扫描/融合分组能力由项目专属节点库自行定义和注册。
+Core 保留 `IDeviceRegistry`、`ICameraAdapter`、`CameraFrameData` 和 `IVisionImage` 等相机/图像基础契约。`camera.soft_trigger` 调用 `ICameraAdapter.GrabOneAsync`，`camera.hard_trigger` 订阅 `ICameraAdapter.FrameArrived` 并通过 `FlowRunner.DispatchAsync` 后台调度后续节点，`camera.parameter.set` 调用 `SetParameterAsync` 写入可写参数。
+
+光源、运控、Recipe、保存、数据库、队列和扫描/融合分组能力由项目专属节点库自行定义和注册。

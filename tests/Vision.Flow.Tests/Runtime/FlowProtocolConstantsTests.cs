@@ -1,6 +1,5 @@
 ﻿using System.Threading.Tasks;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
@@ -18,6 +17,9 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("flow.split", FlowNodeTypes.FlowSplit, "split node type wire value");
             AssertEx.Equal("join.and", FlowNodeTypes.JoinAnd, "join node type wire value");
             AssertEx.Equal("condition.if", FlowNodeTypes.ConditionIf, "condition node type wire value");
+            AssertEx.Equal("camera.soft_trigger", FlowNodeTypes.CameraSoftTrigger, "camera soft trigger node type wire value");
+            AssertEx.Equal("camera.hard_trigger", FlowNodeTypes.CameraHardTrigger, "camera hard trigger node type wire value");
+            AssertEx.Equal("camera.parameter.set", FlowNodeTypes.CameraParameterSet, "camera parameter set node type wire value");
 
             AssertEx.Equal("In", FlowPortNames.In, "input control port wire value");
             AssertEx.Equal("Next", FlowPortNames.Next, "default success port wire value");
@@ -51,9 +53,6 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("Equal", FlowEnumConverter.ToWireValue(ConditionOperator.Equal), "condition operator enum wire value");
             AssertEx.Equal("Ignore", FlowEnumConverter.ToWireValue(FlowDuplicatePolicy.Ignore), "duplicate policy enum wire value");
             AssertEx.Equal("Warning", FlowEnumConverter.ToWireValue(FlowLogLevel.Warning), "log level enum wire value");
-            AssertEx.Equal("TriggerId", FlowEnumConverter.ToWireValue(CameraFrameMatchMode.TriggerId), "camera match mode enum wire value");
-            AssertEx.Equal("StreamFrames", FlowEnumConverter.ToWireValue(CameraCallbackMode.StreamFrames), "camera callback mode enum wire value");
-            AssertEx.Equal("PerFrame", FlowEnumConverter.ToWireValue(CameraStreamOutputMode.PerFrame), "camera stream output mode enum wire value");
 
             FlowDuplicatePolicy duplicatePolicy;
             AssertEx.True(FlowEnumConverter.TryParse("replace", out duplicatePolicy), "Duplicate policy should parse case-insensitively.");

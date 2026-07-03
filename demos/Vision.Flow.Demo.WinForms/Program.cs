@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Windows.Forms;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;

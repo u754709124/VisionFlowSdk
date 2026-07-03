@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
@@ -50,7 +49,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Flow enum wire values keep existing strings", FlowProtocolConstantsTests.EnumWireValuesKeepExistingStrings),
                 new TestCase("Non-camera contracts are not exposed", ApiSurfaceReductionTests.NonCameraContractsAreNotExposed),
                 new TestCase("Queue runtime is not exposed", ApiSurfaceReductionTests.QueueRuntimeIsNotExposed),
-                new TestCase("Camera surface does not expose grouped frame fields", ApiSurfaceReductionTests.CameraSurfaceDoesNotExposeGroupedFrameFields),
+                new TestCase("Removed camera frame router surface is not exposed", ApiSurfaceReductionTests.CameraFrameRouterSurfaceIsNotExposed),
                 new TestCase("Domain constants do not expose removed names", ApiSurfaceReductionTests.DomainConstantsDoNotExposeRemovedNames),
                 new TestCase("Source text files do not contain corrupted Chinese markers", SourceTextEncodingTests.TextFilesDoNotContainCorruptedChineseMarkers),
                 new TestCase("Runtime serialization round-trips without view state", SerializationTests.RuntimeRoundTrip),
@@ -78,8 +77,6 @@ namespace Vision.Flow.Tests
                 new TestCase("FlowRunner detects cycles on the current execution path", FlowRunnerTests.CycleRouteThrows),
                 new TestCase("FlowRunner reports a clear missing entry exception", FlowRunnerTests.MissingEntryThrows),
                 new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
-                new TestCase("Core CameraFrameRouter routes frames from local test camera", CoreDeviceContractTests.CameraFrameRouterRoutesLocalTestCamera),
-                new TestCase("Core CameraFrameRouter routes frames with strong match mode", CoreDeviceContractTests.CameraFrameRouterRoutesWithStrongMatchMode),
                 new TestCase("VisionImageReference supports clone and disposal", CoreDeviceContractTests.VisionImageReferenceLifecycle),
                 new TestCase("CommonNodeRegistration resolves common factories", CommonNodeTests.RegisterAllResolvesFactories),
                 new TestCase("Common descriptors use strong enum types", CommonNodeTests.CommonDescriptorsUseStrongEnumTypes),
@@ -87,6 +84,9 @@ namespace Vision.Flow.Tests
                 new TestCase("LogNode accepts a strong enum level", CommonNodeTests.LogNodeAcceptsStrongEnumLevel),
                 new TestCase("DelayNode executes a configured delay", CommonNodeTests.DelayNodeExecutes),
                 new TestCase("VariableSetNode writes a variable subsequent node can read", CommonNodeTests.VariableSetNodeWritesVariableForNextNode),
+                new TestCase("Camera soft trigger node waits for one frame", CameraNodeTests.SoftTriggerWaitsForOneFrame),
+                new TestCase("Camera hard trigger node dispatches callbacks off callback thread", CameraNodeTests.HardTriggerDispatchesOffCallbackThread),
+                new TestCase("Camera parameter node sets writable parameter", CameraNodeTests.ParameterNodeSetsWritableParameter),
                 new TestCase("AndJoinNode triggers after two inputs with the same JoinKey", ControlFlowNodeTests.AndJoinTwoInputsSameJoinKey),
                 new TestCase("AndJoinNode keeps different JoinKeys isolated", ControlFlowNodeTests.AndJoinDifferentKeysDoNotMix),
                 new TestCase("AndJoinNode duplicate policy Error routes to Error", ControlFlowNodeTests.AndJoinDuplicatePolicyError),

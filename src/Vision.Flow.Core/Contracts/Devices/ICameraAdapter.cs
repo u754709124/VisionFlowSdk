@@ -18,8 +18,14 @@ namespace Vision.Flow.Core.Contracts.Devices
 
         Task<object> GetParameterAsync(string parameterName, CancellationToken cancellationToken);
 
-        Task SoftTriggerAsync(CameraTriggerContext triggerContext, CancellationToken cancellationToken);
+        /// <summary>
+        /// 执行一次相机软触发并等待返回单帧图像；具体超时策略由调用方通过 CancellationToken 控制。
+        /// </summary>
+        Task<CameraFrameData> GrabOneAsync(CancellationToken cancellationToken = default(CancellationToken));
 
+        /// <summary>
+        /// 相机收到外部硬触发并完成取像后触发；实现方应快速抛出事件，不在回调内执行重算法。
+        /// </summary>
         event EventHandler<CameraFrameArrivedEventArgs> FrameArrived;
     }
 }

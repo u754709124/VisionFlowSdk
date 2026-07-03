@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
@@ -233,7 +232,7 @@ namespace Vision.Flow.Tests
         {
             var registry = new NodeRegistry();
             registry.Register(new RecordingNodeFactory(executionLog));
-            return new FlowEngine(registry, sink, null, null, options).CreateRunner(flow);
+            return new FlowEngine(registry, sink, null, options).CreateRunner(flow);
         }
 
         private static RuntimeFlowDefinition CreateLinearFlow(bool includeOutputs)

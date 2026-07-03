@@ -74,10 +74,11 @@ Sample design/runtime flow files are copied to `artifacts/samples/flows`.
 
 ## Production Runtime Wiring
 
-Register Core node factories and any station-specific node factories implemented by the upper-machine application. Device, algorithm, image save, database, stitching, and fusion nodes now live in concrete projects instead of this SDK package.
+Register Core node factories and any station-specific node factories implemented by the upper-machine application. Core includes basic flow nodes and generic camera nodes. Algorithm, image save, database, stitching, and fusion nodes live in concrete projects.
 
 ```csharp
 using Vision.Flow.Core.Contracts.Nodes;
+using Vision.Flow.Core.Contracts.Devices;
 using Vision.Flow.Core.Runtime.Engine;
 using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
@@ -87,7 +88,6 @@ using Vision.Flow.Nodes;
 
 var nodes = new NodeRegistry();
 CommonNodeRegistration.RegisterAll(nodes);
-nodes.Register(new StationCameraTriggerNodeFactory(existingCamera));
 nodes.Register(new StationRecipeNodeFactory(existingRecipeSystem));
 ```
 
@@ -111,7 +111,8 @@ public sealed class StationEventSink : IFlowEventSink
 }
 
 var eventSink = new StationEventSink();
-var runner = new FlowRunner(flow, nodes, eventSink);
+var devices = new StationDeviceRegistry(existingCameras);
+var runner = new FlowEngine(nodes, eventSink, devices).CreateRunner(flow);
 ```
 
 Start the runner during station initialization, then trigger entries from motion, camera, IO, or recipe events:
@@ -127,10 +128,10 @@ await runner.TriggerAsync("ManualStart", token, CancellationToken.None);
 
 The WPF designer may compile a `.flowdesign` to `.flowruntime` for debugging or publishing, but the production process should deploy and load only `.flowruntime`.
 
-## Runtime Services Added in 2026-06
+## Runtime Services
 
 - `FlowRunner` supports output-port fan-out graph scheduling through the published runtime edges.
-- Station-specific camera callback nodes can use `ICameraFrameRouter` / `DefaultCameraFrameRouter` for trigger, scan group, or stream matching.
+- Core camera nodes use `ICameraAdapter.GrabOneAsync`, `ICameraAdapter.FrameArrived`, and `ICameraAdapter.SetParameterAsync`.
 - Station-specific heavy nodes should define their own queue or background execution service outside the SDK.
 - `IVisionImage` references are disposable and should be cloned before queued or delayed downstream work.
 '@ | Set-Content -Path (Join-Path $sdkArtifacts "README-INTEGRATION.md") -Encoding UTF8

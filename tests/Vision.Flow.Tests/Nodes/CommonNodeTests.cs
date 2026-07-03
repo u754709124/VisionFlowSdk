@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Nodes;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
@@ -39,6 +38,9 @@ namespace Vision.Flow.Tests
             AssertFactoryRegistered(registry, VariableSetNodeFactory.TypeName);
             AssertFactoryRegistered(registry, AndJoinNodeFactory.TypeName);
             AssertFactoryRegistered(registry, ConditionNodeFactory.TypeName);
+            AssertFactoryRegistered(registry, CameraSoftTriggerNodeFactory.TypeName);
+            AssertFactoryRegistered(registry, CameraHardTriggerNodeFactory.TypeName);
+            AssertFactoryRegistered(registry, CameraParameterSetNodeFactory.TypeName);
             return Task.FromResult(0);
         }
 

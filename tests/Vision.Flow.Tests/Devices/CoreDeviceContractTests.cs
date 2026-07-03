@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
@@ -22,55 +21,6 @@ namespace Vision.Flow.Tests
     // Core 璁惧濂戠害娴嬭瘯鍙娇鐢ㄦ湰鍦版渶灏忔々锛岄伩鍏?SDK 娴嬭瘯渚濊禆 Fake Adapter 椤圭洰銆?
     internal static class CoreDeviceContractTests
     {
-        public static async Task CameraFrameRouterRoutesLocalTestCamera()
-        {
-            using (var router = new DefaultCameraFrameRouter())
-            {
-                var camera = new TestCameraAdapter("Camera01");
-                var waitTask = router.WaitForFrameAsync(
-                    camera,
-                    new CameraFrameWaitTicket
-                    {
-                        CameraId = "Camera01",
-                        MatchMode = CameraFrameMatchMode.TriggerId,
-                        TriggerId = "trigger-001"
-                    },
-                    1000,
-                    CancellationToken.None);
-
-                camera.EmitFrame("trigger-001", "frame-001");
-                var frame = await waitTask.ConfigureAwait(false);
-
-                AssertEx.NotNull(frame, "Frame router should return the matching frame.");
-                AssertEx.Equal("Camera01", frame.CameraId, "Frame camera id should match.");
-                AssertEx.Equal("trigger-001", frame.TriggerId, "Frame trigger id should match.");
-                AssertEx.Equal("frame-001", frame.FrameId, "Frame id should match.");
-            }
-        }
-
-        public static async Task CameraFrameRouterRoutesWithStrongMatchMode()
-        {
-            using (var router = new DefaultCameraFrameRouter())
-            {
-                var camera = new TestCameraAdapter("Camera01");
-                var waitTask = router.WaitForFrameAsync(
-                    camera,
-                    new CameraFrameWaitTicket
-                    {
-                        CameraId = "Camera01",
-                        MatchMode = CameraFrameMatchMode.Any
-                    },
-                    1000,
-                    CancellationToken.None);
-
-                camera.EmitFrame("trigger-any", "frame-any");
-                var frame = await waitTask.ConfigureAwait(false);
-
-                AssertEx.NotNull(frame, "Frame router should return a frame when MatchMode is Any.");
-                AssertEx.Equal("frame-any", frame.FrameId, "Frame id should match the emitted frame.");
-            }
-        }
-
         public static Task VisionImageReferenceLifecycle()
         {
             var native = new DisposableProbe();
@@ -123,11 +73,17 @@ namespace Vision.Flow.Tests
                 return Task.FromResult(value);
             }
 
-            public Task SoftTriggerAsync(CameraTriggerContext triggerContext, CancellationToken cancellationToken)
+            public Task<CameraFrameData> GrabOneAsync(CancellationToken cancellationToken = default(CancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                EmitFrame(triggerContext == null ? null : triggerContext.TriggerId, Guid.NewGuid().ToString("N"));
-                return Task.FromResult(0);
+                return Task.FromResult(new CameraFrameData
+                {
+                    CameraId = CameraId,
+                    TriggerId = "grab-one",
+                    FrameId = Guid.NewGuid().ToString("N"),
+                    GrabTime = DateTime.UtcNow,
+                    Image = new VisionImageReference("grab-one-image", 1, 1, "Mono8", new byte[] { 7 })
+                });
             }
 
             public void EmitFrame(string triggerId, string frameId)

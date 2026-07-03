@@ -67,11 +67,23 @@
 
 ## 扩展节点
 
-项目专属节点可以在 `settings` 和 `inputBindings` 中定义自己的协议字段。Core 只校验通用结构、端口、绑定和 Core 内置节点规则；设备/算法节点的语义校验由具体项目实现。
+项目专属节点可以在 `settings` 和 `inputBindings` 中定义自己的协议字段。Core 只校验通用结构、端口、绑定和 Core 内置节点规则；算法、保存、数据库和复杂图像队列等语义校验由具体项目实现。
+
+## 相机节点协议
+
+Core 内置相机节点使用稳定 NodeType：
+
+```text
+camera.soft_trigger
+camera.hard_trigger
+camera.parameter.set
+```
+
+这些节点的设备访问通过 `CameraId` 设置绑定到运行时 `IDeviceRegistry` 中的 `ICameraAdapter`。流程文件只保存节点类型、端口、设置和变量绑定，不保存具体相机 SDK 类型或运行时回调状态。
 
 ## 枚举与文件协议值
 
-SDK 公共 API 中的固定集合使用枚举，例如 `FlowPortDirection`、`FlowDataType`、`ConditionOperator`、`FlowDuplicatePolicy`、`FlowLogLevel` 和相机帧模式枚举。
+SDK 公共 API 中的固定集合使用枚举，例如 `FlowPortDirection`、`FlowDataType`、`ConditionOperator`、`FlowDuplicatePolicy` 和 `FlowLogLevel`。
 
 流程文件仍写入可读字符串协议值，不写入枚举数字。例如：
 

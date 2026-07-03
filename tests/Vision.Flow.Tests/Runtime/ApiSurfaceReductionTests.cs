@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Vision.Flow.Core.Contracts.Devices;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
@@ -64,18 +63,15 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task CameraSurfaceDoesNotExposeGroupedFrameFields()
+        public static Task CameraFrameRouterSurfaceIsNotExposed()
         {
-            AssertTypeMissing("Vision.Flow.Core.Runtime.CameraFrames." + RemovedName("Frame", "IndexSource"));
-            AssertEx.False(
-                Enum.GetNames(typeof(CameraFrameMatchMode)).Any(x => string.Equals(x, RemovedName("Scan", "GroupId"), StringComparison.Ordinal)),
-                "Camera frame match mode should not include scan grouping.");
-            AssertEx.False(
-                typeof(CameraFrameWaitTicket).GetProperties().Any(x => string.Equals(x.Name, RemovedName("Scan", "GroupId"), StringComparison.Ordinal)),
-                "CameraFrameWaitTicket should not expose scan grouping.");
-            AssertEx.False(
-                typeof(CameraFrameStreamSubscription).GetProperties().Any(x => string.Equals(x.Name, RemovedName("Queue", "Name"), StringComparison.Ordinal) || string.Equals(x.Name, RemovedName("Scan", "GroupId"), StringComparison.Ordinal)),
-                "CameraFrameStreamSubscription should not expose queue or scan grouping fields.");
+            AssertTypeMissing("Vision.Flow.Core.Runtime.CameraFrames.ICameraFrameRouter");
+            AssertTypeMissing("Vision.Flow.Core.Runtime.CameraFrames.DefaultCameraFrameRouter");
+            AssertTypeMissing("Vision.Flow.Core.Runtime.CameraFrames.CameraFrameWaitTicket");
+            AssertTypeMissing("Vision.Flow.Core.Runtime.CameraFrames.CameraFrameStreamSubscription");
+            AssertTypeMissing("Vision.Flow.Core.Runtime.CameraFrames.CameraFrameMatchMode");
+            AssertTypeMissing("Vision.Flow.Core.Runtime.CameraFrames.CameraCallbackMode");
+            AssertTypeMissing("Vision.Flow.Core.Runtime.CameraFrames.CameraStreamOutputMode");
             AssertEx.False(
                 typeof(FlowToken).GetProperties().Any(x => string.Equals(x.Name, RemovedName("Capture", "GroupId"), StringComparison.Ordinal) || string.Equals(x.Name, RemovedName("Scan", "GroupId"), StringComparison.Ordinal)),
                 "FlowToken should not expose capture or scan grouping fields.");

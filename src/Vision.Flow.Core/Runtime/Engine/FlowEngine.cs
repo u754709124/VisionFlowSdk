@@ -2,7 +2,6 @@ using System;
 using Vision.Flow.Core.Contracts.Devices;
 using Vision.Flow.Core.Contracts.Nodes;
 using Vision.Flow.Core.Domain.Flows;
-using Vision.Flow.Core.Runtime.CameraFrames;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Runtime.Execution;
 
@@ -13,7 +12,6 @@ namespace Vision.Flow.Core.Runtime.Engine
         private readonly NodeRegistry _nodeRegistry;
         private readonly IFlowEventSink _eventSink;
         private readonly IDeviceRegistry _devices;
-        private readonly ICameraFrameRouter _cameraFrames;
         private readonly FlowExecutionOptions _options;
 
         public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink = null)
@@ -31,16 +29,10 @@ namespace Vision.Flow.Core.Runtime.Engine
         {
         }
 
-        public FlowEngine(NodeRegistry nodeRegistry, IFlowEventSink eventSink, IDeviceRegistry devices, ICameraFrameRouter cameraFrames)
-            : this(nodeRegistry, eventSink, devices, cameraFrames, null)
-        {
-        }
-
         public FlowEngine(
             NodeRegistry nodeRegistry,
             IFlowEventSink eventSink,
             IDeviceRegistry devices,
-            ICameraFrameRouter cameraFrames,
             FlowExecutionOptions options)
         {
             if (nodeRegistry == null)
@@ -51,7 +43,6 @@ namespace Vision.Flow.Core.Runtime.Engine
             _nodeRegistry = nodeRegistry;
             _eventSink = eventSink ?? new InMemoryFlowEventSink();
             _devices = devices ?? EmptyDeviceRegistry.Instance;
-            _cameraFrames = cameraFrames ?? new DefaultCameraFrameRouter();
             _options = CloneOptions(options);
         }
 
@@ -62,7 +53,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                 throw new ArgumentNullException("definition");
             }
 
-            return new FlowRunner(definition, _nodeRegistry, _eventSink, _devices, _cameraFrames, _options);
+            return new FlowRunner(definition, _nodeRegistry, _eventSink, _devices, _options);
         }
 
         private static FlowExecutionOptions CloneOptions(FlowExecutionOptions options)

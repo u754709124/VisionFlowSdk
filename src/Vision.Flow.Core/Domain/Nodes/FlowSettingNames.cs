@@ -7,14 +7,7 @@ namespace Vision.Flow.Core.Domain.Nodes
     {
         public const string CameraId = "CameraId";
         public const string TriggerId = "TriggerId";
-        public const string CallbackMode = "CallbackMode";
-        public const string MatchMode = "MatchMode";
-        public const string StreamOutputMode = "StreamOutputMode";
         public const string TimeoutMs = "TimeoutMs";
-        public const string StableDelayMs = "StableDelayMs";
-        public const string ExpectedFrameCount = "ExpectedFrameCount";
-        public const string FrameTimeoutMs = "FrameTimeoutMs";
-        public const string AutoStopAfterExpectedFrameCount = "AutoStopAfterExpectedFrameCount";
         public const string JoinKeyBinding = "JoinKeyBinding";
         public const string ExpectedInputCount = "ExpectedInputCount";
         public const string DuplicatePolicy = "DuplicatePolicy";
@@ -33,12 +26,6 @@ namespace Vision.Flow.Core.Domain.Nodes
         public const string Expression = "Expression";
         public const string Name = "Name";
         public const string ParameterName = "ParameterName";
-        public const string InputImage = "InputImage";
-        public const string InputImageBinding = "InputImageBinding";
-        public const string ImageBinding = "ImageBinding";
-        public const string FrameBinding = "FrameBinding";
-        public const string FrameIdBinding = "FrameIdBinding";
-        public const string Parameters = "Parameters";
         public const string Disabled = "Disabled";
     }
 }

@@ -27,7 +27,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             try
             {
                 var flowNode = GetOrCreateNode(node);
-                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices, _cameraFrames, this, flowRunId);
+                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices, this, flowRunId);
                 result = await flowNode.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
                 if (result == null)
                 {
@@ -90,6 +90,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                     flowRunId,
                     stopwatch.ElapsedMilliseconds),
                 cancellationToken).ConfigureAwait(false);
+            await PublishImageProducedAsync(node, token, result, cancellationToken, flowRunId).ConfigureAwait(false);
             return result;
         }
 
@@ -124,6 +125,31 @@ namespace Vision.Flow.Core.Runtime.Engine
                 runtimeEvent.Data[FlowRuntimeDataKeys.Value] = output.Value;
                 await PublishAsync(runtimeEvent, cancellationToken).ConfigureAwait(false);
             }
+        }
+
+        private async Task PublishImageProducedAsync(
+            NodeDefinition node,
+            FlowToken token,
+            NodeExecutionResult result,
+            CancellationToken cancellationToken,
+            string flowRunId)
+        {
+            if (result == null || result.Outputs == null || !result.Outputs.ContainsKey(FlowOutputNames.Image))
+            {
+                return;
+            }
+
+            await PublishAsync(
+                CreateRuntimeEvent(
+                    FlowRuntimeEventType.ImageProduced,
+                    token,
+                    node,
+                    NodeRuntimeState.Completed,
+                    null,
+                    result.OutputPort,
+                    flowRunId,
+                    0),
+                cancellationToken).ConfigureAwait(false);
         }
     }
 }

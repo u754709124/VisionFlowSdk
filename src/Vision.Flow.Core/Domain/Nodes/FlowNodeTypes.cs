@@ -11,5 +11,8 @@ namespace Vision.Flow.Core.Domain.Nodes
         public const string FlowSplit = "flow.split";
         public const string JoinAnd = "join.and";
         public const string ConditionIf = "condition.if";
+        public const string CameraSoftTrigger = "camera.soft_trigger";
+        public const string CameraHardTrigger = "camera.hard_trigger";
+        public const string CameraParameterSet = "camera.parameter.set";
     }
 }

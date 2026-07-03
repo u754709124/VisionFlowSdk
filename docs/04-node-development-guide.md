@@ -1,8 +1,8 @@
-# 04 - Node Development Guide
+﻿# 04 - Node Development Guide
 
 ## 内置节点边界
 
-SDK Core 只内置基础节点：
+SDK Core 内置基础流程节点和通用相机节点：
 
 ```text
 delay.wait
@@ -11,9 +11,12 @@ variable.set
 flow.split
 join.and
 condition.if
+camera.soft_trigger
+camera.hard_trigger
+camera.parameter.set
 ```
 
-设备、算法、图像保存、数据库保存、拼图、融合等节点应放在具体项目或项目专属节点库中。
+算法、图像保存、数据库保存、拼图、扫描、融合等节点仍应放在具体项目或项目专属节点库中。
 
 ## 新节点必须包含
 
@@ -24,7 +27,7 @@ condition.if
 {NodeName}Descriptor
 ```
 
-节点必须实现 `IFlowNode`，通过 `INodeFactory` 注册到 `NodeRegistry`。
+节点必须实现 `IFlowNode`，需要随流程启动订阅外部事件的节点实现 `IFlowListenerNode`，并通过 `INodeFactory` 注册到 `NodeRegistry`。
 
 常用命名空间：
 
@@ -44,7 +47,6 @@ using Vision.Flow.Nodes;
 Core 内置节点使用稳定协议值。项目专属节点建议使用项目或领域前缀，例如：
 
 ```text
-station.camera.soft_trigger
 station.recipe.run
 station.image.save
 station.database.save
@@ -55,12 +57,20 @@ station.fusion.final
 
 ## Adapter 访问
 
-设备节点只能通过 Core 中的 Adapter 契约访问外部设备或上位机服务：
+相机节点只能通过 Core 中的 Adapter 契约访问相机：
 
 ```csharp
 var camera = context.Devices.GetCamera(cameraId);
-await camera.SoftTriggerAsync(triggerContext, cancellationToken);
+var frame = await camera.GrabOneAsync(cancellationToken);
 ```
+
+硬触发节点在监听启动阶段订阅相机回调：
+
+```csharp
+camera.FrameArrived += OnFrameArrived;
+```
+
+回调线程只做轻量封装和后台投递，不直接执行后续节点。
 
 禁止节点直接引用具体 SDK 类型或旧上位机业务对象。
 
@@ -81,7 +91,7 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 
 ## 测试要求
 
-新增项目专属节点时，应覆盖：
+新增节点时应覆盖：
 
 - 正常成功路径
 - 缺少必要 Setting
@@ -89,13 +99,11 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 - Error / Timeout 路由
 - 输出变量
 - RuntimeEvent
-- 序列化/发布兼容性
+- 序列化 / 发布兼容性
 
 ## Descriptor 枚举字段
 
-`NodePortDescriptor.Direction` 使用 `FlowPortDirection`，`NodePortDescriptor.DataType`、`NodeSettingDescriptor.DataType` 和 `NodeOutputDescriptor.DataType` 使用 `FlowDataType`。节点开发时不要再为这些固定集合填写字符串。
-
-示例：
+`NodePortDescriptor.Direction` 使用 `FlowPortDirection`，`NodePortDescriptor.DataType`、`NodeSettingDescriptor.DataType` 和 `NodeOutputDescriptor.DataType` 使用 `FlowDataType`。
 
 ```csharp
 new NodePortDescriptor
