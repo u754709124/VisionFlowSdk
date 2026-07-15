@@ -24,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 namespace Vision.Flow.Tests
 {
     // 閫氱敤鑺傜偣娴嬭瘯鏀惧湪涓€璧凤紝瑕嗙洊鍏变韩娉ㄥ唽鍜岀畝鍗曡妭鐐硅涓恒€?
-    internal static class CommonNodeTests
+    internal static partial class CommonNodeTests
     {
         public static Task RegisterAllResolvesFactories()
         {
@@ -90,7 +90,7 @@ namespace Vision.Flow.Tests
                 sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-log-enum" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-log-enum" })).ConfigureAwait(false);
 
             var logEvent = sink.Events.FirstOrDefault(x =>
                 x.EventType == FlowRuntimeEventType.NodeCompleted &&
@@ -115,7 +115,7 @@ namespace Vision.Flow.Tests
                 sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-log" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-log" })).ConfigureAwait(false);
 
             var logEvent = sink.Events.FirstOrDefault(x =>
                 x.EventType == FlowRuntimeEventType.NodeCompleted &&
@@ -141,7 +141,7 @@ namespace Vision.Flow.Tests
                 sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-delay" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-delay" })).ConfigureAwait(false);
 
             AssertEx.True(
                 sink.Events.Any(x =>
@@ -208,7 +208,7 @@ namespace Vision.Flow.Tests
 
             var runner = new FlowEngine(registry, sink).CreateRunner(flow);
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-variable" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-variable" })).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "reader1" }, executionLog, "Subsequent node should execute after VariableSetNode.");
             AssertEx.False(

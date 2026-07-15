@@ -150,7 +150,49 @@ namespace Vision.Flow.Core.Services.Publishing
             return new FlowEntryDefinition
             {
                 EntryName = source.EntryName,
-                TargetNodeId = source.TargetNodeId
+                TargetNodeId = source.TargetNodeId,
+                SourceNodeId = source.SourceNodeId,
+                TriggerKind = source.TriggerKind,
+                Inputs = CloneTriggerInputs(source.Inputs),
+                ExecutionPolicy = CloneTriggerExecutionPolicy(source.ExecutionPolicy)
+            };
+        }
+
+        private static List<TriggerInputDescriptor> CloneTriggerInputs(IList<TriggerInputDescriptor> source)
+        {
+            var result = new List<TriggerInputDescriptor>();
+            if (source == null)
+            {
+                return result;
+            }
+
+            for (var index = 0; index < source.Count; index++)
+            {
+                var input = source[index];
+                result.Add(input == null
+                    ? null
+                    : new TriggerInputDescriptor
+                    {
+                        Name = input.Name,
+                        DisplayName = input.DisplayName,
+                        DataType = input.DataType,
+                        IsRequired = input.IsRequired,
+                        DefaultValue = CloneObjectValue(input.DefaultValue),
+                        Description = input.Description
+                    });
+            }
+
+            return result;
+        }
+
+        private static TriggerExecutionPolicy CloneTriggerExecutionPolicy(TriggerExecutionPolicy source)
+        {
+            var effective = source ?? new TriggerExecutionPolicy();
+            return new TriggerExecutionPolicy
+            {
+                MaxConcurrentRuns = effective.MaxConcurrentRuns,
+                QueueCapacity = effective.QueueCapacity,
+                QueueFullBehavior = effective.QueueFullBehavior
             };
         }
 

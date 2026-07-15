@@ -170,7 +170,19 @@ namespace Vision.Flow.Demo.WinForms
 
             _lastToken = CreateProductionToken(entryName);
 
-            await _runner.TriggerAsync(entryName, _lastToken, CancellationToken.None).ConfigureAwait(true);
+            var result = await _runner.TriggerAsync(
+                new FlowTriggerRequest
+                {
+                    EntryName = entryName,
+                    Source = FlowTriggerSource.Manual,
+                    Token = _lastToken
+                },
+                CancellationToken.None).ConfigureAwait(true);
+            if (!result.IsSuccess)
+            {
+                AddEvent("Run", result.Status.ToString(), result.ErrorMessage);
+            }
+
             RefreshTokenSummary(entryName);
         }
 

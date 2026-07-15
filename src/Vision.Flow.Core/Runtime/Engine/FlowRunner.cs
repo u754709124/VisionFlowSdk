@@ -20,6 +20,7 @@ namespace Vision.Flow.Core.Runtime.Engine
         private readonly IDeviceRegistry _devices;
         private readonly FlowExecutionOptions _options;
         private readonly Dictionary<string, IFlowNode> _nodeInstances;
+        private readonly Dictionary<string, EntryExecutionGate> _entryGates;
         private readonly List<IFlowListenerNode> _startedListeners;
         private CancellationTokenSource _runnerCancellation;
 
@@ -57,6 +58,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             _devices = devices ?? EmptyDeviceRegistry.Instance;
             _options = CloneOptions(options);
             _nodeInstances = new Dictionary<string, IFlowNode>(StringComparer.OrdinalIgnoreCase);
+            _entryGates = CreateEntryGates(definition.Entries);
             _startedListeners = new List<IFlowListenerNode>();
         }
 

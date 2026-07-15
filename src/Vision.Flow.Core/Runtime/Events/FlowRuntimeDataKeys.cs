@@ -20,5 +20,9 @@ namespace Vision.Flow.Core.Runtime.Events
         public const string Kind = "Kind";
         public const string LogLevel = "LogLevel";
         public const string Message = "Message";
+        public const string EntryName = "EntryName";
+        public const string TriggerSource = "TriggerSource";
+        public const string TriggerInputs = "TriggerInputs";
+        public const string FlowRunStatus = "FlowRunStatus";
     }
 }

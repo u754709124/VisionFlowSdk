@@ -41,6 +41,11 @@ namespace Vision.Flow.Tests
             AssertEx.False(json.IndexOf("InputBindings", StringComparison.OrdinalIgnoreCase) >= 0, "V2 runtime JSON must not contain InputBindings.");
             AssertEx.Equal(1, restored.Edges.Count, "Runtime edges should round-trip.");
             AssertEx.Equal("ManualStart", restored.Entries[0].EntryName, "Runtime entry should round-trip.");
+            AssertEx.Equal(FlowTriggerKind.Manual, restored.Entries[0].TriggerKind, "Entry trigger kind should round-trip.");
+            AssertEx.Equal("操作员", restored.Entries[0].Inputs[0].DisplayName, "Entry input display name should round-trip.");
+            AssertEx.Equal(FlowDataType.String, restored.Entries[0].Inputs[0].DataType, "Entry input type should round-trip.");
+            AssertEx.Equal(2, restored.Entries[0].ExecutionPolicy.MaxConcurrentRuns, "Entry concurrency policy should round-trip.");
+            AssertEx.Equal(3, restored.Entries[0].ExecutionPolicy.QueueCapacity, "Entry queue capacity should round-trip.");
             AssertEx.False(json.IndexOf("Zoom", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view zoom.");
             AssertEx.False(json.IndexOf("OffsetX", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view offsets.");
             AssertEx.False(json.IndexOf("CanvasWidth", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view canvas width.");
@@ -211,7 +216,26 @@ namespace Vision.Flow.Tests
             runtime.Entries.Add(new FlowEntryDefinition
             {
                 EntryName = "ManualStart",
-                TargetNodeId = "set_result"
+                TargetNodeId = "set_result",
+                TriggerKind = FlowTriggerKind.Manual,
+                Inputs =
+                {
+                    new TriggerInputDescriptor
+                    {
+                        Name = "operator",
+                        DisplayName = "操作员",
+                        Description = "发起本次运行的操作员。",
+                        DataType = FlowDataType.String,
+                        IsRequired = false,
+                        DefaultValue = "anonymous"
+                    }
+                },
+                ExecutionPolicy = new TriggerExecutionPolicy
+                {
+                    MaxConcurrentRuns = 2,
+                    QueueCapacity = 3,
+                    QueueFullBehavior = TriggerQueueFullBehavior.Reject
+                }
             });
 
             return runtime;

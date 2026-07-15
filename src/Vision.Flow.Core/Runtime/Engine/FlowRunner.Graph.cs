@@ -16,6 +16,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             string nodeId,
             FlowToken token,
             IVariablePool variables,
+            IDictionary<string, object> triggerInputs,
             CancellationToken cancellationToken,
             HashSet<string> currentPath,
             string flowRunId)
@@ -34,9 +35,9 @@ namespace Vision.Flow.Core.Runtime.Engine
             try
             {
                 var node = FindNode(nodeId);
-                var result = await ExecuteNodeAsync(node, token, variables, cancellationToken, flowRunId).ConfigureAwait(false);
+                var result = await ExecuteNodeAsync(node, token, variables, triggerInputs, cancellationToken, flowRunId).ConfigureAwait(false);
                 var outputPort = string.IsNullOrWhiteSpace(result.OutputPort) ? FlowPortNames.Next : result.OutputPort;
-                await ExecuteOutgoingEdgesAsync(node, outputPort, token, variables, cancellationToken, currentPath, flowRunId)
+                await ExecuteOutgoingEdgesAsync(node, outputPort, token, variables, triggerInputs, cancellationToken, currentPath, flowRunId)
                     .ConfigureAwait(false);
             }
             finally
@@ -50,6 +51,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             string outputPort,
             FlowToken token,
             IVariablePool variables,
+            IDictionary<string, object> triggerInputs,
             CancellationToken cancellationToken,
             HashSet<string> currentPath,
             string flowRunId)
@@ -70,14 +72,14 @@ namespace Vision.Flow.Core.Runtime.Engine
                         continue;
                     }
 
-                    await ExecuteGraphAsync(edge.ToNodeId, token, variables, cancellationToken, currentPath, flowRunId)
+                    await ExecuteGraphAsync(edge.ToNodeId, token, variables, triggerInputs, cancellationToken, currentPath, flowRunId)
                         .ConfigureAwait(false);
                 }
 
                 return;
             }
 
-            await ExecuteOutgoingEdgesInParallelAsync(outgoingEdges, token, variables, cancellationToken, currentPath, flowRunId)
+            await ExecuteOutgoingEdgesInParallelAsync(outgoingEdges, token, variables, triggerInputs, cancellationToken, currentPath, flowRunId)
                 .ConfigureAwait(false);
         }
 
@@ -85,6 +87,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             IList<EdgeDefinition> outgoingEdges,
             FlowToken token,
             IVariablePool variables,
+            IDictionary<string, object> triggerInputs,
             CancellationToken cancellationToken,
             HashSet<string> currentPath,
             string flowRunId)
@@ -113,7 +116,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                         {
                             try
                             {
-                                await ExecuteGraphAsync(edge.ToNodeId, token, variables, cancellationToken, branchPath, flowRunId)
+                                await ExecuteGraphAsync(edge.ToNodeId, token, variables, triggerInputs, cancellationToken, branchPath, flowRunId)
                                     .ConfigureAwait(false);
                             }
                             finally
@@ -153,9 +156,14 @@ namespace Vision.Flow.Core.Runtime.Engine
                 throw new ArgumentException("Flow entry was not found: " + entryName, "entryName");
             }
 
-            if (string.IsNullOrWhiteSpace(entry.TargetNodeId))
+            if (entry.TriggerKind != FlowTriggerKind.NodeEvent && string.IsNullOrWhiteSpace(entry.TargetNodeId))
             {
                 throw new InvalidOperationException("Flow entry does not have a target node: " + entryName);
+            }
+
+            if (entry.TriggerKind == FlowTriggerKind.NodeEvent && string.IsNullOrWhiteSpace(entry.SourceNodeId))
+            {
+                throw new InvalidOperationException("NodeEvent flow entry does not have a source node: " + entryName);
             }
 
             return entry;

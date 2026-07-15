@@ -14,6 +14,11 @@ namespace Vision.Flow.Core.Runtime.Events
         NodeFailed = 6,
         NodeTimeout = 7,
         OutputProduced = 8,
-        ImageProduced = 9
+        ImageProduced = 9,
+        FlowRunStarted = 10,
+        FlowRunCompleted = 11,
+        FlowRunFailed = 12,
+        FlowRunCancelled = 13,
+        FlowRunRejected = 14
     }
 }

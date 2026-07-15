@@ -149,7 +149,7 @@ namespace Vision.Flow.Nodes
                         Description = "Delay duration in milliseconds.",
                         BindingMode = NodeSettingBindingMode.ConstantOrVariable,
                         EvaluationPhase = NodeSettingEvaluationPhase.Execution,
-                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
+                        AllowedVariableSources = VariableSelectorScopeFlags.All
                     }
                 },
                 Outputs =

@@ -151,7 +151,7 @@ namespace Vision.Flow.Nodes
                         Description = "Name of the variable to write.",
                         BindingMode = NodeSettingBindingMode.ConstantOrVariable,
                         EvaluationPhase = NodeSettingEvaluationPhase.Execution,
-                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
+                        AllowedVariableSources = VariableSelectorScopeFlags.All
                     },
                     new NodeSettingDescriptor
                     {
@@ -163,7 +163,7 @@ namespace Vision.Flow.Nodes
                         Description = "Value to store. It can reference an upstream output or token value.",
                         BindingMode = NodeSettingBindingMode.ConstantOrVariable,
                         EvaluationPhase = NodeSettingEvaluationPhase.Execution,
-                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
+                        AllowedVariableSources = VariableSelectorScopeFlags.All
                     }
                 },
                 Outputs =

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using Vision.Flow.Core.Contracts.Devices;
 using Vision.Flow.Core.Contracts.Nodes;
@@ -43,6 +44,20 @@ namespace Vision.Flow.Core.Runtime.Execution
             IDeviceRegistry devices,
             IFlowContinuationDispatcher continuations,
             string flowRunId)
+            : this(flow, node, token, variables, events, devices, continuations, flowRunId, null)
+        {
+        }
+
+        public FlowExecutionContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            IFlowEventSink events,
+            IDeviceRegistry devices,
+            IFlowContinuationDispatcher continuations,
+            string flowRunId,
+            IDictionary<string, object> triggerInputs)
         {
             if (flow == null)
             {
@@ -77,6 +92,9 @@ namespace Vision.Flow.Core.Runtime.Execution
             Devices = devices ?? EmptyDeviceRegistry.Instance;
             Continuations = continuations ?? NullFlowContinuationDispatcher.Instance;
             FlowRunId = flowRunId;
+            TriggerInputs = triggerInputs == null
+                ? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, object>(triggerInputs, StringComparer.OrdinalIgnoreCase);
             SettingValueResolver = DefaultSettingValueResolver.Instance;
         }
 
@@ -95,6 +113,11 @@ namespace Vision.Flow.Core.Runtime.Execution
         public IFlowContinuationDispatcher Continuations { get; private set; }
 
         public string FlowRunId { get; private set; }
+
+        /// <summary>
+        /// 本次流程运行通过入口协议注入的值，供 TriggerInput Selector 解析。
+        /// </summary>
+        public IDictionary<string, object> TriggerInputs { get; private set; }
 
         public ISettingValueResolver SettingValueResolver { get; private set; }
 

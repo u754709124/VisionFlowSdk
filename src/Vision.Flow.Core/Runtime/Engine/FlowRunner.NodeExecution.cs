@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             NodeDefinition node,
             FlowToken token,
             IVariablePool variables,
+            IDictionary<string, object> triggerInputs,
             CancellationToken cancellationToken,
             string flowRunId)
         {
@@ -27,7 +29,23 @@ namespace Vision.Flow.Core.Runtime.Engine
             try
             {
                 var flowNode = GetOrCreateNode(node);
-                var context = new FlowExecutionContext(_definition, node, token, variables, _eventSink, _devices, this, flowRunId);
+                var continuations = new BoundFlowContinuationDispatcher(
+                    this,
+                    null,
+                    flowRunId,
+                    token,
+                    variables,
+                    triggerInputs);
+                var context = new FlowExecutionContext(
+                    _definition,
+                    node,
+                    token,
+                    variables,
+                    _eventSink,
+                    _devices,
+                    continuations,
+                    flowRunId,
+                    triggerInputs);
                 result = await flowNode.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
                 if (result == null)
                 {

@@ -54,6 +54,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             try
             {
                 _document = FlowDesignSerializer.Load(dialog.FileName);
+                ResetEntryTriggerPanelState();
                 if (_document.View == null)
                 {
                     _document.View = new FlowViewState();
@@ -162,6 +163,15 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
+            RefreshEntryTriggerPanel();
+            FlowTriggerRequest triggerRequest;
+            string triggerError;
+            if (!_entryTriggerPanel.TryCreateManualRequest(CreateDebugToken(), out triggerRequest, out triggerError))
+            {
+                AddDebugMessage("Debug skipped: " + triggerError);
+                return;
+            }
+
             try
             {
                 await StopDebugAsync().ConfigureAwait(true);
@@ -175,8 +185,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 UpdateInteractionModeUi();
 
                 await runner.StartAsync().ConfigureAwait(true);
-                await runner.TriggerAsync(DefaultEntryName, CreateDebugToken()).ConfigureAwait(true);
-                AddDebugMessage("Debug run completed.");
+                var result = await runner.TriggerAsync(triggerRequest).ConfigureAwait(true);
+                AddDebugMessage(result != null && result.IsSuccess
+                    ? "Debug run completed: " + result.EntryName + "."
+                    : "Debug run finished with " + (result == null ? "unknown status" : result.Status.ToString()) +
+                        (result == null || string.IsNullOrWhiteSpace(result.ErrorMessage) ? "." : ": " + result.ErrorMessage));
             }
             catch (OperationCanceledException)
             {
@@ -303,6 +316,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private void UpdateInteractionModeUi()
         {
             var isEdit = CanEditDocument;
+            RefreshEntryTriggerPanel();
             _palette.SetReadOnly(!isEdit);
             _edges.SetReadOnly(!isEdit);
 
@@ -317,10 +331,43 @@ namespace Vision.Flow.Designer.Wpf.Controls
             SetToolbarButtonEnabled(_openButton, isEdit);
             SetToolbarButtonEnabled(_saveButton, isEdit);
             SetToolbarButtonEnabled(_publishButton, isEdit);
-            SetToolbarButtonEnabled(_debugRunButton, IsDebugRunMode && !_isDebugRunning);
+            var selectedEntry = _entryTriggerPanel.SelectedEntry;
+            var canManualRun = selectedEntry != null && selectedEntry.TriggerKind == FlowTriggerKind.Manual;
+            SetToolbarButtonEnabled(_debugRunButton, IsDebugRunMode && !_isDebugRunning && canManualRun);
             SetToolbarButtonEnabled(_stopButton, IsDebugRunMode && _isDebugRunning);
             ApplyModeButtonStyle(_editModeButton, isEdit);
             ApplyModeButtonStyle(_debugModeButton, IsDebugRunMode);
+        }
+
+        private void RefreshEntryTriggerPanel()
+        {
+            if (_entryTriggerPanel == null)
+            {
+                return;
+            }
+
+            _entryTriggerPanel.Visibility = IsDebugRunMode ? Visibility.Visible : Visibility.Collapsed;
+            if (!IsDebugRunMode)
+            {
+                return;
+            }
+
+            var entries = _document == null || _document.Runtime == null
+                ? null
+                : _document.Runtime.Entries;
+            _entryTriggerPanel.ShowEntries(entries, _selectedDebugEntryName, _isDebugRunning);
+            _selectedDebugEntryName = _entryTriggerPanel.SelectedEntry == null
+                ? null
+                : _entryTriggerPanel.SelectedEntry.EntryName;
+        }
+
+        private void ResetEntryTriggerPanelState()
+        {
+            _selectedDebugEntryName = null;
+            if (_entryTriggerPanel != null)
+            {
+                _entryTriggerPanel.Reset();
+            }
         }
 
         private static void SetToolbarButtonEnabled(Button button, bool isEnabled)

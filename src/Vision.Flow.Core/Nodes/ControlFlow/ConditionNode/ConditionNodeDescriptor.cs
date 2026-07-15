@@ -67,7 +67,7 @@ namespace Vision.Flow.Nodes
                 Description = description,
                 BindingMode = NodeSettingBindingMode.ConstantOrVariable,
                 EvaluationPhase = NodeSettingEvaluationPhase.Execution,
-                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
+                AllowedVariableSources = VariableSelectorScopeFlags.All
             };
         }
 
@@ -83,7 +83,7 @@ namespace Vision.Flow.Nodes
                 Description = description,
                 BindingMode = NodeSettingBindingMode.ConstantOrVariable,
                 EvaluationPhase = NodeSettingEvaluationPhase.Execution,
-                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
+                AllowedVariableSources = VariableSelectorScopeFlags.All
             };
         }
 

@@ -24,7 +24,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 namespace Vision.Flow.Tests
 {
     // 娴佺▼杩愯鍣ㄦ祴璇曡鐩栬皟搴︺€佽矾鐢便€佸彇娑堝拰杩愯浜嬩欢琛屼负銆?
-    internal static class FlowRunnerTests
+    internal static partial class FlowRunnerTests
     {
         public static async Task LinearOrderAndVariables()
         {
@@ -33,11 +33,13 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateLinearFlow(includeOutputs: true), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-linear" }).ConfigureAwait(false);
+            var runResult = await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-linear" })).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "A", "B", "C" }, executionLog, "Nodes should execute in A -> B -> C order.");
             AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]) == "A.Value"), "A.Value output should be written.");
             AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]) == "B.Value"), "B.Value output should be written.");
+            AssertEx.Equal(FlowRunStatus.Succeeded, runResult.Status, "Successful triggers should return Succeeded.");
+            AssertEx.Equal("A-output", Convert.ToString(runResult.Variables["A.Value"]), "FlowRunResult should expose the final variable snapshot.");
         }
 
         public static async Task FanOutExecutesAllOutgoingEdges()
@@ -47,7 +49,7 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateFanOutFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-fanout" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-fanout" })).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "A", "B", "C" }, executionLog, "All edges from A.Next should execute in definition order.");
             AssertEx.True(
@@ -74,7 +76,7 @@ namespace Vision.Flow.Tests
 
             await runner.StartAsync().ConfigureAwait(false);
             var startUtc = DateTime.UtcNow;
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-parallel-fanout" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-parallel-fanout" })).ConfigureAwait(false);
             var elapsedMs = (DateTime.UtcNow - startUtc).TotalMilliseconds;
 
             AssertEx.True(executionLog.Contains("A"), "Parallel fan-out should execute the source node.");
@@ -90,7 +92,7 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateBranchedFanOutFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-branched-fanout" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-branched-fanout" })).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "A", "B", "D", "C", "E" }, executionLog, "Both fan-out branches should execute their downstream chains.");
         }
@@ -102,7 +104,7 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateReconvergingFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-reconverge" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-reconverge" })).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "A", "B", "D", "C", "D" }, executionLog, "Path-level cycle detection should not block a valid reconverging node.");
         }
@@ -114,7 +116,7 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateFailureFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-failure" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-failure" })).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "A", "ErrorHandler" }, executionLog, "Failure should follow the Error route.");
             var failedEvent = sink.Events.FirstOrDefault(x => x.EventType == FlowRuntimeEventType.NodeFailed);
@@ -130,7 +132,7 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateTimeoutFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-timeout-route" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-timeout-route" })).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "A", "TimeoutHandler" }, executionLog, "Timeout should follow the Timeout route.");
             var timeoutEvent = sink.Events.FirstOrDefault(x => x.EventType == FlowRuntimeEventType.NodeTimeout);
@@ -146,16 +148,14 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateLongRunningFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            var triggerTask = runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-stop" });
+            var triggerTask = runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-stop" }));
             await WaitForEventAsync(sink, FlowRuntimeEventType.NodeStarted, "A").ConfigureAwait(false);
             await runner.StopAsync().ConfigureAwait(false);
 
-            await AssertEx.ThrowsAsync<OperationCanceledException>(
-                async delegate
-                {
-                    await triggerTask.ConfigureAwait(false);
-                }).ConfigureAwait(false);
+            var result = await triggerTask.ConfigureAwait(false);
 
+            AssertEx.Equal(FlowRunStatus.Cancelled, result.Status, "StopAsync should complete the trigger with Cancelled status.");
+            AssertEx.NotNull(result.Variables, "Cancelled runs should return their final variable snapshot.");
             AssertEx.False(runner.IsRunning, "StopAsync should mark the runner as stopped.");
         }
 
@@ -166,7 +166,7 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateContinuationFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-continuation" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-continuation" })).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "A", "B" }, executionLog, "Continuation should route A.Frame to B.");
             AssertEx.True(
@@ -179,10 +179,11 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateCycleFlow(), new List<string>(), new InMemoryFlowEventSink());
             await runner.StartAsync().ConfigureAwait(false);
 
-            var exception = await AssertEx.ThrowsAsync<InvalidOperationException>(
-                () => runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-cycle" })).ConfigureAwait(false);
+            var result = await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-cycle" })).ConfigureAwait(false);
 
-            AssertEx.True(exception.Message.IndexOf("Cycle detected", StringComparison.OrdinalIgnoreCase) >= 0, "Cycle detection should report a clear error.");
+            AssertEx.Equal(FlowRunStatus.Failed, result.Status, "Cycle detection should fail the run.");
+            AssertEx.True(result.ErrorMessage.IndexOf("Cycle detected", StringComparison.OrdinalIgnoreCase) >= 0, "Cycle detection should report a clear error.");
+            AssertEx.Equal("A-output", Convert.ToString(result.Variables["A.Value"]), "Failed runs should return variables produced before the failure.");
         }
 
         public static async Task MissingEntryThrows()
@@ -191,7 +192,7 @@ namespace Vision.Flow.Tests
             await runner.StartAsync().ConfigureAwait(false);
 
             var exception = await AssertEx.ThrowsAsync<ArgumentException>(
-                () => runner.TriggerAsync("MissingEntry", new FlowToken())).ConfigureAwait(false);
+                () => runner.TriggerAsync(CreateManualRequest("MissingEntry", new FlowToken()))).ConfigureAwait(false);
 
             AssertEx.True(exception.Message.IndexOf("MissingEntry", StringComparison.OrdinalIgnoreCase) >= 0, "Missing entry exception should include the entry name.");
         }
@@ -203,7 +204,7 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateSingleNodeFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync("ManualStart", new FlowToken { TokenId = "token-events" }).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-events" })).ConfigureAwait(false);
 
             var eventTypes = sink.Events.Select(x => x.EventType).ToList();
             AssertEx.SequenceEqual(
@@ -211,8 +212,10 @@ namespace Vision.Flow.Tests
                 {
                     FlowRuntimeEventType.FlowStarted,
                     FlowRuntimeEventType.TokenCreated,
+                    FlowRuntimeEventType.FlowRunStarted,
                     FlowRuntimeEventType.NodeStarted,
-                    FlowRuntimeEventType.NodeCompleted
+                    FlowRuntimeEventType.NodeCompleted,
+                    FlowRuntimeEventType.FlowRunCompleted
                 },
                 eventTypes,
                 "Runtime events should be published in execution order.");
@@ -221,6 +224,8 @@ namespace Vision.Flow.Tests
             AssertEx.NotNull(completed, "NodeCompleted event should be published.");
             AssertEx.False(string.IsNullOrWhiteSpace(completed.FlowRunId), "Runtime events should include FlowRunId.");
             AssertEx.True(completed.ElapsedMs >= 0, "Runtime events should include elapsed time.");
+            var started = sink.Events.FirstOrDefault(x => x.EventType == FlowRuntimeEventType.FlowRunStarted);
+            AssertEx.Equal("Running", Convert.ToString(started.Data[FlowRuntimeDataKeys.FlowRunStatus]), "FlowRunStarted must not expose the default Succeeded terminal status.");
         }
 
         private static IFlowRunner CreateRunner(RuntimeFlowDefinition flow, IList<string> executionLog, InMemoryFlowEventSink sink)
@@ -406,7 +411,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0"
             };
 
-            flow.Nodes.Add(CreateNode("A", null, null));
+            flow.Nodes.Add(CreateNode("A", "Value", null));
             flow.Nodes.Add(CreateNode("B", null, null));
             flow.Edges.Add(CreateEdge("A", "Next", "B"));
             flow.Edges.Add(CreateEdge("B", "Next", "A"));

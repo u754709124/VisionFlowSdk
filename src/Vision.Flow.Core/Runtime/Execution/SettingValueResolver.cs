@@ -16,7 +16,7 @@ namespace Vision.Flow.Core.Runtime.Execution
     }
 
     /// <summary>
-    /// 默认解析器，支持上游节点输出和当前 Token，TriggerInput 留待统一触发运行时实现。
+    /// 默认解析器，支持上游节点输出、当前 Token 和入口触发输入。
     /// </summary>
     public sealed class DefaultSettingValueResolver : ISettingValueResolver
     {
@@ -46,7 +46,7 @@ namespace Vision.Flow.Core.Runtime.Execution
                 case VariableSelectorScope.Token:
                     return ResolveToken(path, context);
                 case VariableSelectorScope.TriggerInput:
-                    throw new NotSupportedException("TriggerInput selectors are reserved for the unified trigger runtime.");
+                    return ResolveTriggerInput(path, context);
                 default:
                     throw new InvalidOperationException("Unsupported variable selector scope: " + selector.Scope);
             }
@@ -91,6 +91,22 @@ namespace Vision.Flow.Core.Runtime.Execution
                 {
                     value = context.Token.Get(first);
                 }
+            }
+
+            return ResolveNestedPath(value, path, 1);
+        }
+
+        private static object ResolveTriggerInput(IList<string> path, FlowExecutionContext context)
+        {
+            if (path.Count == 0 || string.IsNullOrWhiteSpace(path[0]))
+            {
+                throw new InvalidOperationException("TriggerInput selector Path must contain an input name.");
+            }
+
+            object value;
+            if (!TryGetDictionaryValue(context.TriggerInputs, path[0], out value))
+            {
+                throw new KeyNotFoundException("Trigger input was not found: " + path[0]);
             }
 
             return ResolveNestedPath(value, path, 1);
@@ -150,6 +166,29 @@ namespace Vision.Flow.Core.Runtime.Execution
             foreach (DictionaryEntry item in dictionary)
             {
                 if (string.Equals(Convert.ToString(item.Key, CultureInfo.InvariantCulture), key, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = item.Value;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetDictionaryValue(
+            IDictionary<string, object> dictionary,
+            string key,
+            out object value)
+        {
+            value = null;
+            if (dictionary == null)
+            {
+                return false;
+            }
+
+            foreach (var item in dictionary)
+            {
+                if (string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase))
                 {
                     value = item.Value;
                     return true;

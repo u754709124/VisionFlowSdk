@@ -70,6 +70,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private readonly Dictionary<string, DateTime> _nodeStartTimes;
         private readonly NodePaletteControl _palette;
         private readonly PropertyPanelControl _properties;
+        private readonly EntryTriggerPanelControl _entryTriggerPanel;
         private readonly RuntimeDebugPanelControl _debug;
         private readonly EdgeLayerControl _edges;
         private readonly FlowDesignerOptions _options;
@@ -109,6 +110,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private bool _isDebugRunning;
         private NodeDefinition _connectionSourceNode;
         private string _connectionSourcePort;
+        private string _selectedDebugEntryName;
         private Point _connectionStartPoint;
 
         public FlowDesignerControl()
@@ -135,6 +137,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _interactionMode = DesignerInteractionMode.Edit;
             _palette = new NodePaletteControl();
             _properties = new PropertyPanelControl();
+            _entryTriggerPanel = new EntryTriggerPanelControl
+            {
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            _entryTriggerPanel.EntrySelected += delegate(FlowEntryDefinition entry)
+            {
+                _selectedDebugEntryName = entry == null ? null : entry.EntryName;
+                UpdateInteractionModeUi();
+            };
             _debug = new RuntimeDebugPanelControl();
             _edges = new EdgeLayerControl();
             _edges.EdgeSelected += SelectEdge;

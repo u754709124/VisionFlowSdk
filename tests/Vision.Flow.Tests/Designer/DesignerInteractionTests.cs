@@ -134,6 +134,162 @@ namespace Vision.Flow.Tests
                 var sourceItems = (List<Dictionary<string, object>>)sourceSetting.ConstantValue;
                 AssertEx.Equal(1000, sourceItems[0]["Value"],
                     "Duplicating a node should deep-copy collection and dictionary constant values.");
+
+                var manualEntry = new FlowEntryDefinition
+                {
+                    EntryName = "ManualInspect",
+                    TargetNodeId = "c",
+                    TriggerKind = FlowTriggerKind.Manual,
+                    Inputs =
+                    {
+                        new TriggerInputDescriptor
+                        {
+                            Name = "BatchSize",
+                            DisplayName = "批次数量",
+                            DataType = FlowDataType.Int32,
+                            IsRequired = true
+                        },
+                        new TriggerInputDescriptor
+                        {
+                            Name = "Product",
+                            DisplayName = "产品",
+                            DataType = FlowDataType.String,
+                            DefaultValue = "DemoProduct"
+                        }
+                    }
+                };
+                var externalEntry = new FlowEntryDefinition
+                {
+                    EntryName = "ExternalInspect",
+                    TargetNodeId = "c",
+                    TriggerKind = FlowTriggerKind.External,
+                    Inputs =
+                    {
+                        new TriggerInputDescriptor
+                        {
+                            Name = "Payload",
+                            DisplayName = "请求数据",
+                            DataType = FlowDataType.Object,
+                            IsRequired = true
+                        }
+                    }
+                };
+                var nodeEventEntry = new FlowEntryDefinition
+                {
+                    EntryName = "CameraFrame",
+                    SourceNodeId = "camera_listener",
+                    TargetNodeId = "c",
+                    TriggerKind = FlowTriggerKind.NodeEvent
+                };
+                var triggerPanel = new EntryTriggerPanelControl();
+                triggerPanel.ShowEntries(new[] { manualEntry, externalEntry, nodeEventEntry }, "ManualInspect", false);
+                AssertEx.True(object.ReferenceEquals(manualEntry, triggerPanel.SelectedEntry),
+                    "The trigger panel should restore the requested entry selection.");
+                var batchEditor = FindChildren<TextBox>(triggerPanel)
+                    .FirstOrDefault(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "BatchSize", StringComparison.Ordinal));
+                AssertEx.NotNull(batchEditor, "A manual entry should generate editors from TriggerInputDescriptor.");
+                batchEditor.Text = "12";
+                FlowTriggerRequest triggerRequest;
+                string triggerError;
+                AssertEx.True(triggerPanel.TryCreateManualRequest(new FlowToken(), out triggerRequest, out triggerError),
+                    "Valid manual input values should create a FlowTriggerRequest: " + triggerError);
+                AssertEx.Equal(12, triggerRequest.Inputs["BatchSize"],
+                    "The manual trigger form should convert input text to the descriptor data type.");
+                AssertEx.Equal("DemoProduct", triggerRequest.Inputs["Product"],
+                    "The manual trigger form should use descriptor defaults when the user leaves the value unchanged.");
+
+                batchEditor.Text = string.Empty;
+                AssertEx.False(triggerPanel.TryCreateManualRequest(new FlowToken(), out triggerRequest, out triggerError),
+                    "A missing required manual input should block the debug trigger.");
+                AssertEx.True((triggerError ?? string.Empty).IndexOf("BatchSize", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "The required-input error should identify the stable input name.");
+
+                var entrySelector = FindChildren<ComboBox>(triggerPanel)
+                    .FirstOrDefault(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "DebugEntrySelector", StringComparison.Ordinal));
+                AssertEx.NotNull(entrySelector, "The trigger panel should provide an entry selector.");
+                entrySelector.SelectedIndex = 1;
+                AssertEx.Equal(FlowTriggerKind.External, triggerPanel.SelectedEntry.TriggerKind,
+                    "The entry selector should allow inspecting an External entry.");
+                AssertEx.True(FindChildren<TextBlock>(triggerPanel).Any(x => (x.Text ?? string.Empty).IndexOf("外部宿主", StringComparison.Ordinal) >= 0),
+                    "External entries should show host-trigger information instead of manual editors.");
+                AssertEx.False(triggerPanel.TryCreateManualRequest(new FlowToken(), out triggerRequest, out triggerError),
+                    "External entries should not be manually triggered by the designer.");
+
+                entrySelector = FindChildren<ComboBox>(triggerPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "DebugEntrySelector", StringComparison.Ordinal));
+                entrySelector.SelectedIndex = 2;
+                AssertEx.True(FindChildren<TextBlock>(triggerPanel).Any(x => (x.Text ?? string.Empty).IndexOf("camera_listener", StringComparison.Ordinal) >= 0),
+                    "NodeEvent entries should display their listener source node.");
+
+                triggerPanel.ShowEntries(new[] { manualEntry, externalEntry, nodeEventEntry }, "ManualInspect", true);
+                AssertEx.True(FindChildren<ComboBox>(triggerPanel).All(x => !x.IsEnabled),
+                    "Entry selection should be disabled while a debug run is active.");
+                AssertEx.True(FindChildren<TextBox>(triggerPanel).All(x => x.IsReadOnly),
+                    "Manual trigger inputs should be read-only while a debug run is active.");
+
+                var candidateDocument = new FlowDesignDocument
+                {
+                    Runtime = new RuntimeFlowDefinition(),
+                    View = new FlowViewState()
+                };
+                var a = new NodeDefinition { Id = "entry_a", Type = "test.node" };
+                var b = new NodeDefinition { Id = "entry_b", Type = "test.node" };
+                var c = new NodeDefinition { Id = "target", Type = "test.node" };
+                candidateDocument.Runtime.Nodes.AddRange(new[] { a, b, c });
+                candidateDocument.Runtime.Edges.Add(new EdgeDefinition { FromNodeId = a.Id, ToNodeId = c.Id });
+                candidateDocument.Runtime.Edges.Add(new EdgeDefinition { FromNodeId = b.Id, ToNodeId = c.Id });
+                candidateDocument.Runtime.Edges.Add(new EdgeDefinition { FromNodeId = "event_source", ToNodeId = c.Id });
+                candidateDocument.Runtime.Entries.Add(new FlowEntryDefinition
+                {
+                    EntryName = "A",
+                    TargetNodeId = a.Id,
+                    Inputs =
+                    {
+                        new TriggerInputDescriptor { Name = "Shared", DisplayName = "共享输入", DataType = FlowDataType.String },
+                        new TriggerInputDescriptor { Name = "Conflict", DataType = FlowDataType.Int32 }
+                    }
+                });
+                candidateDocument.Runtime.Entries.Add(new FlowEntryDefinition
+                {
+                    EntryName = "B",
+                    TargetNodeId = b.Id,
+                    Inputs =
+                    {
+                        new TriggerInputDescriptor { Name = "Shared", DisplayName = "共享输入", DataType = FlowDataType.String },
+                        new TriggerInputDescriptor { Name = "Conflict", DataType = FlowDataType.String }
+                    }
+                });
+                candidateDocument.Runtime.Entries.Add(new FlowEntryDefinition
+                {
+                    EntryName = "FrameEvent",
+                    TriggerKind = FlowTriggerKind.NodeEvent,
+                    SourceNodeId = "event_source",
+                    TargetNodeId = "not_reachable_from_target",
+                    Inputs =
+                    {
+                        new TriggerInputDescriptor { Name = "EventOnly", DataType = FlowDataType.Boolean }
+                    }
+                });
+                var candidateControl = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = false });
+                SetPrivateField(candidateControl, "_document", candidateDocument);
+                var triggerOptions = new List<VariableSelectionOption>();
+                var triggerIssues = new List<string>();
+                InvokePrivate(candidateControl, "AddTriggerInputVariableSuggestions", triggerOptions, triggerIssues, c);
+                AssertEx.Equal(2, triggerOptions.Count,
+                    "Reachable trigger inputs should be included while same-name/same-type inputs are deduplicated.");
+                var sharedOption = triggerOptions.First(x => string.Equals(x.Selector.Path[0], "Shared", StringComparison.OrdinalIgnoreCase));
+                AssertEx.Equal(VariableSelectorScope.TriggerInput, sharedOption.Selector.Scope,
+                    "Entry inputs should become TriggerInput variable candidates.");
+                AssertEx.Equal("Shared", sharedOption.Selector.Path[0],
+                    "A TriggerInput candidate should persist the stable input name in its path.");
+                AssertEx.True(triggerOptions.Any(x => string.Equals(x.Selector.Path[0], "EventOnly", StringComparison.OrdinalIgnoreCase)),
+                    "NodeEvent inputs should use SourceNodeId as their reachability origin because execution continues along the source node's outgoing edges.");
+                AssertEx.True(triggerIssues.Any(x => x.IndexOf("Conflict", StringComparison.OrdinalIgnoreCase) >= 0),
+                    "Conflicting reachable input types should be excluded and reported.");
+                var conflictPanel = new PropertyPanelControl();
+                conflictPanel.ShowNode(CreateNode(), descriptor, triggerOptions, triggerIssues, delegate { }, false);
+                AssertEx.True(FindChildren<TextBlock>(conflictPanel).Any(x => (x.Text ?? string.Empty).IndexOf("Conflict", StringComparison.OrdinalIgnoreCase) >= 0),
+                    "Trigger-input conflicts should be visible in the property panel.");
             });
             return Task.FromResult(0);
         }
@@ -257,6 +413,7 @@ namespace Vision.Flow.Tests
             RunOnSta(delegate
             {
                 var control = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = false });
+                control.LoadDocumentAsync(CreateHostDocument()).GetAwaiter().GetResult();
                 SetDesignerMode(control, "DebugRun");
 
                 SetPrivateField(control, "_isDebugRunning", true);
@@ -532,11 +689,11 @@ namespace Vision.Flow.Tests
             field.SetValue(instance, value);
         }
 
-        private static void InvokePrivate(object instance, string name)
+        private static void InvokePrivate(object instance, string name, params object[] args)
         {
             var method = instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
             AssertEx.NotNull(method, "Private method should exist: " + name);
-            method.Invoke(instance, new object[0]);
+            method.Invoke(instance, args ?? new object[0]);
         }
 
         private static T InvokePrivateStatic<T>(Type type, string name, params object[] args)
@@ -621,7 +778,9 @@ namespace Vision.Flow.Tests
                 DisplayName = "Message",
                 DataType = FlowDataType.String,
                 BindingMode = NodeSettingBindingMode.ConstantOrVariable,
-                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
+                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput |
+                    VariableSelectorScopeFlags.TriggerInput |
+                    VariableSelectorScopeFlags.Token
             });
             descriptor.Settings.Add(new NodeSettingDescriptor
             {

@@ -32,6 +32,15 @@ namespace Vision.Flow.Core.Services.Validation
         public const string EntryNameDuplicate = "EntryNameDuplicate";
         public const string EntryTargetMissing = "EntryTargetMissing";
         public const string EntryTargetNotFound = "EntryTargetNotFound";
+        public const string EntryTriggerKindInvalid = "EntryTriggerKindInvalid";
+        public const string EntrySourceMissing = "EntrySourceMissing";
+        public const string EntrySourceNotFound = "EntrySourceNotFound";
+        public const string EntrySourceNotListener = "EntrySourceNotListener";
+        public const string EntrySourceDuplicate = "EntrySourceDuplicate";
+        public const string EntryInputInvalid = "EntryInputInvalid";
+        public const string EntryInputNameDuplicate = "EntryInputNameDuplicate";
+        public const string EntryInputDefaultInvalid = "EntryInputDefaultInvalid";
+        public const string EntryExecutionPolicyInvalid = "EntryExecutionPolicyInvalid";
         public const string RequiredSettingMissing = "RequiredSettingMissing";
         public const string RuntimeContainsViewState = "RuntimeContainsViewState";
         public const string DuplicatePolicyInvalid = "DuplicatePolicyInvalid";
@@ -43,5 +52,7 @@ namespace Vision.Flow.Core.Services.Validation
         public const string VariableOutputMissing = "VariableOutputMissing";
         public const string VariableTypeIncompatible = "VariableTypeIncompatible";
         public const string VariableTypeWarning = "VariableTypeWarning";
+        public const string TriggerInputUnavailable = "TriggerInputUnavailable";
+        public const string TriggerInputTypeConflict = "TriggerInputTypeConflict";
     }
 }

@@ -17,6 +17,17 @@ namespace Vision.Flow.Core.Runtime.Execution
             IDeviceRegistry devices,
             IFlowEventSink events,
             IFlowContinuationDispatcher continuations)
+            : this(flow, node, null, devices, events, continuations)
+        {
+        }
+
+        public FlowListenerContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowEntryDefinition entry,
+            IDeviceRegistry devices,
+            IFlowEventSink events,
+            IFlowContinuationDispatcher continuations)
         {
             if (flow == null)
             {
@@ -40,6 +51,7 @@ namespace Vision.Flow.Core.Runtime.Execution
 
             Flow = flow;
             Node = node;
+            Entry = entry;
             Devices = devices ?? EmptyDeviceRegistry.Instance;
             Events = events;
             Continuations = continuations;
@@ -54,6 +66,11 @@ namespace Vision.Flow.Core.Runtime.Execution
         /// 当前监听节点定义，不包含设计器视图状态。
         /// </summary>
         public NodeDefinition Node { get; private set; }
+
+        /// <summary>
+        /// 启动当前监听器的 NodeEvent 入口定义。
+        /// </summary>
+        public FlowEntryDefinition Entry { get; private set; }
 
         /// <summary>
         /// 运行时设备注册表，监听节点只能通过 Adapter 契约访问设备。

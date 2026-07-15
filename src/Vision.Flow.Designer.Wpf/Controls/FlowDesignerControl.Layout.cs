@@ -62,8 +62,15 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Grid.SetColumn(canvasPanel, 1);
             workspace.Children.Add(canvasPanel);
 
-            Grid.SetColumn(_properties, 2);
-            workspace.Children.Add(_properties);
+            var rightPanel = new Grid();
+            rightPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            rightPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            Grid.SetRow(_entryTriggerPanel, 0);
+            rightPanel.Children.Add(_entryTriggerPanel);
+            Grid.SetRow(_properties, 1);
+            rightPanel.Children.Add(_properties);
+            Grid.SetColumn(rightPanel, 2);
+            workspace.Children.Add(rightPanel);
             root.Children.Add(workspace);
 
             Grid.SetRow(_debug, 2);

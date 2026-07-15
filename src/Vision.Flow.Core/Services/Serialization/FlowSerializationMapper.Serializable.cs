@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Domain.Nodes;
 
 namespace Vision.Flow.Core.Services.Serialization
 {
@@ -110,11 +111,52 @@ namespace Vision.Flow.Core.Services.Serialization
                 result.Add(new Dictionary<string, object>
                 {
                     { "EntryName", entry.EntryName },
-                    { "TargetNodeId", entry.TargetNodeId }
+                    { "TargetNodeId", entry.TargetNodeId },
+                    { "SourceNodeId", entry.SourceNodeId },
+                    { "TriggerKind", FlowEnumConverter.ToWireValue(entry.TriggerKind) },
+                    { "Inputs", ToSerializableTriggerInputs(entry.Inputs) },
+                    { "ExecutionPolicy", ToSerializableTriggerExecutionPolicy(entry.ExecutionPolicy) }
                 });
             }
 
             return result;
+        }
+
+        private static object ToSerializableTriggerInputs(IEnumerable<TriggerInputDescriptor> inputs)
+        {
+            var result = new List<object>();
+            if (inputs == null)
+            {
+                return result;
+            }
+
+            foreach (var input in inputs)
+            {
+                result.Add(input == null
+                    ? null
+                    : new Dictionary<string, object>
+                    {
+                        { "Name", input.Name },
+                        { "DisplayName", input.DisplayName },
+                        { "DataType", FlowEnumConverter.ToWireValue(input.DataType) },
+                        { "IsRequired", input.IsRequired },
+                        { "DefaultValue", NormalizeObject(input.DefaultValue) },
+                        { "Description", input.Description }
+                    });
+            }
+
+            return result;
+        }
+
+        private static object ToSerializableTriggerExecutionPolicy(TriggerExecutionPolicy policy)
+        {
+            var effective = policy ?? new TriggerExecutionPolicy();
+            return new Dictionary<string, object>
+            {
+                { "MaxConcurrentRuns", effective.MaxConcurrentRuns },
+                { "QueueCapacity", effective.QueueCapacity },
+                { "QueueFullBehavior", FlowEnumConverter.ToWireValue(effective.QueueFullBehavior) }
+            };
         }
 
         private static object ToSerializableView(FlowViewState view)

@@ -13,6 +13,7 @@ namespace Vision.Flow.Core.Runtime.Execution
         {
             OutputPort = FlowPortNames.Next;
             Outputs = new Dictionary<string, object>();
+            TriggerInputs = new Dictionary<string, object>(System.StringComparer.OrdinalIgnoreCase);
         }
 
         public string SourceNodeId { get; set; }
@@ -26,5 +27,15 @@ namespace Vision.Flow.Core.Runtime.Execution
         public IDictionary<string, object> Outputs { get; set; }
 
         public string FlowRunId { get; set; }
+
+        /// <summary>
+        /// NodeEvent 监听续流对应的入口名；普通节点续流保持为空。
+        /// </summary>
+        public string EntryName { get; set; }
+
+        /// <summary>
+        /// 与原流程运行共享的入口输入。
+        /// </summary>
+        public IDictionary<string, object> TriggerInputs { get; set; }
     }
 }

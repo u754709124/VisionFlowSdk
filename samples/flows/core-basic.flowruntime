@@ -52,6 +52,17 @@
     { "fromNodeId": "condition_1", "fromPort": "False", "toNodeId": "log_ng", "toPort": "In" }
   ],
   "entries": [
-    { "entryName": "ManualStart", "targetNodeId": "set_result" }
+    {
+      "entryName": "ManualStart",
+      "targetNodeId": "set_result",
+      "sourceNodeId": null,
+      "triggerKind": "Manual",
+      "inputs": [],
+      "executionPolicy": {
+        "maxConcurrentRuns": 1,
+        "queueCapacity": 64,
+        "queueFullBehavior": "Reject"
+      }
+    }
   ]
 }

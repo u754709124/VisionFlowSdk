@@ -1,4 +1,6 @@
+using System;
 using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Domain.Nodes;
 
 namespace Vision.Flow.Core.Services.Serialization
 {
@@ -87,11 +89,92 @@ namespace Vision.Flow.Core.Services.Serialization
         private static FlowEntryDefinition ToEntryDefinition(object value)
         {
             var dictionary = AsDictionary(value);
-            return new FlowEntryDefinition
+            var entry = new FlowEntryDefinition
             {
                 EntryName = GetString(dictionary, "EntryName"),
-                TargetNodeId = GetString(dictionary, "TargetNodeId")
+                TargetNodeId = GetString(dictionary, "TargetNodeId"),
+                SourceNodeId = GetString(dictionary, "SourceNodeId")
             };
+
+            object triggerKindValue;
+            if (TryGetValue(dictionary, "TriggerKind", out triggerKindValue) && triggerKindValue != null)
+            {
+                try
+                {
+                    entry.TriggerKind = FlowEnumConverter.Parse<FlowTriggerKind>(triggerKindValue);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new InvalidOperationException("Entry TriggerKind is invalid.", ex);
+                }
+            }
+
+            object inputsValue;
+            if (TryGetValue(dictionary, "Inputs", out inputsValue))
+            {
+                foreach (var inputValue in AsEnumerable(inputsValue))
+                {
+                    entry.Inputs.Add(ToTriggerInputDescriptor(inputValue));
+                }
+            }
+
+            object policyValue;
+            if (TryGetValue(dictionary, "ExecutionPolicy", out policyValue) && policyValue != null)
+            {
+                entry.ExecutionPolicy = ToTriggerExecutionPolicy(policyValue);
+            }
+
+            return entry;
+        }
+
+        private static TriggerInputDescriptor ToTriggerInputDescriptor(object value)
+        {
+            var dictionary = AsDictionary(value);
+            var dataTypeText = GetString(dictionary, "DataType");
+            FlowDataType dataType;
+            try
+            {
+                dataType = FlowEnumConverter.Parse<FlowDataType>(dataTypeText);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException("Trigger input DataType is invalid.", ex);
+            }
+
+            return new TriggerInputDescriptor
+            {
+                Name = GetString(dictionary, "Name"),
+                DisplayName = GetString(dictionary, "DisplayName"),
+                DataType = dataType,
+                IsRequired = GetBoolean(dictionary, "IsRequired", false),
+                DefaultValue = GetObject(dictionary, "DefaultValue"),
+                Description = GetString(dictionary, "Description")
+            };
+        }
+
+        private static TriggerExecutionPolicy ToTriggerExecutionPolicy(object value)
+        {
+            var dictionary = AsDictionary(value);
+            var policy = new TriggerExecutionPolicy
+            {
+                MaxConcurrentRuns = GetInt32(dictionary, "MaxConcurrentRuns", 1),
+                QueueCapacity = GetInt32(dictionary, "QueueCapacity", 64)
+            };
+
+            object behaviorValue;
+            if (TryGetValue(dictionary, "QueueFullBehavior", out behaviorValue) && behaviorValue != null)
+            {
+                try
+                {
+                    policy.QueueFullBehavior = FlowEnumConverter.Parse<TriggerQueueFullBehavior>(behaviorValue);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new InvalidOperationException("Trigger execution QueueFullBehavior is invalid.", ex);
+                }
+            }
+
+            return policy;
         }
     }
 }

@@ -41,7 +41,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         public void ShowNode(NodeDefinition node, NodeDescriptor descriptor, Action changed)
         {
-            ShowNode(node, descriptor, null, changed, false);
+            ShowNode(node, descriptor, null, null, changed, false);
         }
 
         public void ShowNode(
@@ -50,13 +50,24 @@ namespace Vision.Flow.Designer.Wpf.Controls
             IEnumerable<VariableSelectionOption> variableOptions,
             Action changed)
         {
-            ShowNode(node, descriptor, variableOptions, changed, false);
+            ShowNode(node, descriptor, variableOptions, null, changed, false);
         }
 
         public void ShowNode(
             NodeDefinition node,
             NodeDescriptor descriptor,
             IEnumerable<VariableSelectionOption> variableOptions,
+            Action changed,
+            bool isReadOnly)
+        {
+            ShowNode(node, descriptor, variableOptions, null, changed, isReadOnly);
+        }
+
+        public void ShowNode(
+            NodeDefinition node,
+            NodeDescriptor descriptor,
+            IEnumerable<VariableSelectionOption> variableOptions,
+            IEnumerable<string> variableIssues,
             Action changed,
             bool isReadOnly)
         {
@@ -79,6 +90,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
             AddTextField("Type", node.Type, false, null);
 
             _rows.Children.Add(CreateSection("Settings"));
+            if (variableIssues != null)
+            {
+                foreach (var issue in variableIssues.Where(x => !string.IsNullOrWhiteSpace(x)))
+                {
+                    _rows.Children.Add(CreateInvalidText(issue));
+                }
+            }
+
             if (descriptor != null)
             {
                 foreach (var setting in descriptor.Settings)

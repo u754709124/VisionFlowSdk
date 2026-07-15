@@ -101,6 +101,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             _interactionMode = DesignerInteractionMode.Edit;
             _document = document;
+            ResetEntryTriggerPanelState();
             _selectedNode = _document.Runtime.Nodes.FirstOrDefault();
             _selectedEdge = null;
             _nodeStartTimes.Clear();
@@ -168,6 +169,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             _document = CreateDocument("designer-flow", "Designer Flow");
+            ResetEntryTriggerPanelState();
             _selectedNode = null;
             _selectedEdge = null;
             RenderCanvas();
@@ -186,6 +188,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             _document = CreateDocument("designer-core-basic", "Core Basic Flow");
+            ResetEntryTriggerPanelState();
             var flow = _document.Runtime;
 
             AddTemplateNode("set_result", FlowNodeTypes.VariableSet, "设置检测结果", 80, 120, new Dictionary<string, object>
@@ -527,6 +530,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 _selectedNode,
                 _selectedNode == null ? null : GetDescriptor(_selectedNode.Type),
                 CreateVariableSuggestions(_selectedNode),
+                CreateVariableSuggestionIssues(_selectedNode),
                 delegate
                 {
                     if (!CanEditDocument)
@@ -583,6 +587,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 }
             }
 
+            AddTriggerInputVariableSuggestions(items, null, currentNode);
+
             return items
                 .GroupBy(x => VariableSelectionOption.FormatSelector(x.Selector), StringComparer.OrdinalIgnoreCase)
                 .Select(x => x.First())
@@ -590,6 +596,107 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 .ThenBy(x => x.GroupName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(x => x.ValueName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        private IList<string> CreateVariableSuggestionIssues(NodeDefinition currentNode)
+        {
+            var issues = new List<string>();
+            AddTriggerInputVariableSuggestions(null, issues, currentNode);
+            return issues;
+        }
+
+        private void AddTriggerInputVariableSuggestions(
+            ICollection<VariableSelectionOption> items,
+            ICollection<string> issues,
+            NodeDefinition currentNode)
+        {
+            if (_document == null || _document.Runtime == null || currentNode == null)
+            {
+                return;
+            }
+
+            var flow = _document.Runtime;
+            var reachableEntries = flow.Entries
+                .Where(x => x != null && IsNodeReachable(
+                    flow,
+                    x.TriggerKind == FlowTriggerKind.NodeEvent ? x.SourceNodeId : x.TargetNodeId,
+                    currentNode.Id))
+                .ToList();
+            var inputs = reachableEntries
+                .SelectMany(entry => (entry.Inputs ?? new List<TriggerInputDescriptor>())
+                    .Where(input => input != null && !string.IsNullOrWhiteSpace(input.Name))
+                    .Select(input => new KeyValuePair<FlowEntryDefinition, TriggerInputDescriptor>(entry, input)))
+                .GroupBy(x => x.Value.Name, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var group in inputs)
+            {
+                var types = group.Select(x => x.Value.DataType).Distinct().ToList();
+                if (types.Count != 1)
+                {
+                    if (issues != null)
+                    {
+                        issues.Add("触发输入 '" + group.Key + "' 在可到达入口中存在类型冲突（" +
+                            string.Join(", ", types.Select(x => FlowEnumConverter.ToWireValue(x)).ToArray()) +
+                            "），已从变量候选中排除。");
+                    }
+
+                    continue;
+                }
+
+                if (items == null)
+                {
+                    continue;
+                }
+
+                var input = group.First().Value;
+                var displayName = string.IsNullOrWhiteSpace(input.DisplayName) ? input.Name : input.DisplayName;
+                items.Add(new VariableSelectionOption(
+                    new VariableSelector
+                    {
+                        Scope = VariableSelectorScope.TriggerInput,
+                        Path = new List<string> { input.Name }
+                    },
+                    "触发输入",
+                    "触发输入",
+                    null,
+                    displayName + " (" + input.Name + ")",
+                    input.DataType));
+            }
+        }
+
+        private static bool IsNodeReachable(RuntimeFlowDefinition flow, string startNodeId, string targetNodeId)
+        {
+            if (flow == null || string.IsNullOrWhiteSpace(startNodeId) || string.IsNullOrWhiteSpace(targetNodeId))
+            {
+                return false;
+            }
+
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var pending = new Queue<string>();
+            pending.Enqueue(startNodeId);
+            while (pending.Count > 0)
+            {
+                var current = pending.Dequeue();
+                if (!visited.Add(current))
+                {
+                    continue;
+                }
+
+                if (StringEquals(current, targetNodeId))
+                {
+                    return true;
+                }
+
+                foreach (var edge in flow.Edges.Where(x => x != null && StringEquals(x.FromNodeId, current)))
+                {
+                    if (!string.IsNullOrWhiteSpace(edge.ToNodeId) && !visited.Contains(edge.ToNodeId))
+                    {
+                        pending.Enqueue(edge.ToNodeId);
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static HashSet<string> FindAncestorNodeIds(RuntimeFlowDefinition flow, string currentNodeId)

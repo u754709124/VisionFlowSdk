@@ -155,7 +155,7 @@ namespace Vision.Flow.Nodes
                         Description = "Log level, such as Info, Warning, or Error.",
                         BindingMode = NodeSettingBindingMode.ConstantOrVariable,
                         EvaluationPhase = NodeSettingEvaluationPhase.Execution,
-                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
+                        AllowedVariableSources = VariableSelectorScopeFlags.All
                     },
                     new NodeSettingDescriptor
                     {
@@ -167,7 +167,7 @@ namespace Vision.Flow.Nodes
                         Description = "Message to publish.",
                         BindingMode = NodeSettingBindingMode.ConstantOrVariable,
                         EvaluationPhase = NodeSettingEvaluationPhase.Execution,
-                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
+                        AllowedVariableSources = VariableSelectorScopeFlags.All
                     }
                 },
                 Outputs =

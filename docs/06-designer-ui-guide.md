@@ -85,6 +85,16 @@ var snapshot = designer.CaptureDocument();
 
 Designer 调试运行会把当前 `.flowdesign` 发布为运行态定义，再通过同一个 `FlowRunner` 执行，并订阅 `FlowRuntimeEvent` 高亮节点和显示日志。
 
+切换到“调试运行”模式后，右侧会显示入口面板：
+
+- 入口下拉框列出 `RuntimeFlowDefinition.Entries`，并显示 Manual、External 或 NodeEvent 类型。
+- Manual 入口根据 `TriggerInputDescriptor` 生成临时输入表单，支持 String、Int32、Int64、Double、Boolean、DateTime 和 Object；必填、默认值和类型转换在触发前校验。
+- 点击 Debug Run 时，设计器以所选入口、表单输入和调试 Token 创建 `FlowTriggerRequest`。表单值只服务于当前调试会话，不写入 `.flowdesign` 或 `.flowruntime`。
+- External 入口只展示外部宿主触发说明和输入协议；NodeEvent 入口额外展示监听源节点，两者不能由设计器伪装成手动来源触发。
+- 调试运行期间入口选择和输入表单只读，运行结果根据 `FlowRunResult` 显示成功、失败、取消或拒绝状态。
+
+配置项选择 TriggerInput 变量时，候选只来自能够到达当前节点的入口输入。多个可达入口中同名同类型的输入合并为一个“触发输入”候选；同名但类型不同的输入不进入候选，并在属性面板显示冲突。
+
 生产进程必须使用 `.flowruntime`，不依赖 Designer 控件、画布或 ViewModel。
 
 ## 枚举编辑体验

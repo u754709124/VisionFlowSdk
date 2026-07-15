@@ -63,6 +63,18 @@ namespace Vision.Flow.Core.Domain.Flows
                 Path = path == null ? new List<string>() : new List<string>(path)
             };
         }
+
+        /// <summary>
+        /// 创建入口输入选择器；首段是入口输入协议键，后续段用于读取对象成员。
+        /// </summary>
+        public static VariableSelector ForTriggerInput(params string[] path)
+        {
+            return new VariableSelector
+            {
+                Scope = VariableSelectorScope.TriggerInput,
+                Path = path == null ? new List<string>() : new List<string>(path)
+            };
+        }
     }
 
     /// <summary>
