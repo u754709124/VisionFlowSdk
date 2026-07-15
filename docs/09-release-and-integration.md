@@ -25,6 +25,29 @@ Vision.Flow.Core.dll
 Vision.Flow.Designer.Wpf.dll
 ```
 
+## Embedded Designer Wiring
+
+当业务应用需要把流程图和自己的策略、配方或其它元数据保存在同一文件中时，由宿主管理外层文件，设计器只负责 `FlowDesignDocument`：
+
+```csharp
+var nodes = new NodeRegistry();
+CommonNodeRegistration.RegisterAll(nodes);
+// 在这里继续注册项目专属节点工厂。
+
+var designer = new FlowDesignerControl(nodes, null, new FlowDesignerOptions
+{
+    LoadSampleOnStartup = false,
+    ShowStandaloneDocumentCommands = false
+});
+
+await designer.LoadDocumentAsync(flowDesignFromHostFile);
+var flowDesignForSave = designer.CaptureDocument();
+```
+
+新建宿主文件时可调用 `ResetDocumentAsync(flowId, flowName)` 创建空白图。宿主保存前必须调用 `CaptureDocument()`，不要长期持有并直接修改早先传入的对象。
+
+外层文件若要嵌入流程 JSON，应先使用 `FlowDesignSerializer.Serialize(flowDesignForSave)` 生成 SDK 协议 JSON，再把结果作为 JSON 对象嵌入；不要把它保存为转义后的 JSON 字符串，也不要由其它序列化器直接重写流程协议字段。
+
 ## Runtime Wiring
 
 ```csharp

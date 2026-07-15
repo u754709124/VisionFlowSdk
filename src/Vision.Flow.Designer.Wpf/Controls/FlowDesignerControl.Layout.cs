@@ -102,8 +102,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             dock.Children.Add(buttons);
 
-            _editModeButton = CreateToolbarButton("缂栬緫", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
-            _debugModeButton = CreateToolbarButton("璋冭瘯杩愯", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
+            _editModeButton = CreateToolbarButton("编辑", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
+            _debugModeButton = CreateToolbarButton("调试运行", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
             buttons.Children.Add(_editModeButton);
             buttons.Children.Add(_debugModeButton);
             buttons.Children.Add(CreateToolbarSpacer());
@@ -116,11 +116,15 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _debugRunButton = CreateToolbarButton("Debug Run", async delegate { await RunDebugAsync(); });
             _stopButton = CreateToolbarButton("Stop", async delegate { await StopDebugAsync(); });
 
-            buttons.Children.Add(_newButton);
-            buttons.Children.Add(_sampleButton);
-            buttons.Children.Add(_openButton);
-            buttons.Children.Add(_saveButton);
-            buttons.Children.Add(_publishButton);
+            if (_options.ShowStandaloneDocumentCommands)
+            {
+                buttons.Children.Add(_newButton);
+                buttons.Children.Add(_sampleButton);
+                buttons.Children.Add(_openButton);
+                buttons.Children.Add(_saveButton);
+                buttons.Children.Add(_publishButton);
+            }
+
             buttons.Children.Add(_debugRunButton);
             buttons.Children.Add(_stopButton);
 

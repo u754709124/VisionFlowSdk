@@ -41,9 +41,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public FlowDesignerOptions()
         {
             LoadSampleOnStartup = true;
+            ShowStandaloneDocumentCommands = true;
         }
 
         public bool LoadSampleOnStartup { get; set; }
+
+        /// <summary>
+        /// 是否显示设计器自带的新建、示例、打开、保存和发布命令。
+        /// 嵌入业务宿主并由宿主管理复合配置文件时可关闭这些命令。
+        /// </summary>
+        public bool ShowStandaloneDocumentCommands { get; set; }
 
         public IDeviceRegistry DebugDevices { get; set; }
     }

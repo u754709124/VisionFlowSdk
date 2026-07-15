@@ -32,6 +32,133 @@ namespace Vision.Flow.Designer.Wpf.Controls
     // 鏂囨。杈呭姪鏂规硶璐熻矗璁捐妯℃澘銆佽妭鐐圭紪杈戙€侀€夋嫨鐘舵€佸拰灞炴€у埛鏂般€?
     public sealed partial class FlowDesignerControl
     {
+        /// <summary>
+        /// 捕获当前设计态流程。捕获前会同步节点坐标、画布缩放和滚动偏移，
+        /// 返回值为独立深拷贝，调用方修改它不会影响设计器中的当前文档。
+        /// </summary>
+        public FlowDesignDocument CaptureDocument()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                return Dispatcher.Invoke(new Func<FlowDesignDocument>(CaptureDocument));
+            }
+
+            if (_document == null)
+            {
+                throw new InvalidOperationException("The designer does not contain a document.");
+            }
+
+            SaveRenderedNodeViewState();
+            SaveCanvasViewState();
+            return CloneDesignDocument(_document);
+        }
+
+        /// <summary>
+        /// 由宿主加载完整设计态流程。加载前会停止当前调试运行并切回编辑模式，
+        /// 传入文档会被深拷贝，后续由调用方持有的对象变化不会影响设计器。
+        /// </summary>
+        public Task LoadDocumentAsync(FlowDesignDocument document)
+        {
+            if (document == null)
+            {
+                throw new ArgumentNullException("document");
+            }
+
+            var snapshot = CloneDesignDocument(document);
+            if (!Dispatcher.CheckAccess())
+            {
+                return Dispatcher
+                    .InvokeAsync(new Func<Task>(delegate { return LoadDocumentCoreAsync(snapshot); }))
+                    .Task
+                    .Unwrap();
+            }
+
+            return LoadDocumentCoreAsync(snapshot);
+        }
+
+        /// <summary>
+        /// 由宿主创建空白设计态流程，不加载示例节点。
+        /// </summary>
+        public Task ResetDocumentAsync(string flowId, string flowName)
+        {
+            if (string.IsNullOrWhiteSpace(flowId))
+            {
+                throw new ArgumentException("FlowId is required.", "flowId");
+            }
+
+            if (string.IsNullOrWhiteSpace(flowName))
+            {
+                throw new ArgumentException("FlowName is required.", "flowName");
+            }
+
+            return LoadDocumentAsync(CreateDocument(flowId.Trim(), flowName.Trim()));
+        }
+
+        private async Task LoadDocumentCoreAsync(FlowDesignDocument document)
+        {
+            CancelConnectionPreview();
+            await StopDebugAsync().ConfigureAwait(true);
+
+            _interactionMode = DesignerInteractionMode.Edit;
+            _document = document;
+            _selectedNode = _document.Runtime.Nodes.FirstOrDefault();
+            _selectedEdge = null;
+            _nodeStartTimes.Clear();
+            RenderCanvas();
+            ApplyCanvasViewState();
+            RenderProperties();
+            _debug.Clear();
+            AddDebugMessage("Design document loaded by host.");
+            UpdateInteractionModeUi();
+            UpdateStatus();
+        }
+
+        private void SaveRenderedNodeViewState()
+        {
+            if (_document == null || _document.View == null)
+            {
+                return;
+            }
+
+            if (_document.View.Nodes == null)
+            {
+                _document.View.Nodes = new Dictionary<string, NodeViewState>();
+            }
+
+            foreach (var item in _nodeCards)
+            {
+                var card = item.Value;
+                if (card == null || card.ViewModel == null || card.ViewModel.Node == null)
+                {
+                    continue;
+                }
+
+                NodeViewState state;
+                if (!_document.View.Nodes.TryGetValue(item.Key, out state) || state == null)
+                {
+                    state = new NodeViewState();
+                    _document.View.Nodes[item.Key] = state;
+                }
+
+                var left = Canvas.GetLeft(card);
+                var top = Canvas.GetTop(card);
+                if (IsFinite(left))
+                {
+                    state.X = left;
+                }
+
+                if (IsFinite(top))
+                {
+                    state.Y = top;
+                }
+            }
+        }
+
+        private static FlowDesignDocument CloneDesignDocument(FlowDesignDocument document)
+        {
+            return FlowDesignSerializer.Deserialize(FlowDesignSerializer.Serialize(document));
+        }
+
         private void CreateNewDesign()
         {
             if (!CanEditDocument)

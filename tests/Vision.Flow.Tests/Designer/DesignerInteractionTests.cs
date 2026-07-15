@@ -184,6 +184,120 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task EmbeddedToolbarHidesStandaloneDocumentCommands()
+        {
+            RunOnSta(delegate
+            {
+                var defaultOptions = new FlowDesignerOptions { LoadSampleOnStartup = false };
+                AssertEx.True(defaultOptions.ShowStandaloneDocumentCommands,
+                    "Standalone document commands should remain enabled by default for compatibility.");
+
+                var standalone = new FlowDesignerControl(null, null, defaultOptions);
+                var standaloneLabels = FindChildren<Button>(standalone)
+                    .Select(x => x.Content as string)
+                    .Where(x => x != null)
+                    .ToList();
+                AssertEx.True(new[] { "New", "Sample", "Open", "Save", "Publish" }.All(standaloneLabels.Contains),
+                    "Default designer toolbar should keep all standalone document commands.");
+
+                var embedded = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false
+                });
+                var embeddedLabels = FindChildren<Button>(embedded)
+                    .Select(x => x.Content as string)
+                    .Where(x => x != null)
+                    .ToList();
+                AssertEx.False(new[] { "New", "Sample", "Open", "Save", "Publish" }.Any(embeddedLabels.Contains),
+                    "Embedded designer toolbar should hide standalone document commands.");
+                AssertEx.True(new[] { "编辑", "调试运行", "Debug Run", "Stop" }.All(embeddedLabels.Contains),
+                    "Embedded designer toolbar should keep mode, run and stop commands with readable labels.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task HostDocumentApiLoadsCapturesAndDeepCopies()
+        {
+            RunOnSta(delegate
+            {
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false
+                });
+                var source = CreateHostDocument();
+                SetDesignerMode(control, "DebugRun");
+
+                control.LoadDocumentAsync(source).GetAwaiter().GetResult();
+                AssertEx.Equal("Edit", GetPrivateField<object>(control, "_interactionMode").ToString(),
+                    "Host load should switch the designer back to Edit mode.");
+
+                source.Runtime.Nodes[0].Name = "Changed outside designer";
+                var cards = GetPrivateField<Dictionary<string, NodeCardControl>>(control, "_nodeCards");
+                var card = cards["node_1"];
+                Canvas.SetLeft(card, 416.0);
+                Canvas.SetTop(card, 288.0);
+
+                var scale = GetPrivateField<ScaleTransform>(control, "_canvasScale");
+                scale.ScaleX = 1.35;
+                scale.ScaleY = 1.35;
+
+                control.Measure(new Size(1120, 720));
+                control.Arrange(new Rect(0, 0, 1120, 720));
+                control.UpdateLayout();
+                var scroll = GetPrivateField<ScrollViewer>(control, "_canvasScroll");
+                scroll.ScrollToHorizontalOffset(144.0);
+                scroll.ScrollToVerticalOffset(96.0);
+                control.UpdateLayout();
+                AssertEx.True(scroll.HorizontalOffset > 0 && scroll.VerticalOffset > 0,
+                    "Designer test layout should expose scrollable canvas offsets.");
+
+                var captured = control.CaptureDocument();
+                AssertEx.False(object.ReferenceEquals(source, captured), "Capture should return a separate document instance.");
+                AssertEx.Equal("Host Node", captured.Runtime.Nodes[0].Name,
+                    "Loading should isolate the designer from later source document changes.");
+                AssertEx.Equal(416.0, captured.View.Nodes["node_1"].X,
+                    "Capture should synchronize the rendered node X coordinate.");
+                AssertEx.Equal(288.0, captured.View.Nodes["node_1"].Y,
+                    "Capture should synchronize the rendered node Y coordinate.");
+                AssertEx.Equal(1.35, captured.View.Zoom, "Capture should synchronize the current canvas zoom.");
+                AssertEx.Equal(scroll.HorizontalOffset, captured.View.OffsetX,
+                    "Capture should synchronize the current horizontal offset.");
+                AssertEx.Equal(scroll.VerticalOffset, captured.View.OffsetY,
+                    "Capture should synchronize the current vertical offset.");
+
+                captured.Runtime.Nodes[0].Name = "Changed captured copy";
+                captured.View.Nodes["node_1"].X = 999;
+                var capturedAgain = control.CaptureDocument();
+                AssertEx.Equal("Host Node", capturedAgain.Runtime.Nodes[0].Name,
+                    "Changing a captured document should not mutate the designer document.");
+                AssertEx.Equal(416.0, capturedAgain.View.Nodes["node_1"].X,
+                    "Changing captured view state should not mutate the designer document.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task HostResetCreatesEmptyDocument()
+        {
+            RunOnSta(delegate
+            {
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = true });
+
+                control.ResetDocumentAsync("strategy-123", "策略连线图").GetAwaiter().GetResult();
+                var captured = control.CaptureDocument();
+
+                AssertEx.Equal("strategy-123", captured.FlowId, "Reset should preserve the requested design FlowId.");
+                AssertEx.Equal("strategy-123", captured.Runtime.FlowId, "Reset should keep runtime and design FlowId aligned.");
+                AssertEx.Equal("策略连线图", captured.FlowName, "Reset should preserve the requested design FlowName.");
+                AssertEx.Equal("策略连线图", captured.Runtime.FlowName, "Reset should keep runtime and design FlowName aligned.");
+                AssertEx.Equal(0, captured.Runtime.Nodes.Count, "Reset should not add sample nodes.");
+                AssertEx.Equal(0, captured.Runtime.Edges.Count, "Reset should create no edges.");
+                AssertEx.Equal(0, captured.Runtime.Entries.Count, "Reset should create no entries.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PaletteDefaultAddUsesViewportCenter()
         {
             var position = InvokePrivateStatic<Point>(
@@ -229,6 +343,10 @@ namespace Vision.Flow.Tests
                     "Completed node card should show success and elapsed time in the runtime summary.");
                 var summaryText = FindChildren<TextBlock>(card).FirstOrDefault(x => (x.Text ?? string.Empty).IndexOf("成功", StringComparison.OrdinalIgnoreCase) >= 0);
                 AssertRuntimeSummaryIsTextOnly(summaryText);
+                AssertEx.True((summaryText.Text ?? string.Empty).IndexOf(" · ", StringComparison.Ordinal) >= 0,
+                    "Runtime summary should use a readable middle-dot separator.");
+                AssertEx.False((summaryText.Text ?? string.Empty).IndexOf(" 路 ", StringComparison.Ordinal) >= 0,
+                    "Runtime summary should not contain the corrupted separator text.");
 
                 card.SetRuntimeState(NodeRuntimeState.Failed, TimeSpan.FromMilliseconds(34), "Camera timeout detail");
                 texts = FindChildren<TextBlock>(card).Select(x => x.Text ?? string.Empty).ToList();
@@ -307,6 +425,33 @@ namespace Vision.Flow.Tests
                 parentBorder.BorderThickness.Right > 0 ||
                 parentBorder.BorderThickness.Bottom > 0;
             AssertEx.False(hasVisibleBackground || hasVisibleBorder, "Runtime summary should be plain text, not a visible mini-card.");
+        }
+
+        private static FlowDesignDocument CreateHostDocument()
+        {
+            var node = CreateNode();
+            node.Name = "Host Node";
+            var document = new FlowDesignDocument
+            {
+                FlowId = "host-flow",
+                FlowName = "Host Flow",
+                Runtime = new RuntimeFlowDefinition
+                {
+                    FlowId = "host-flow",
+                    FlowName = "Host Flow",
+                    Version = "1.0.0"
+                },
+                View = new FlowViewState
+                {
+                    Zoom = 1.0,
+                    CanvasWidth = 2400,
+                    CanvasHeight = 1600
+                }
+            };
+            document.Runtime.Nodes.Add(node);
+            document.Runtime.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = node.Id });
+            document.View.Nodes[node.Id] = new NodeViewState { X = 80, Y = 96 };
+            return document;
         }
 
         private static NodeDefinition CreateNode()

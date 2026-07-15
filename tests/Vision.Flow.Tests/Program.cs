@@ -97,6 +97,9 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer node palette drag request carries descriptor", DesignerInteractionTests.NodePaletteDragRequestCarriesDescriptor),
                 new TestCase("Designer stop marks running cards stopped", DesignerInteractionTests.StopMarksRunningCardsStopped),
                 new TestCase("Designer debug buttons recover after stop", DesignerInteractionTests.DebugButtonsRecoverAfterStop),
+                new TestCase("Designer embedded toolbar hides standalone document commands", DesignerInteractionTests.EmbeddedToolbarHidesStandaloneDocumentCommands),
+                new TestCase("Designer host API loads and captures deep copies", DesignerInteractionTests.HostDocumentApiLoadsCapturesAndDeepCopies),
+                new TestCase("Designer host API resets to an empty document", DesignerInteractionTests.HostResetCreatesEmptyDocument),
                 new TestCase("Designer palette default add uses viewport center", DesignerInteractionTests.PaletteDefaultAddUsesViewportCenter),
                 new TestCase("Designer node card uses sharp text rendering options", DesignerInteractionTests.NodeCardUsesSharpTextRenderingOptions),
                 new TestCase("Designer node card shows runtime summary above card", DesignerInteractionTests.NodeCardShowsRuntimeSummaryAboveCard)

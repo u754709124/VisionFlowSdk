@@ -578,13 +578,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private static string FormatElapsedSuffix(TimeSpan? elapsed)
         {
-            return elapsed.HasValue ? " 路 " + FormatElapsed(elapsed.Value) : string.Empty;
+            return elapsed.HasValue ? " · " + FormatElapsed(elapsed.Value) : string.Empty;
         }
 
         private static string FormatMessageSuffix(object message)
         {
             var text = Convert.ToString(message, CultureInfo.InvariantCulture);
-            return string.IsNullOrWhiteSpace(text) ? string.Empty : " 路 " + ToShortText(text);
+            return string.IsNullOrWhiteSpace(text) ? string.Empty : " · " + ToShortText(text);
         }
 
         private static Brush GetNodeAccentBrush(string nodeType)
