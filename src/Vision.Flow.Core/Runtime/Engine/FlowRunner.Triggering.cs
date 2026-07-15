@@ -201,6 +201,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             }
 
             var sourceNode = FindNode(entry.SourceNodeId);
+            EnsureReadyQueueScopeIsExecutable(sourceNode.Id);
             var outputPort = string.IsNullOrWhiteSpace(continuation.OutputPort) ? FlowPortNames.Next : continuation.OutputPort;
             var nodeResult = NodeExecutionResult.Success(outputPort, continuation.Outputs);
             await WriteOutputsAsync(sourceNode, token, nodeResult, variables, cancellationToken, flowRunId).ConfigureAwait(false);
@@ -264,6 +265,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                 var variables = continuation.Variables ?? new VariablePool();
                 var triggerInputs = continuation.TriggerInputs ?? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
                 var sourceNode = FindNode(continuation.SourceNodeId);
+                EnsureReadyQueueScopeIsExecutable(sourceNode.Id);
                 var outputPort = string.IsNullOrWhiteSpace(continuation.OutputPort) ? FlowPortNames.Next : continuation.OutputPort;
                 var nodeResult = NodeExecutionResult.Success(outputPort, continuation.Outputs);
                 var flowRunId = string.IsNullOrWhiteSpace(continuation.FlowRunId)

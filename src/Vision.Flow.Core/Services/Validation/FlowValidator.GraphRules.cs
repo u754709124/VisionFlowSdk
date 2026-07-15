@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Domain.Nodes;
@@ -93,6 +94,130 @@ namespace Vision.Flow.Core.Services.Validation
                     }
                 }
             }
+        }
+
+        private static void ValidateNoCycles(
+            IList<EdgeDefinition> edges,
+            IDictionary<string, NodeDefinition> nodeMap,
+            FlowValidationResult result)
+        {
+            var adjacency = new Dictionary<string, List<CycleEdge>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var nodeId in nodeMap.Keys)
+            {
+                adjacency[nodeId] = new List<CycleEdge>();
+            }
+
+            for (var index = 0; index < edges.Count; index++)
+            {
+                var edge = edges[index];
+                if (edge == null ||
+                    string.IsNullOrWhiteSpace(edge.FromNodeId) ||
+                    string.IsNullOrWhiteSpace(edge.ToNodeId) ||
+                    string.IsNullOrWhiteSpace(edge.FromPort) ||
+                    string.IsNullOrWhiteSpace(edge.ToPort) ||
+                    !nodeMap.ContainsKey(edge.FromNodeId) ||
+                    !nodeMap.ContainsKey(edge.ToNodeId))
+                {
+                    continue;
+                }
+
+                adjacency[edge.FromNodeId].Add(new CycleEdge(edge.ToNodeId, index));
+            }
+
+            var states = new Dictionary<string, CycleVisitState>(StringComparer.OrdinalIgnoreCase);
+            var path = new List<string>();
+            foreach (var nodeId in nodeMap.Keys)
+            {
+                CycleVisitState state;
+                if (!states.TryGetValue(nodeId, out state) || state == CycleVisitState.Unvisited)
+                {
+                    VisitForCycleValidation(nodeId, adjacency, states, path, result);
+                }
+            }
+        }
+
+        private static void VisitForCycleValidation(
+            string nodeId,
+            IDictionary<string, List<CycleEdge>> adjacency,
+            IDictionary<string, CycleVisitState> states,
+            IList<string> path,
+            FlowValidationResult result)
+        {
+            states[nodeId] = CycleVisitState.Visiting;
+            path.Add(nodeId);
+
+            List<CycleEdge> outgoing;
+            if (adjacency.TryGetValue(nodeId, out outgoing))
+            {
+                for (var index = 0; index < outgoing.Count; index++)
+                {
+                    var edge = outgoing[index];
+                    CycleVisitState targetState;
+                    if (!states.TryGetValue(edge.TargetNodeId, out targetState))
+                    {
+                        targetState = CycleVisitState.Unvisited;
+                    }
+
+                    if (targetState == CycleVisitState.Unvisited)
+                    {
+                        VisitForCycleValidation(edge.TargetNodeId, adjacency, states, path, result);
+                    }
+                    else if (targetState == CycleVisitState.Visiting)
+                    {
+                        result.AddError(
+                            FlowValidationIssueCodes.FlowCycleDetected,
+                            "Directed flow cycle detected: " + FormatCyclePath(path, edge.TargetNodeId),
+                            nodeId: nodeId,
+                            edgeIndex: edge.EdgeIndex,
+                            field: "Edges[" + edge.EdgeIndex + "]");
+                    }
+                }
+            }
+
+            path.RemoveAt(path.Count - 1);
+            states[nodeId] = CycleVisitState.Visited;
+        }
+
+        private static string FormatCyclePath(IList<string> path, string targetNodeId)
+        {
+            var cycleStart = 0;
+            for (var index = 0; index < path.Count; index++)
+            {
+                if (string.Equals(path[index], targetNodeId, StringComparison.OrdinalIgnoreCase))
+                {
+                    cycleStart = index;
+                    break;
+                }
+            }
+
+            var cycle = new List<string>();
+            for (var index = cycleStart; index < path.Count; index++)
+            {
+                cycle.Add(path[index]);
+            }
+
+            cycle.Add(targetNodeId);
+            return string.Join(" -> ", cycle);
+        }
+
+        private sealed class CycleEdge
+        {
+            public CycleEdge(string targetNodeId, int edgeIndex)
+            {
+                TargetNodeId = targetNodeId;
+                EdgeIndex = edgeIndex;
+            }
+
+            public string TargetNodeId { get; private set; }
+
+            public int EdgeIndex { get; private set; }
+        }
+
+        private enum CycleVisitState
+        {
+            Unvisited,
+            Visiting,
+            Visited
         }
     }
 }

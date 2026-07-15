@@ -111,7 +111,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
         }
 
-        private void PublishRuntime()
+        private void ShowPublishRuntimeDialog()
         {
             if (!CanEditDocument)
             {
@@ -122,6 +122,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var dialog = new SaveFileDialog
             {
                 Filter = "Flow runtime (*" + FlowFileExtensions.FlowRuntime + ")|*" + FlowFileExtensions.FlowRuntime + "|All files (*.*)|*.*",
+                DefaultExt = FlowFileExtensions.FlowRuntime,
+                AddExtension = true,
                 InitialDirectory = GetSampleFlowDirectory(),
                 FileName = (_document.Runtime.FlowId ?? "designer-flow") + FlowFileExtensions.FlowRuntime
             };
@@ -133,15 +135,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             try
             {
-                var publishResult = new FlowPublishService(_nodeRegistry).Publish(_document);
+                var publishResult = PublishRuntimeFile(dialog.FileName);
                 if (!publishResult.IsSuccess)
                 {
                     AddDebugMessage("Publish validation failed: " + FormatValidationIssues(publishResult.Validation));
                     return;
                 }
 
-                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(dialog.FileName));
-                RuntimeFlowSerializer.Save(dialog.FileName, publishResult.Runtime);
                 AddDebugMessage("Published runtime " + dialog.FileName + ".");
             }
             catch (Exception ex)
@@ -447,22 +447,18 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
                 TimeSpan? elapsed = null;
                 DateTime started;
-                if ((runtimeEvent.EventType == FlowRuntimeEventType.NodeCompleted ||
-                    runtimeEvent.EventType == FlowRuntimeEventType.NodeFailed ||
-                    runtimeEvent.EventType == FlowRuntimeEventType.NodeTimeout) &&
+                if (HasNodeElapsedTime(runtimeEvent.EventType) &&
                     runtimeEvent.ElapsedMs >= 0)
                 {
                     elapsed = TimeSpan.FromMilliseconds(runtimeEvent.ElapsedMs);
                 }
-                else if ((runtimeEvent.EventType == FlowRuntimeEventType.NodeCompleted ||
-                    runtimeEvent.EventType == FlowRuntimeEventType.NodeFailed ||
-                    runtimeEvent.EventType == FlowRuntimeEventType.NodeTimeout) &&
+                else if (HasNodeElapsedTime(runtimeEvent.EventType) &&
                     _nodeStartTimes.TryGetValue(runtimeEvent.NodeId, out started))
                 {
                     elapsed = DateTime.UtcNow - started;
                 }
 
-                _nodeCards[runtimeEvent.NodeId].SetRuntimeState(runtimeEvent.State, elapsed, runtimeEvent.Message);
+                _nodeCards[runtimeEvent.NodeId].SetRuntimeEvent(runtimeEvent, elapsed);
             }
         }
 
@@ -471,7 +467,21 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return eventType == FlowRuntimeEventType.NodeStarted ||
                 eventType == FlowRuntimeEventType.NodeCompleted ||
                 eventType == FlowRuntimeEventType.NodeFailed ||
-                eventType == FlowRuntimeEventType.NodeTimeout;
+                eventType == FlowRuntimeEventType.NodeTimeout ||
+                eventType == FlowRuntimeEventType.NodeRetrying ||
+                eventType == FlowRuntimeEventType.NodeRecovered ||
+                eventType == FlowRuntimeEventType.NodeCancelled ||
+                eventType == FlowRuntimeEventType.NodeSkipped;
+        }
+
+        private static bool HasNodeElapsedTime(FlowRuntimeEventType eventType)
+        {
+            return eventType == FlowRuntimeEventType.NodeCompleted ||
+                eventType == FlowRuntimeEventType.NodeFailed ||
+                eventType == FlowRuntimeEventType.NodeTimeout ||
+                eventType == FlowRuntimeEventType.NodeRetrying ||
+                eventType == FlowRuntimeEventType.NodeRecovered ||
+                eventType == FlowRuntimeEventType.NodeCancelled;
         }
 
         private void AddDebugMessage(string message)

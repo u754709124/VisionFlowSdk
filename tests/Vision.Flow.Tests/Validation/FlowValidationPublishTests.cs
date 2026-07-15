@@ -60,7 +60,43 @@ namespace Vision.Flow.Tests
             var result = CreateValidator().Validate(flow);
 
             AssertHasIssue(result, FlowValidationIssueCodes.EdgeTargetMissing, "Dangling edge target should be reported.");
+            AssertDirectedCyclesReturnErrors();
             return Task.FromResult(0);
+        }
+
+        private static void AssertDirectedCyclesReturnErrors()
+        {
+            var cycleFlow = CreateValidRuntime();
+            cycleFlow.Edges.Add(new EdgeDefinition
+            {
+                FromNodeId = "log1",
+                FromPort = FlowPortNames.Next,
+                ToNodeId = "delay1",
+                ToPort = FlowPortNames.In
+            });
+
+            var cycleResult = CreateValidator().Validate(cycleFlow);
+            var cycleIssue = cycleResult.Errors.FirstOrDefault(
+                x => string.Equals(x.Code, FlowValidationIssueCodes.FlowCycleDetected, StringComparison.OrdinalIgnoreCase));
+            AssertEx.True(cycleIssue != null, "A multi-node directed cycle should be rejected during validation.");
+            AssertEx.Equal("log1", cycleIssue.NodeId, "The cycle diagnostic should identify the node that closes the cycle.");
+            AssertEx.Equal("Edges[1]", cycleIssue.Field, "The cycle diagnostic should identify the closing edge field.");
+
+            var selfLoopFlow = CreateValidRuntime();
+            selfLoopFlow.Edges.Add(new EdgeDefinition
+            {
+                FromNodeId = "delay1",
+                FromPort = FlowPortNames.Next,
+                ToNodeId = "delay1",
+                ToPort = FlowPortNames.In
+            });
+
+            var selfLoopResult = CreateValidator().Validate(selfLoopFlow);
+            var selfLoopIssue = selfLoopResult.Errors.FirstOrDefault(
+                x => string.Equals(x.Code, FlowValidationIssueCodes.FlowCycleDetected, StringComparison.OrdinalIgnoreCase));
+            AssertEx.True(selfLoopIssue != null, "A self-loop should be rejected during validation.");
+            AssertEx.Equal("delay1", selfLoopIssue.NodeId, "The self-loop diagnostic should identify its node.");
+            AssertEx.Equal("Edges[1]", selfLoopIssue.Field, "The self-loop diagnostic should identify its edge field.");
         }
 
         public static Task MissingRequiredSettingReturnsError()
@@ -226,6 +262,139 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task EntryBypassProducesVariableAvailabilityWarning()
+        {
+            var flow = CreateValidRuntime();
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "delay-bypass",
+                Type = DelayNodeFactory.TypeName,
+                Name = "Bypass Delay",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { "DelayMs", NodeSettingValue.ForConstant(0) }
+                }
+            });
+            flow.Edges.Add(new EdgeDefinition
+            {
+                FromNodeId = "delay-bypass",
+                FromPort = FlowPortNames.Next,
+                ToNodeId = "log1",
+                ToPort = FlowPortNames.In
+            });
+            flow.Entries.Add(new FlowEntryDefinition
+            {
+                EntryName = "BypassStart",
+                TargetNodeId = "delay-bypass",
+                TriggerKind = FlowTriggerKind.Manual
+            });
+
+            var result = CreateValidator().Validate(flow);
+
+            AssertEx.True(result.IsValid, "A potentially absent branch variable should remain publishable with a warning.");
+            AssertHasWarning(
+                result,
+                FlowValidationIssueCodes.VariableSourceNotGuaranteed,
+                "An entry that bypasses the selected variable source should produce a warning.");
+            return Task.FromResult(0);
+        }
+
+        public static Task PublishToFileWritesValidatedRuntimeSnapshot()
+        {
+            var directory = CreateTemporaryPublishDirectory();
+            var path = Path.Combine(directory, "validated" + FlowFileExtensions.FlowRuntime);
+            try
+            {
+                var document = CreateValidDesignDocument();
+                document.View.Zoom = 1.75;
+                document.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.Enabled = true;
+                document.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.MaxRetries = 4;
+
+                var result = new FlowPublishService(CreateRegistry()).PublishToFile(document, path);
+
+                AssertEx.True(result.IsSuccess, "A valid design should be published to a runtime file.");
+                AssertEx.True(File.Exists(path), "Publishing should create the requested runtime file.");
+                AssertEx.False(object.ReferenceEquals(document.Runtime, result.Runtime),
+                    "File publication should return the same independent runtime snapshot contract as in-memory publication.");
+
+                document.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.MaxRetries = 99;
+                var loaded = RuntimeFlowSerializer.Load(path);
+                AssertEx.Equal(FlowSchema.CurrentVersion, loaded.SchemaVersion,
+                    "Published files should use the current runtime schema.");
+                AssertEx.Equal(4, loaded.Nodes[0].ExecutionPolicy.RetryPolicy.MaxRetries,
+                    "Published runtime data should not alias later design document changes.");
+
+                var json = File.ReadAllText(path);
+                AssertEx.False(json.IndexOf("View", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "Published runtime files must not contain designer view state.");
+                AssertEx.False(json.IndexOf("Zoom", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "Published runtime files must not contain canvas zoom.");
+            }
+            finally
+            {
+                DeleteTemporaryPublishDirectory(directory);
+            }
+
+            return Task.FromResult(0);
+        }
+
+        public static Task InvalidPublishDoesNotOverwriteRuntimeFile()
+        {
+            var directory = CreateTemporaryPublishDirectory();
+            var path = Path.Combine(directory, "existing" + FlowFileExtensions.FlowRuntime);
+            const string existingContent = "existing runtime artifact";
+            try
+            {
+                File.WriteAllText(path, existingContent);
+                var document = CreateValidDesignDocument();
+                document.Runtime.Nodes.Add(new NodeDefinition
+                {
+                    Id = "delay1",
+                    Type = DelayNodeFactory.TypeName,
+                    Name = "Duplicate Delay",
+                    Version = "1.0.0",
+                    Settings =
+                    {
+                        { FlowSettingNames.DelayMs, NodeSettingValue.ForConstant(0) }
+                    }
+                });
+
+                var result = new FlowPublishService(CreateRegistry()).PublishToFile(document, path);
+
+                AssertEx.False(result.IsSuccess, "An invalid design should not publish successfully.");
+                AssertHasIssue(result.Validation, FlowValidationIssueCodes.NodeIdDuplicate,
+                    "File publication should return the normal validation result.");
+                AssertEx.Equal(existingContent, File.ReadAllText(path),
+                    "Validation failure must not overwrite an existing runtime artifact.");
+            }
+            finally
+            {
+                DeleteTemporaryPublishDirectory(directory);
+            }
+
+            return Task.FromResult(0);
+        }
+
+        public static Task PublishToFileRequiresRuntimeExtension()
+        {
+            var directory = CreateTemporaryPublishDirectory();
+            var path = Path.Combine(directory, "invalid.json");
+            try
+            {
+                AssertEx.Throws<ArgumentException>(
+                    () => new FlowPublishService(CreateRegistry()).PublishToFile(CreateValidDesignDocument(), path),
+                    "The explicit file publication API should reject non-runtime extensions.");
+                AssertEx.False(File.Exists(path), "A rejected publication path should not create a file.");
+            }
+            finally
+            {
+                DeleteTemporaryPublishDirectory(directory);
+            }
+
+            return Task.FromResult(0);
+        }
+
         public static Task PublishRejectsV1Schemas()
         {
             var document = CreateValidDesignDocument();
@@ -240,6 +409,31 @@ namespace Vision.Flow.Tests
                 () => new FlowPublishService(CreateRegistry()).Publish(document),
                 "Publishing a v1 runtime schema should fail.");
             return Task.FromResult(0);
+        }
+
+        private static string CreateTemporaryPublishDirectory()
+        {
+            var directory = Path.Combine(
+                Path.GetTempPath(),
+                "VisionFlowSdk.Tests",
+                "publish-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            return directory;
+        }
+
+        private static void DeleteTemporaryPublishDirectory(string directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            {
+                return;
+            }
+
+            foreach (var path in Directory.GetFiles(directory))
+            {
+                File.Delete(path);
+            }
+
+            Directory.Delete(directory);
         }
 
         private static FlowValidator CreateValidator()
@@ -315,6 +509,13 @@ namespace Vision.Flow.Tests
         {
             AssertEx.True(
                 result.Issues.Any(x => x.Severity == FlowValidationSeverity.Error && string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase)),
+                message + " Issues: " + string.Join(", ", result.Issues.Select(x => x.Code)));
+        }
+
+        private static void AssertHasWarning(FlowValidationResult result, string code, string message)
+        {
+            AssertEx.True(
+                result.Issues.Any(x => x.Severity == FlowValidationSeverity.Warning && string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase)),
                 message + " Issues: " + string.Join(", ", result.Issues.Select(x => x.Code)));
         }
 

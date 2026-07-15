@@ -90,7 +90,7 @@ namespace Vision.Flow.Core.Services.Validation
 
             if (selector.Scope == VariableSelectorScope.NodeOutput)
             {
-                ValidateNodeOutputSelector(node, field, selector, descriptor, edges, nodeMap, descriptorsByNodeId, result);
+                ValidateNodeOutputSelector(node, field, selector, descriptor, edges, entries, nodeMap, descriptorsByNodeId, result);
                 return;
             }
 
@@ -111,15 +111,18 @@ namespace Vision.Flow.Core.Services.Validation
         {
             var inputName = selector.Path[0];
             var reachableInputs = new List<TriggerInputDescriptor>();
+            var entriesReachingNode = new List<FlowEntryDefinition>();
             for (var entryIndex = 0; entryIndex < entries.Count; entryIndex++)
             {
                 var entry = entries[entryIndex];
-                if (entry == null || entry.Inputs == null || !CanEntryReachNode(entry, node.Id, edges))
+                if (entry == null || !CanEntryReachNode(entry, node.Id, edges))
                 {
                     continue;
                 }
 
-                var input = entry.Inputs.FirstOrDefault(
+                entriesReachingNode.Add(entry);
+
+                var input = (entry.Inputs ?? new List<TriggerInputDescriptor>()).FirstOrDefault(
                     x => x != null && string.Equals(x.Name, inputName, StringComparison.OrdinalIgnoreCase));
                 if (input != null)
                 {
@@ -135,6 +138,22 @@ namespace Vision.Flow.Core.Services.Validation
                     nodeId: node.Id,
                     field: field + ".Selector.Path");
                 return;
+            }
+
+            var entriesWithoutInput = entriesReachingNode
+                .Where(entry => entry.Inputs == null || !entry.Inputs.Any(
+                    input => input != null && string.Equals(input.Name, inputName, StringComparison.OrdinalIgnoreCase)))
+                .Select(entry => entry.EntryName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToArray();
+            if (entriesWithoutInput.Length > 0)
+            {
+                result.AddWarning(
+                    FlowValidationIssueCodes.TriggerInputNotGuaranteed,
+                    "Trigger input '" + inputName + "' is not declared by every entry that can reach this node: " +
+                    string.Join(", ", entriesWithoutInput) + ".",
+                    nodeId: node.Id,
+                    field: field + ".Selector.Path");
             }
 
             var sourceTypes = new HashSet<FlowDataType>();
@@ -189,6 +208,7 @@ namespace Vision.Flow.Core.Services.Validation
             VariableSelector selector,
             NodeSettingDescriptor targetSetting,
             IList<EdgeDefinition> edges,
+            IList<FlowEntryDefinition> entries,
             IDictionary<string, NodeDefinition> nodeMap,
             IDictionary<string, NodeDescriptor> descriptorsByNodeId,
             FlowValidationResult result)
@@ -212,6 +232,23 @@ namespace Vision.Flow.Core.Services.Validation
             {
                 result.AddError(FlowValidationIssueCodes.VariableSourceNotUpstream, "Variable source must be an upstream node connected by control-flow edges: " + sourceNodeId, nodeId: node.Id, field: field);
                 return;
+            }
+
+            var bypassingEntries = (entries ?? new List<FlowEntryDefinition>())
+                .Where(entry => entry != null &&
+                    CanEntryReachNode(entry, node.Id, edges) &&
+                    CanEntryReachNodeAvoiding(entry, node.Id, sourceNodeId, edges))
+                .Select(entry => entry.EntryName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToArray();
+            if (bypassingEntries.Length > 0)
+            {
+                result.AddWarning(
+                    FlowValidationIssueCodes.VariableSourceNotGuaranteed,
+                    "Variable source '" + sourceNodeId + "' can be bypassed by entries that reach this node: " +
+                    string.Join(", ", bypassingEntries) + ". The setting may fail at runtime when that path is used.",
+                    nodeId: node.Id,
+                    field: field);
             }
 
             NodeDescriptor sourceDescriptor;
@@ -330,6 +367,66 @@ namespace Vision.Flow.Core.Services.Validation
                 {
                     var edge = edges[index];
                     if (edge != null && string.Equals(edge.FromNodeId, current, StringComparison.OrdinalIgnoreCase))
+                    {
+                        pending.Enqueue(edge.ToNodeId);
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool CanEntryReachNodeAvoiding(
+            FlowEntryDefinition entry,
+            string targetNodeId,
+            string excludedNodeId,
+            IList<EdgeDefinition> edges)
+        {
+            var pending = new Queue<string>();
+            if (entry.TriggerKind == FlowTriggerKind.NodeEvent)
+            {
+                if (string.Equals(entry.SourceNodeId, excludedNodeId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                for (var index = 0; index < edges.Count; index++)
+                {
+                    var edge = edges[index];
+                    if (edge != null &&
+                        string.Equals(edge.FromNodeId, entry.SourceNodeId, StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(edge.ToNodeId, excludedNodeId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        pending.Enqueue(edge.ToNodeId);
+                    }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(entry.TargetNodeId) &&
+                !string.Equals(entry.TargetNodeId, excludedNodeId, StringComparison.OrdinalIgnoreCase))
+            {
+                pending.Enqueue(entry.TargetNodeId);
+            }
+
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            while (pending.Count > 0)
+            {
+                var current = pending.Dequeue();
+                if (string.Equals(current, excludedNodeId, StringComparison.OrdinalIgnoreCase) || !visited.Add(current))
+                {
+                    continue;
+                }
+
+                if (string.Equals(current, targetNodeId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                for (var index = 0; index < edges.Count; index++)
+                {
+                    var edge = edges[index];
+                    if (edge != null &&
+                        string.Equals(edge.FromNodeId, current, StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(edge.ToNodeId, excludedNodeId, StringComparison.OrdinalIgnoreCase))
                     {
                         pending.Enqueue(edge.ToNodeId);
                     }

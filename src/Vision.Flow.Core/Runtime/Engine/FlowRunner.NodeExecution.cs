@@ -21,6 +21,32 @@ namespace Vision.Flow.Core.Runtime.Engine
             CancellationToken cancellationToken,
             string flowRunId)
         {
+            var executionGate = GetNodeExecutionGate(node);
+            await executionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await ExecuteNodeWithPolicyAsync(
+                    node,
+                    token,
+                    variables,
+                    triggerInputs,
+                    cancellationToken,
+                    flowRunId).ConfigureAwait(false);
+            }
+            finally
+            {
+                executionGate.Release();
+            }
+        }
+
+        private async Task<NodeExecutionResult> ExecuteNodeWithPolicyAsync(
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            IDictionary<string, object> triggerInputs,
+            CancellationToken cancellationToken,
+            string flowRunId)
+        {
             var policy = node.ExecutionPolicy ?? new NodeExecutionPolicy();
             var retryPolicy = policy.RetryPolicy ?? new RetryPolicy();
             var maxRetries = retryPolicy.Enabled ? Math.Max(0, retryPolicy.MaxRetries) : 0;
@@ -213,6 +239,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                 var flowNode = GetOrCreateNode(node);
                 var continuations = new BoundFlowContinuationDispatcher(
                     this,
+                    node.Id,
                     null,
                     flowRunId,
                     token,
@@ -251,7 +278,8 @@ namespace Vision.Flow.Core.Runtime.Engine
 
                     cancellationToken.ThrowIfCancellationRequested();
                     attemptCancellation.Cancel();
-                    ObserveLateFailure(executionTask);
+                    await DrainTimedOutAttemptAsync(executionTask).ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
                     return NodeExecutionResult.Timeout(
                         "Node execution timed out after " + timeoutMs + " ms.",
                         FlowPortNames.Error);
@@ -272,6 +300,19 @@ namespace Vision.Flow.Core.Runtime.Engine
             catch (Exception ex)
             {
                 return NodeExecutionResult.Failure(ex.Message, FlowPortNames.Error, NodeFailureKind.Execution);
+            }
+        }
+
+        private static async Task DrainTimedOutAttemptAsync(Task<NodeExecutionResult> executionTask)
+        {
+            try
+            {
+                await executionTask.ConfigureAwait(false);
+            }
+            catch
+            {
+                // The timeout classification is stable once the deadline wins. Draining
+                // only ensures the cancelled attempt cannot overlap a retry or another run.
             }
         }
 
@@ -463,18 +504,6 @@ namespace Vision.Flow.Core.Runtime.Engine
             }
 
             return new NodeExecutionFailedException(message, failureKind);
-        }
-
-        private static void ObserveLateFailure(Task<NodeExecutionResult> executionTask)
-        {
-            executionTask.ContinueWith(
-                task =>
-                {
-                    var ignored = task.Exception;
-                },
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
         }
 
         private async Task WriteOutputsAsync(

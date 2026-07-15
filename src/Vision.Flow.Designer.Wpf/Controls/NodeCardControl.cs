@@ -44,6 +44,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private bool _isSelected;
         private bool _hasRuntimeState;
         private NodeRuntimeState _runtimeState;
+        private FlowRuntimeEventType? _runtimeEventType;
+        private int? _runtimeAttempt;
 
         public NodeCardControl(NodeViewModel viewModel)
         {
@@ -344,20 +346,53 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         public void SetRuntimeState(NodeRuntimeState state, TimeSpan? elapsed, string message)
         {
+            ApplyRuntimeState(state, elapsed, message, null, null);
+        }
+
+        /// <summary>
+        /// 应用完整运行事件，使重试、恢复、取消等共享状态枚举的事件仍能展示各自语义。
+        /// </summary>
+        public void SetRuntimeEvent(FlowRuntimeEvent runtimeEvent, TimeSpan? elapsed)
+        {
+            if (runtimeEvent == null)
+            {
+                return;
+            }
+
+            var eventType = runtimeEvent.EventType;
+            var attempt = ReadAttempt(runtimeEvent);
+            if (eventType == FlowRuntimeEventType.NodeCompleted &&
+                _runtimeEventType == FlowRuntimeEventType.NodeRecovered)
+            {
+                // NodeRecovered 后会紧接 NodeCompleted；保留恢复结果，避免最终卡片退化为普通成功。
+                eventType = FlowRuntimeEventType.NodeRecovered;
+                attempt = _runtimeAttempt;
+            }
+
+            ApplyRuntimeState(runtimeEvent.State, elapsed, runtimeEvent.Message, eventType, attempt);
+        }
+
+        private void ApplyRuntimeState(
+            NodeRuntimeState state,
+            TimeSpan? elapsed,
+            string message,
+            FlowRuntimeEventType? eventType,
+            int? attempt)
+        {
             _hasRuntimeState = true;
             _runtimeState = state;
+            _runtimeEventType = eventType;
+            _runtimeAttempt = attempt;
             ToolTip = string.IsNullOrWhiteSpace(message) ? null : message;
             UpdateRuntimeVisual(elapsed);
             UpdateCardChrome();
-            if (state == NodeRuntimeState.Failed || state == NodeRuntimeState.Timeout || state == NodeRuntimeState.Stopped)
-            {
-                _runtimeSummary.ToolTip = string.IsNullOrWhiteSpace(message) ? _runtimeSummary.Text : message;
-            }
+            _runtimeSummary.ToolTip = string.IsNullOrWhiteSpace(message) ? _runtimeSummary.Text : message;
         }
 
         public void StopRunningRuntimeState(TimeSpan? elapsed, string message)
         {
-            if (!_hasRuntimeState || _runtimeState != NodeRuntimeState.Running)
+            if (!_hasRuntimeState ||
+                (_runtimeState != NodeRuntimeState.Running && _runtimeEventType != FlowRuntimeEventType.NodeRetrying))
             {
                 return;
             }
@@ -369,6 +404,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         {
             _hasRuntimeState = false;
             _runtimeState = NodeRuntimeState.Waiting;
+            _runtimeEventType = null;
+            _runtimeAttempt = null;
             ToolTip = null;
             _runtimeSummary.ToolTip = null;
             _runtimeSummary.Visibility = Visibility.Collapsed;
@@ -389,11 +426,24 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             _runtimeSummary.Visibility = Visibility.Visible;
-            if (_isDisabled && _runtimeState == NodeRuntimeState.Waiting)
+            if (_isDisabled &&
+                _runtimeState == NodeRuntimeState.Waiting &&
+                _runtimeEventType != FlowRuntimeEventType.NodeRetrying)
             {
                 ApplyRuntimeSummary("禁用", FlowDesignerControl.BrushFromRgb(100, 116, 139));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(226, 232, 240);
                 _stateChip.ToolTip = "Disabled";
+                _stateText.Text = string.Empty;
+                return;
+            }
+
+            if (_runtimeEventType == FlowRuntimeEventType.NodeRetrying)
+            {
+                ApplyRuntimeSummary(
+                    "重试中" + FormatAttemptSuffix(_runtimeAttempt) + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip),
+                    FlowDesignerControl.BrushFromRgb(146, 64, 14));
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(245, 158, 11);
+                _stateChip.ToolTip = "Retrying";
                 _stateText.Text = string.Empty;
                 return;
             }
@@ -407,11 +457,40 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
+            if (_runtimeEventType == FlowRuntimeEventType.NodeRecovered)
+            {
+                ApplyRuntimeSummary(
+                    "已恢复" + FormatAttemptSuffix(_runtimeAttempt) + FormatElapsedSuffix(elapsed),
+                    FlowDesignerControl.BrushFromRgb(21, 128, 61));
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(16, 185, 129);
+                _stateChip.ToolTip = elapsed.HasValue ? "Recovered " + FormatElapsed(elapsed.Value) : "Recovered";
+                _stateText.Text = string.Empty;
+                return;
+            }
+
             if (_runtimeState == NodeRuntimeState.Completed)
             {
                 ApplyRuntimeSummary("成功" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(21, 128, 61));
                 _stateChip.Background = FlowDesignerControl.BrushFromRgb(16, 185, 129);
                 _stateChip.ToolTip = elapsed.HasValue ? "Done " + FormatElapsed(elapsed.Value) : "Done";
+                _stateText.Text = string.Empty;
+                return;
+            }
+
+            if (_runtimeEventType == FlowRuntimeEventType.NodeCancelled)
+            {
+                ApplyRuntimeSummary("已取消" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(71, 85, 105));
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(100, 116, 139);
+                _stateChip.ToolTip = elapsed.HasValue ? "Cancelled " + FormatElapsed(elapsed.Value) : "Cancelled";
+                _stateText.Text = string.Empty;
+                return;
+            }
+
+            if (_runtimeState == NodeRuntimeState.Skipped || _runtimeEventType == FlowRuntimeEventType.NodeSkipped)
+            {
+                ApplyRuntimeSummary("已跳过", FlowDesignerControl.BrushFromRgb(71, 85, 105));
+                _stateChip.Background = FlowDesignerControl.BrushFromRgb(148, 163, 184);
+                _stateChip.ToolTip = "Skipped";
                 _stateText.Text = string.Empty;
                 return;
             }
@@ -461,13 +540,22 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 border = FlowDesignerControl.BrushFromRgb(203, 213, 225);
                 opacity = 0.58;
             }
-            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Waiting)
+            else if (_hasRuntimeState &&
+                _runtimeState == NodeRuntimeState.Waiting &&
+                _runtimeEventType != FlowRuntimeEventType.NodeRetrying)
             {
                 border = FlowDesignerControl.BrushFromRgb(203, 213, 225);
                 opacity = 0.68;
             }
 
-            if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Running)
+            if (_hasRuntimeState && _runtimeEventType == FlowRuntimeEventType.NodeRetrying)
+            {
+                border = FlowDesignerControl.BrushFromRgb(245, 158, 11);
+                thickness = 1.8;
+                opacity = 1.0;
+                shadowOpacity = 0.14;
+            }
+            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Running)
             {
                 border = FlowDesignerControl.BrushFromRgb(245, 158, 11);
                 thickness = 2.2;
@@ -497,6 +585,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 border = FlowDesignerControl.BrushFromRgb(100, 116, 139);
                 thickness = 1.4;
                 opacity = 0.78;
+            }
+            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Skipped)
+            {
+                border = FlowDesignerControl.BrushFromRgb(148, 163, 184);
+                thickness = 1.2;
+                opacity = 0.68;
             }
             else if (_isSelected)
             {
@@ -587,6 +681,25 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private static string FormatElapsedSuffix(TimeSpan? elapsed)
         {
             return elapsed.HasValue ? " · " + FormatElapsed(elapsed.Value) : string.Empty;
+        }
+
+        private static string FormatAttemptSuffix(int? attempt)
+        {
+            return attempt.HasValue && attempt.Value > 0
+                ? " · 第 " + attempt.Value.ToString(CultureInfo.InvariantCulture) + " 次"
+                : string.Empty;
+        }
+
+        private static int? ReadAttempt(FlowRuntimeEvent runtimeEvent)
+        {
+            object value;
+            int attempt;
+            return runtimeEvent.Data != null &&
+                runtimeEvent.Data.TryGetValue(FlowRuntimeDataKeys.Attempt, out value) &&
+                int.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out attempt) &&
+                attempt > 0
+                    ? (int?)attempt
+                    : null;
         }
 
         private static string FormatMessageSuffix(object message)

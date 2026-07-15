@@ -14,6 +14,7 @@ namespace Vision.Flow.Core.Runtime.Engine
     internal sealed class BoundFlowContinuationDispatcher : IFlowContinuationDispatcher
     {
         private readonly IFlowContinuationDispatcher _inner;
+        private readonly string _sourceNodeId;
         private readonly string _entryName;
         private readonly string _flowRunId;
         private readonly FlowToken _token;
@@ -22,6 +23,7 @@ namespace Vision.Flow.Core.Runtime.Engine
 
         public BoundFlowContinuationDispatcher(
             IFlowContinuationDispatcher inner,
+            string sourceNodeId,
             string entryName,
             string flowRunId,
             FlowToken token,
@@ -34,6 +36,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             }
 
             _inner = inner;
+            _sourceNodeId = sourceNodeId;
             _entryName = entryName;
             _flowRunId = flowRunId;
             _token = token;
@@ -48,9 +51,26 @@ namespace Vision.Flow.Core.Runtime.Engine
                 throw new ArgumentNullException("continuation");
             }
 
+            if (string.IsNullOrWhiteSpace(continuation.SourceNodeId))
+            {
+                continuation.SourceNodeId = _sourceNodeId;
+            }
+            else if (!string.IsNullOrWhiteSpace(_sourceNodeId) &&
+                !string.Equals(continuation.SourceNodeId, _sourceNodeId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Continuation source node does not match its execution context: " + continuation.SourceNodeId);
+            }
+
             if (string.IsNullOrWhiteSpace(continuation.EntryName))
             {
                 continuation.EntryName = _entryName;
+            }
+            else if (!string.IsNullOrWhiteSpace(_entryName) &&
+                !string.Equals(continuation.EntryName, _entryName, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Continuation entry does not match its listener context: " + continuation.EntryName);
             }
 
             if (string.IsNullOrWhiteSpace(continuation.FlowRunId))

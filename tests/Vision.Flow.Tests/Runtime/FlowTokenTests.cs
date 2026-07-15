@@ -26,7 +26,7 @@ namespace Vision.Flow.Tests
     // 杩愯鏃朵护鐗屾祴璇曡仛鐒︽祦绋嬫墽琛屽叡浜殑鍙橀噺瀛樺彇琛屼负銆?
     internal static class FlowTokenTests
     {
-        public static Task SetGetTryGet()
+        public static async Task SetGetTryGet()
         {
             var token = new FlowToken
             {
@@ -49,7 +49,22 @@ namespace Vision.Flow.Tests
 
             object missing;
             AssertEx.False(token.TryGet("Missing", out missing), "TryGet should return false for missing keys.");
-            return Task.FromResult(0);
+
+            var writers = Enumerable.Range(0, 8)
+                .Select(worker => Task.Run(
+                    delegate
+                    {
+                        for (var index = 0; index < 64; index++)
+                        {
+                            token.Set("Value-" + worker + "-" + index, index);
+                            token.Metadata["Metadata-" + worker + "-" + index] = index;
+                        }
+                    }))
+                .ToArray();
+            await Task.WhenAll(writers).ConfigureAwait(false);
+
+            AssertEx.Equal(514, token.Values.Count, "Parallel branches should be able to add token values safely.");
+            AssertEx.Equal(513, token.Metadata.Count, "Parallel branches should be able to add token metadata safely.");
         }
     }
 }

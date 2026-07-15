@@ -94,7 +94,7 @@ namespace Vision.Flow.Tests
             await runner.StartAsync().ConfigureAwait(false);
             await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-branched-fanout" })).ConfigureAwait(false);
 
-            AssertEx.SequenceEqual(new[] { "A", "B", "D", "C", "E" }, executionLog, "Both fan-out branches should execute their downstream chains.");
+            AssertEx.SequenceEqual(new[] { "A", "B", "C", "D", "E" }, executionLog, "Sequential ready nodes should execute in edge definition order.");
         }
 
         public static async Task ReconvergingBranchesCanReachSameNode()
@@ -106,7 +106,7 @@ namespace Vision.Flow.Tests
             await runner.StartAsync().ConfigureAwait(false);
             await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-reconverge" })).ConfigureAwait(false);
 
-            AssertEx.SequenceEqual(new[] { "A", "B", "D", "C", "D" }, executionLog, "Path-level cycle detection should not block a valid reconverging node.");
+            AssertEx.SequenceEqual(new[] { "A", "B", "C", "D" }, executionLog, "A reconverging fan-in node should execute once after all inbound edges resolve.");
         }
 
         public static async Task NodeFailedAndErrorRoute()
@@ -172,18 +172,60 @@ namespace Vision.Flow.Tests
             AssertEx.True(
                 sink.Events.Any(x => x.EventType == FlowRuntimeEventType.OutputProduced && Convert.ToString(x.Data[FlowRuntimeDataKeys.VariableName]) == "A.Value"),
                 "Continuation outputs should be written through the source node namespace.");
+            await runner.StopAsync().ConfigureAwait(false);
+
+            var mismatchFlow = CreateContinuationFlow();
+            mismatchFlow.Nodes[0].Settings["ContinuationSourceNodeId"] = NodeSettingValue.ForConstant("B");
+            var mismatchRunner = CreateRunner(mismatchFlow, new List<string>(), new InMemoryFlowEventSink());
+            await mismatchRunner.StartAsync().ConfigureAwait(false);
+            var mismatchResult = await mismatchRunner.TriggerAsync(
+                CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-continuation-mismatch" })).ConfigureAwait(false);
+
+            AssertEx.Equal(FlowRunStatus.Failed, mismatchResult.Status,
+                "A node must not dispatch a continuation on behalf of another source node.");
+            AssertEx.True(
+                mismatchResult.ErrorMessage.IndexOf("source node", StringComparison.OrdinalIgnoreCase) >= 0,
+                "A mismatched continuation source should fail clearly instead of deadlocking on a node gate.");
+            await mismatchRunner.StopAsync().ConfigureAwait(false);
         }
 
         public static async Task CycleRouteThrows()
         {
-            var runner = CreateRunner(CreateCycleFlow(), new List<string>(), new InMemoryFlowEventSink());
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateCycleFlow(), new List<string>(), sink);
             await runner.StartAsync().ConfigureAwait(false);
 
             var result = await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-cycle" })).ConfigureAwait(false);
 
             AssertEx.Equal(FlowRunStatus.Failed, result.Status, "Cycle detection should fail the run.");
             AssertEx.True(result.ErrorMessage.IndexOf("Cycle detected", StringComparison.OrdinalIgnoreCase) >= 0, "Cycle detection should report a clear error.");
-            AssertEx.Equal("A-output", Convert.ToString(result.Variables["A.Value"]), "Failed runs should return variables produced before the failure.");
+            AssertEx.False(result.Variables.ContainsKey("A.Value"), "Cycle detection should fail before executing nodes with side effects.");
+
+            var continuationVariables = new VariablePool();
+            var continuationException = await AssertEx.ThrowsAsync<InvalidOperationException>(
+                () => ((IFlowContinuationDispatcher)runner).DispatchAsync(
+                    new FlowContinuation
+                    {
+                        SourceNodeId = "A",
+                        OutputPort = FlowPortNames.Next,
+                        Variables = continuationVariables,
+                        Outputs = new Dictionary<string, object> { { "Value", "should-not-be-written" } }
+                    },
+                    CancellationToken.None)).ConfigureAwait(false);
+
+            AssertEx.True(
+                continuationException.Message.IndexOf("Cycle detected", StringComparison.OrdinalIgnoreCase) >= 0,
+                "Continuation cycle detection should report a clear error.");
+            object rejectedOutput;
+            AssertEx.False(
+                continuationVariables.TryGet("A.Value", out rejectedOutput),
+                "Continuation graph validation must run before source outputs are written.");
+            AssertEx.False(
+                sink.Events.Any(x =>
+                    x.EventType == FlowRuntimeEventType.NodeCompleted &&
+                    string.Equals(x.NodeId, "A", StringComparison.OrdinalIgnoreCase)),
+                "A rejected continuation must not publish a source completion event.");
+            await runner.StopAsync().ConfigureAwait(false);
         }
 
         public static async Task MissingEntryThrows()

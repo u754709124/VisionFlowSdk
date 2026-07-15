@@ -8,6 +8,7 @@ namespace Vision.Flow.Core.Runtime.Engine
     public sealed class RuntimeFlowPlan
     {
         private readonly Dictionary<string, Dictionary<string, List<EdgeDefinition>>> _outgoingEdgesByNodeAndPort;
+        private readonly Dictionary<string, List<EdgeDefinition>> _outgoingEdgesByNode;
 
         public RuntimeFlowPlan(RuntimeFlowDefinition definition)
         {
@@ -20,6 +21,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             EntriesByName = new Dictionary<string, FlowEntryDefinition>(StringComparer.OrdinalIgnoreCase);
             IncomingEdgesByNode = new Dictionary<string, List<EdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
             _outgoingEdgesByNodeAndPort = new Dictionary<string, Dictionary<string, List<EdgeDefinition>>>(StringComparer.OrdinalIgnoreCase);
+            _outgoingEdgesByNode = new Dictionary<string, List<EdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
 
             BuildNodeIndex(definition.Nodes);
             BuildEntryIndex(definition.Entries);
@@ -48,6 +50,22 @@ namespace Vision.Flow.Core.Runtime.Engine
             var effectivePort = string.IsNullOrWhiteSpace(outputPort) ? FlowPortNames.Next : outputPort;
             List<EdgeDefinition> edges;
             if (!edgesByPort.TryGetValue(effectivePort, out edges))
+            {
+                return new List<EdgeDefinition>();
+            }
+
+            return edges;
+        }
+
+        public IList<EdgeDefinition> GetOutgoingEdges(string nodeId)
+        {
+            if (string.IsNullOrWhiteSpace(nodeId))
+            {
+                return new List<EdgeDefinition>();
+            }
+
+            List<EdgeDefinition> edges;
+            if (!_outgoingEdgesByNode.TryGetValue(nodeId, out edges))
             {
                 return new List<EdgeDefinition>();
             }
@@ -125,6 +143,15 @@ namespace Vision.Flow.Core.Runtime.Engine
             {
                 return;
             }
+
+            List<EdgeDefinition> allOutgoingEdges;
+            if (!_outgoingEdgesByNode.TryGetValue(edge.FromNodeId, out allOutgoingEdges))
+            {
+                allOutgoingEdges = new List<EdgeDefinition>();
+                _outgoingEdgesByNode[edge.FromNodeId] = allOutgoingEdges;
+            }
+
+            allOutgoingEdges.Add(edge);
 
             Dictionary<string, List<EdgeDefinition>> edgesByPort;
             if (!_outgoingEdgesByNodeAndPort.TryGetValue(edge.FromNodeId, out edgesByPort))

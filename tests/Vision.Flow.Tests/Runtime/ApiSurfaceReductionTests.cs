@@ -80,6 +80,13 @@ namespace Vision.Flow.Tests
 
         public static Task DomainConstantsDoNotExposeRemovedNames()
         {
+            AssertEx.False(
+                typeof(FlowExecutionOptions).GetProperties().Any(x =>
+                    string.Equals(x.Name, RemovedName("Branch", "TokenMode"), StringComparison.Ordinal) ||
+                    string.Equals(x.Name, RemovedName("ContinueOn", "BranchFailure"), StringComparison.Ordinal)),
+                "FlowExecutionOptions should expose only scheduler options that have active v2 semantics.");
+            AssertTypeMissing("Vision.Flow.Core.Runtime.Execution." + RemovedName("FlowBranch", "TokenMode"));
+
             AssertNoPublicConstant(typeof(FlowSettingNames), RemovedName("Use", "Queue"));
             AssertNoPublicConstant(typeof(FlowSettingNames), RemovedName("Queue", "Name"));
             AssertNoPublicConstant(typeof(FlowSettingNames), RemovedName("Queue", "Capacity"));

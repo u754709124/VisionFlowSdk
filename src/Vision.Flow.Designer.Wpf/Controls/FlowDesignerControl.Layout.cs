@@ -119,7 +119,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _sampleButton = CreateToolbarButton("Sample", delegate { LoadCoreBasicTemplate(); });
             _openButton = CreateToolbarButton("Open", delegate { OpenDesign(); });
             _saveButton = CreateToolbarButton("Save", delegate { SaveDesign(); });
-            _publishButton = CreateToolbarButton("Publish", delegate { PublishRuntime(); });
+            _publishButton = CreateToolbarButton("Publish", delegate { ShowPublishRuntimeDialog(); });
             _debugRunButton = CreateToolbarButton("Debug Run", async delegate { await RunDebugAsync(); });
             _stopButton = CreateToolbarButton("Stop", async delegate { await StopDebugAsync(); });
 

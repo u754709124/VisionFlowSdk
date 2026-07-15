@@ -66,13 +66,15 @@ namespace Vision.Flow.Core.Services.Validation
                 result.AddError(FlowValidationIssueCodes.NodesMissing, "Runtime flow must contain at least one node.", field: "Nodes");
             }
 
-            ValidateEdges(definition.Edges ?? new List<EdgeDefinition>(), nodeMap, descriptorsByNodeId, result);
+            var edges = definition.Edges ?? new List<EdgeDefinition>();
+            ValidateEdges(edges, nodeMap, descriptorsByNodeId, result);
+            ValidateNoCycles(edges, nodeMap, result);
             ValidateEntries(definition.Entries ?? new List<FlowEntryDefinition>(), nodeMap, result);
             ValidateRequiredSettings(nodes, descriptorsByNodeId, result);
             ValidateNodeExecutionPolicies(nodes, descriptorsByNodeId, result);
             ValidateSettingValues(
                 nodes,
-                definition.Edges ?? new List<EdgeDefinition>(),
+                edges,
                 definition.Entries ?? new List<FlowEntryDefinition>(),
                 nodeMap,
                 descriptorsByNodeId,

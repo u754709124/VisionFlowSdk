@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 
@@ -13,8 +14,8 @@ namespace Vision.Flow.Core.Runtime.State
         {
             TokenId = Guid.NewGuid().ToString("N");
             CreatedAtUtc = DateTime.UtcNow;
-            Metadata = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-            Values = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            Metadata = new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            Values = new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -35,12 +36,12 @@ namespace Vision.Flow.Core.Runtime.State
         /// <summary>
         /// 通用业务元数据，供节点和上位机传递非固定字段。
         /// </summary>
-        public Dictionary<string, object> Metadata { get; set; }
+        public IDictionary<string, object> Metadata { get; private set; }
 
         /// <summary>
         /// 令牌局部值表，适合入口触发时注入的初始数据。
         /// </summary>
-        public Dictionary<string, object> Values { get; set; }
+        public IDictionary<string, object> Values { get; private set; }
 
         public void Set(string key, object value)
         {

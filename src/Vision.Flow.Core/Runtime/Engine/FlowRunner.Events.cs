@@ -49,8 +49,6 @@ namespace Vision.Flow.Core.Runtime.Engine
             {
                 FanOutMode = source.FanOutMode,
                 MaxDegreeOfParallelism = source.MaxDegreeOfParallelism <= 0 ? 1 : source.MaxDegreeOfParallelism,
-                BranchTokenMode = source.BranchTokenMode,
-                ContinueOnBranchFailure = source.ContinueOnBranchFailure,
                 DefaultNodeTimeoutMs = source.DefaultNodeTimeoutMs
             };
         }

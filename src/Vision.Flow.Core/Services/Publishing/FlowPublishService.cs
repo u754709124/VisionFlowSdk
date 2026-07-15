@@ -2,10 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using Vision.Flow.Core.Contracts.Nodes;
 using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Domain.Nodes;
+using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 
 namespace Vision.Flow.Core.Services.Publishing
@@ -67,6 +69,50 @@ namespace Vision.Flow.Core.Services.Publishing
                 ? "Flow could not be published."
                 : "Flow could not be published: " + firstError.Code + " - " + firstError.Message;
             throw new InvalidOperationException(message);
+        }
+
+        /// <summary>
+        /// 校验设计态文档并将独立的运行态快照写入 .flowruntime 文件。
+        /// 校验失败时返回完整问题列表且不会创建或覆盖目标文件。
+        /// </summary>
+        public FlowPublishResult PublishToFile(FlowDesignDocument document, string path)
+        {
+            var runtimePath = NormalizeRuntimePath(path);
+            var result = Publish(document);
+            if (!result.IsSuccess)
+            {
+                return result;
+            }
+
+            var directory = Path.GetDirectoryName(runtimePath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            RuntimeFlowSerializer.Save(runtimePath, result.Runtime);
+            return result;
+        }
+
+        private static string NormalizeRuntimePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException("Runtime file path is required.", "path");
+            }
+
+            var runtimePath = Path.GetFullPath(path.Trim());
+            if (!string.Equals(
+                Path.GetExtension(runtimePath),
+                FlowFileExtensions.FlowRuntime,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(
+                    "Runtime file path must use the " + FlowFileExtensions.FlowRuntime + " extension.",
+                    "path");
+            }
+
+            return runtimePath;
         }
 
         private static RuntimeFlowDefinition CreateRuntime(FlowDesignDocument document)

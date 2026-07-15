@@ -72,12 +72,30 @@ var result = await runner.TriggerAsync(new FlowTriggerRequest
 - 默认 `MaxConcurrentRuns = 1`，因此同一入口串行；设为 2 或更高可允许多个运行并行。
 - 节点执行后的多条出边仍由 `FlowExecutionOptions.FanOutMode` 决定串行或并行，不由入口策略改变。
 
+## 就绪队列与控制流边状态
+
+每次 FlowRun 都创建独立的调度状态，控制流边在本次运行内依次从 `Unknown` 解析为 `Taken` 或 `Skipped`：
+
+- 节点执行完成后，命中返回 `OutputPort` 的出边标记为 `Taken`，该节点其余出边标记为 `Skipped`。
+- 普通节点只有在**所有入边都已解析**，并且**至少一条入边为 `Taken`** 时才进入就绪队列。
+- 所有入边都为 `Skipped` 时，节点本身不执行；调度器把它的全部出边继续标记为 `Skipped`，直到下游状态稳定。
+- 多条有效分支重新汇聚到同一节点时，汇聚节点等待全部入边解析后只入队一次，不按每条递归路径重复执行。
+- Manual / External 的 `Entry.TargetNodeId` 作为本次运行的直接激活点，即使流程文件中还存在来自入口上游的连线，也不回溯执行上游节点。
+- NodeEvent 续流把监听源节点的本次 `OutputPort` 当作已经完成的源输出，再使用同一套边状态和就绪队列调度下游。
+- Continuation 的 `SourceNodeId` 由当前节点或监听入口上下文绑定；缺失时自动补齐，伪造其他来源会立即失败，避免重入同一节点并发闸门。
+
+`FanOutMode.Sequential` 使用一个确定性的就绪队列，按边定义顺序处理同批就绪节点。`FanOutMode.Parallel` 允许多个就绪节点同时执行，并受 `MaxDegreeOfParallelism` 以及各节点 `MaxConcurrentExecutions` 约束；无论采用哪种模式，入边解析规则和“单次激活只执行一次”的语义保持一致。
+
+并行分支共享同一个 `FlowToken` 与线程安全变量池；Token 的 `Values` / `Metadata` 使用线程安全映射。节点失败策略是唯一分支失败协议：`StopFlow` 会取消并等待仍在运行的协作式兄弟节点，`ErrorBranch` / `DefaultOutputs` 则把失败转换为可继续的节点结果。Runtime 不再提供无实际语义的分支 Token 克隆或“忽略分支失败”开关。进程内节点无法被强制终止，扩展节点必须响应传入的取消令牌，否则超时、停止或并行失败收敛会继续等待该节点退出。
+
+该汇聚规则解决的是单次 DAG 调度中的控制流收敛，不替代 `join.and` 的跨事件、跨到达批次和 `JoinKey` 聚合语义。流程发布仍应拒绝控制流环，运行时就绪队列不依赖递归路径的 visited 集合来掩盖非法环。
+
 ## 节点执行策略
 
 每个 `NodeDefinition` 都携带独立的 `NodeExecutionPolicy`。入口执行策略控制整个 FlowRun 的并发与排队，节点执行策略则由统一节点包装器在每次节点调用时应用：
 
 - `TimeoutMs = 0`：继承 `FlowExecutionOptions.DefaultNodeTimeoutMs`；正数覆盖全局值。
-- `MaxConcurrentExecutions = 1`：稳定协议默认值。当前阶段只完成模型、序列化和校验，节点级并发门由后续调度器实现。
+- `MaxConcurrentExecutions = 1`：稳定协议默认值。Runtime 按 `NodeId` 建立并发闸门；闸门覆盖完整执行、超时收敛、重试等待、失败恢复和输出写入，同一 Runner 的多个 FlowRun 也共享该限制。
 - `RetryPolicy.Enabled = false`：只执行首次尝试；`MaxRetries` 不参与计算。
 - `RetryPolicy.MaxRetries = 3`：启用重试后最多追加 3 次尝试，不包含首次执行。
 - `RetryPolicy.RetryIntervalMs = 1000`：两次尝试之间使用可取消的固定等待时间。
@@ -97,7 +115,9 @@ Attempt 1 -> NodeStarted -> execute with timeout
           -> NodeFailed / NodeTimeout -> apply FailureStrategy
 ```
 
-节点超时通过异步竞争实现。Runtime 会取消本次尝试使用的关联 `CancellationToken`，并把结果归类为 `Timeout`；节点实现仍必须及时响应取消令牌。FlowRun 被宿主取消或在重试等待期间被取消时，不再执行下一次尝试，发布 `NodeCancelled`，最终返回 `FlowRunStatus.Cancelled`。
+节点超时通过异步竞争实现。Runtime 会取消本次尝试使用的关联 `CancellationToken`，把结果归类为 `Timeout`，并等待该次尝试退出后才允许重试或释放节点并发闸门，避免旧尝试与新尝试重叠。节点实现仍必须及时响应取消令牌；忽略取消会使超时收敛继续等待。FlowRun 被宿主取消或在重试等待期间被取消时，不再执行下一次尝试，发布 `NodeCancelled`，最终返回 `FlowRunStatus.Cancelled`。
+
+结构化变量选择器仍展示全部控制流祖先输出。发布校验会额外分析每个可达入口：若某个中间入口或旁路能到达目标节点却绕过变量来源节点，则产生 `VariableSourceNotGuaranteed` 警告；TriggerInput 未被每个可达入口声明时产生 `TriggerInputNotGuaranteed`。这类流程仍可发布，但对应路径运行时可能产生 `Binding` 失败，应通过拓扑调整或节点失败策略显式处理。
 
 ## 失败分类与恢复
 

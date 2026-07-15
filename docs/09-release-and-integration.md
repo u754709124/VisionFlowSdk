@@ -48,6 +48,27 @@ var flowDesignForSave = designer.CaptureDocument();
 
 外层文件若要嵌入流程 JSON，应先使用 `FlowDesignSerializer.Serialize(flowDesignForSave)` 生成 SDK 协议 JSON，再把结果作为 JSON 对象嵌入；不要把它保存为转义后的 JSON 字符串，也不要由其它序列化器直接重写流程协议字段。
 
+## Publishing Runtime Files
+
+嵌入 Designer 的宿主可直接发布当前画布：
+
+```csharp
+var result = designer.PublishRuntimeFile(@"C:\Flows\Station01.flowruntime");
+if (!result.IsSuccess)
+{
+    ShowValidationIssues(result.Validation.Issues);
+}
+```
+
+不承载 Designer 控件的发布工具可直接使用 Core 服务：
+
+```csharp
+var publisher = new FlowPublishService(nodes);
+var result = publisher.PublishToFile(flowDesignDocument, @"C:\Flows\Station01.flowruntime");
+```
+
+两种入口执行同一条发布链：Schema v2 检查、运行态深拷贝、`FlowValidator` 校验、移除设计器 ViewState、序列化 `.flowruntime`。校验失败不会创建或覆盖目标文件；目标路径必须使用 `.flowruntime` 扩展名。生产部署不应直接复制 `.flowdesign` 或从 Designer 内部对象读取运行定义。
+
 ## Runtime Wiring
 
 ```csharp

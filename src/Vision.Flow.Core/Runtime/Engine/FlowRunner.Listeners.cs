@@ -39,7 +39,14 @@ namespace Vision.Flow.Core.Runtime.Engine
                     throw new InvalidOperationException("NodeEvent entry source must implement IFlowListenerNode: " + entry.SourceNodeId);
                 }
 
-                var dispatcher = new BoundFlowContinuationDispatcher(this, entry.EntryName, null, null, null, null);
+                var dispatcher = new BoundFlowContinuationDispatcher(
+                    this,
+                    node.Id,
+                    entry.EntryName,
+                    null,
+                    null,
+                    null,
+                    null);
                 await listener.StartAsync(
                     new FlowListenerContext(_definition, node, entry, _devices, _eventSink, dispatcher),
                     cancellationToken).ConfigureAwait(false);

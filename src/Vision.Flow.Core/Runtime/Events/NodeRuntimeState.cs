@@ -13,6 +13,7 @@ namespace Vision.Flow.Core.Runtime.Events
         Completed = 2,
         Failed = 3,
         Timeout = 4,
-        Stopped = 5
+        Stopped = 5,
+        Skipped = 6
     }
 }

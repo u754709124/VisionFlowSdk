@@ -321,6 +321,7 @@ namespace Vision.Flow.Tests
                 Name = "Probe",
                 Version = "1.0.0"
             });
+            flow.Nodes[0].ExecutionPolicy.MaxConcurrentExecutions = maxConcurrentRuns ?? 1;
             flow.Entries.Add(new FlowEntryDefinition
             {
                 EntryName = "ManualStart",

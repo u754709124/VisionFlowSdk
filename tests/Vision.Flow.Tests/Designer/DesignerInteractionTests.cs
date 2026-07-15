@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -670,6 +671,93 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task HostApiPublishesRuntimeFile()
+        {
+            var directory = Path.Combine(
+                Path.GetTempPath(),
+                "VisionFlowSdk.Tests",
+                "designer-publish-" + Guid.NewGuid().ToString("N"));
+            var path = Path.Combine(directory, "host-flow" + FlowFileExtensions.FlowRuntime);
+            Directory.CreateDirectory(directory);
+            try
+            {
+                RunOnSta(delegate
+                {
+                    var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                    {
+                        LoadSampleOnStartup = false,
+                        ShowStandaloneDocumentCommands = false
+                    });
+                    var document = new FlowDesignDocument
+                    {
+                        FlowId = "host-publish",
+                        FlowName = "Host Publish",
+                        Runtime = new RuntimeFlowDefinition
+                        {
+                            FlowId = "host-publish",
+                            FlowName = "Host Publish",
+                            Version = "1.0.0"
+                        },
+                        View = new FlowViewState { Zoom = 1.4 }
+                    };
+                    document.Runtime.Nodes.Add(new NodeDefinition
+                    {
+                        Id = "delay1",
+                        Type = DelayNodeFactory.TypeName,
+                        Name = "Host Delay",
+                        Version = "1.0.0",
+                        Settings =
+                        {
+                            { FlowSettingNames.DelayMs, NodeSettingValue.ForConstant(0) }
+                        }
+                    });
+                    document.Runtime.Entries.Add(new FlowEntryDefinition
+                    {
+                        EntryName = "ManualStart",
+                        TargetNodeId = "delay1"
+                    });
+                    document.View.Nodes["delay1"] = new NodeViewState { X = 320, Y = 224 };
+
+                    control.LoadDocumentAsync(document).GetAwaiter().GetResult();
+                    var result = control.PublishRuntimeFile(path);
+
+                    AssertEx.True(result.IsSuccess, "The embedded designer API should publish a valid runtime file.");
+                    AssertEx.True(File.Exists(path), "The embedded designer API should create the requested file.");
+                    var loaded = RuntimeFlowSerializer.Load(path);
+                    AssertEx.Equal(FlowSchema.CurrentVersion, loaded.SchemaVersion,
+                        "The embedded designer should publish the current schema.");
+                    AssertEx.Equal("Host Delay", loaded.Nodes[0].Name,
+                        "The runtime file should contain the captured designer document.");
+
+                    result.Runtime.Nodes[0].Name = "Changed publication result";
+                    AssertEx.Equal("Host Delay", control.CaptureDocument().Runtime.Nodes[0].Name,
+                        "Changing the returned runtime snapshot should not mutate the designer document.");
+                    AssertEx.Equal("Host Delay", RuntimeFlowSerializer.Load(path).Nodes[0].Name,
+                        "Changing the returned runtime snapshot should not mutate the runtime file.");
+
+                    var json = File.ReadAllText(path);
+                    AssertEx.False(json.IndexOf("View", StringComparison.OrdinalIgnoreCase) >= 0,
+                        "Designer publication must remove view state from the runtime artifact.");
+                    AssertEx.False(json.IndexOf("Zoom", StringComparison.OrdinalIgnoreCase) >= 0,
+                        "Designer publication must remove canvas zoom from the runtime artifact.");
+                });
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+
+                if (Directory.Exists(directory))
+                {
+                    Directory.Delete(directory);
+                }
+            }
+
+            return Task.FromResult(0);
+        }
+
         public static Task HostResetCreatesEmptyDocument()
         {
             RunOnSta(delegate
@@ -794,6 +882,77 @@ namespace Vision.Flow.Tests
                     "Failed node card should show failure and elapsed time in the runtime summary.");
                 AssertEx.True(Convert.ToString(card.ToolTip, CultureInfo.InvariantCulture).IndexOf("Camera timeout detail", StringComparison.OrdinalIgnoreCase) >= 0,
                     "Failed node card should keep the full failure reason in the tooltip.");
+
+                var retryNode = CreateNode();
+                retryNode.ExecutionPolicy.RetryPolicy.Enabled = true;
+                var eventCard = new NodeCardControl(new NodeViewModel(retryNode, CreateDescriptor()));
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = false });
+                SetDesignerMode(control, "DebugRun");
+                GetPrivateField<Dictionary<string, NodeCardControl>>(control, "_nodeCards")[retryNode.Id] = eventCard;
+
+                var retrying = new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.NodeRetrying,
+                    NodeId = retryNode.Id,
+                    State = NodeRuntimeState.Waiting,
+                    Message = "Transient camera error",
+                    ElapsedMs = 25
+                };
+                retrying.Data[FlowRuntimeDataKeys.Attempt] = 2;
+                InvokePrivate(control, "HandleRuntimeEvent", retrying);
+
+                texts = FindChildren<TextBlock>(eventCard).Select(x => x.Text ?? string.Empty).ToList();
+                AssertEx.True(texts.Any(x => x.IndexOf("重试中", StringComparison.Ordinal) >= 0 && x.IndexOf("第 2 次", StringComparison.Ordinal) >= 0),
+                    "NodeRetrying should show the next attempt instead of the generic waiting state.");
+                AssertEx.True(texts.Any(x => string.Equals(x, "重试", StringComparison.Ordinal)) &&
+                    texts.Any(x => x.IndexOf("3 次", StringComparison.Ordinal) >= 0 && x.IndexOf("1000 ms", StringComparison.Ordinal) >= 0),
+                    "Runtime retry status should not hide the card's enabled retry configuration summary.");
+                AssertEx.True(Convert.ToString(eventCard.ToolTip, CultureInfo.InvariantCulture).IndexOf("Transient camera error", StringComparison.Ordinal) >= 0,
+                    "Retrying cards should keep the retry reason in the tooltip.");
+
+                var recovered = new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.NodeRecovered,
+                    NodeId = retryNode.Id,
+                    State = NodeRuntimeState.Completed,
+                    ElapsedMs = 40
+                };
+                recovered.Data[FlowRuntimeDataKeys.Attempt] = 2;
+                InvokePrivate(control, "HandleRuntimeEvent", recovered);
+                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.NodeCompleted,
+                    NodeId = retryNode.Id,
+                    State = NodeRuntimeState.Completed,
+                    ElapsedMs = 42
+                });
+
+                texts = FindChildren<TextBlock>(eventCard).Select(x => x.Text ?? string.Empty).ToList();
+                AssertEx.True(texts.Any(x => x.IndexOf("已恢复", StringComparison.Ordinal) >= 0 && x.IndexOf("第 2 次", StringComparison.Ordinal) >= 0),
+                    "NodeCompleted immediately following NodeRecovered should preserve the recovered result on the card.");
+
+                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.NodeCancelled,
+                    NodeId = retryNode.Id,
+                    State = NodeRuntimeState.Stopped,
+                    Message = "Node execution was cancelled.",
+                    ElapsedMs = 51
+                });
+                texts = FindChildren<TextBlock>(eventCard).Select(x => x.Text ?? string.Empty).ToList();
+                AssertEx.True(texts.Any(x => x.IndexOf("已取消", StringComparison.Ordinal) >= 0),
+                    "NodeCancelled should be distinguishable from a generic stopped state.");
+
+                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.NodeSkipped,
+                    NodeId = retryNode.Id,
+                    State = NodeRuntimeState.Skipped,
+                    Message = "All reachable inbound control edges were skipped."
+                });
+                texts = FindChildren<TextBlock>(eventCard).Select(x => x.Text ?? string.Empty).ToList();
+                AssertEx.True(texts.Any(x => x.IndexOf("已跳过", StringComparison.Ordinal) >= 0),
+                    "NodeSkipped should show an explicit skipped state on the card.");
             });
             return Task.FromResult(0);
         }

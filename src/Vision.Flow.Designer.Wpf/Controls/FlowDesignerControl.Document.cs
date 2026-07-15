@@ -54,6 +54,28 @@ namespace Vision.Flow.Designer.Wpf.Controls
         }
 
         /// <summary>
+        /// 将当前设计态文档发布为生产运行使用的 .flowruntime 文件。
+        /// 返回结果包含发布快照和校验问题；校验失败时不会创建或覆盖目标文件。
+        /// </summary>
+        public FlowPublishResult PublishRuntimeFile(string path)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                return Dispatcher.Invoke(new Func<FlowPublishResult>(delegate
+                {
+                    return PublishRuntimeFile(path);
+                }));
+            }
+
+            if (!CanEditDocument)
+            {
+                throw new InvalidOperationException("Runtime files can only be published in Edit mode.");
+            }
+
+            return new FlowPublishService(_nodeRegistry).PublishToFile(CaptureDocument(), path);
+        }
+
+        /// <summary>
         /// 由宿主加载完整设计态流程。加载前会停止当前调试运行并切回编辑模式，
         /// 传入文档会被深拷贝，后续由调用方持有的对象变化不会影响设计器。
         /// </summary>

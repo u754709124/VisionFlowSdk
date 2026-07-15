@@ -29,6 +29,7 @@ namespace Vision.Flow.Core.Services.Validation
         public const string EdgeSourcePortUnknown = "EdgeSourcePortUnknown";
         public const string EdgeToPortUnknown = "EdgeToPortUnknown";
         public const string EdgeTargetPortUnknown = "EdgeTargetPortUnknown";
+        public const string FlowCycleDetected = "FlowCycleDetected";
         public const string EntriesMissing = "EntriesMissing";
         public const string EntryMissing = "EntryMissing";
         public const string EntryNameMissing = "EntryNameMissing";
@@ -52,10 +53,12 @@ namespace Vision.Flow.Core.Services.Validation
         public const string VariableSelectorNotAllowed = "VariableSelectorNotAllowed";
         public const string VariableSourceNodeMissing = "VariableSourceNodeMissing";
         public const string VariableSourceNotUpstream = "VariableSourceNotUpstream";
+        public const string VariableSourceNotGuaranteed = "VariableSourceNotGuaranteed";
         public const string VariableOutputMissing = "VariableOutputMissing";
         public const string VariableTypeIncompatible = "VariableTypeIncompatible";
         public const string VariableTypeWarning = "VariableTypeWarning";
         public const string TriggerInputUnavailable = "TriggerInputUnavailable";
+        public const string TriggerInputNotGuaranteed = "TriggerInputNotGuaranteed";
         public const string TriggerInputTypeConflict = "TriggerInputTypeConflict";
     }
 }

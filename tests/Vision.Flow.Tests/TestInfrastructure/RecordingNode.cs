@@ -76,7 +76,9 @@ namespace Vision.Flow.Tests
                 await context.Continuations.DispatchAsync(
                     new FlowContinuation
                     {
-                        SourceNodeId = _definition.Id,
+                        SourceNodeId = string.IsNullOrWhiteSpace(GetSetting("ContinuationSourceNodeId"))
+                            ? _definition.Id
+                            : GetSetting("ContinuationSourceNodeId"),
                         OutputPort = "Frame",
                         Token = context.Token,
                         Variables = context.Variables,
