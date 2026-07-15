@@ -61,6 +61,21 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task CommonDescriptorsUseChineseNodeMetadata()
+        {
+            var registry = new NodeRegistry();
+            CommonNodeRegistration.RegisterAll(registry);
+
+            foreach (var descriptor in registry.Descriptors)
+            {
+                AssertEx.True(ContainsChinese(descriptor.DisplayName), descriptor.NodeType + " display name should contain Chinese text.");
+                AssertEx.True(ContainsChinese(descriptor.Description), descriptor.NodeType + " description should contain Chinese text.");
+                AssertEx.True(ContainsChinese(descriptor.Category), descriptor.NodeType + " category should contain Chinese text.");
+            }
+
+            return Task.FromResult(0);
+        }
+
         public static async Task LogNodeAcceptsStrongEnumLevel()
         {
             var sink = new InMemoryFlowEventSink();
@@ -213,6 +228,11 @@ namespace Vision.Flow.Tests
             AssertEx.True(registry.TryGetFactory(nodeType, out factory), nodeType + " factory should be registered.");
             AssertEx.NotNull(factory.Descriptor, nodeType + " descriptor should be available.");
             AssertEx.Equal(nodeType, factory.Descriptor.NodeType, nodeType + " descriptor should use the registered node type.");
+        }
+
+        private static bool ContainsChinese(string value)
+        {
+            return !string.IsNullOrWhiteSpace(value) && value.Any(character => character >= '\u4e00' && character <= '\u9fff');
         }
 
         private static IFlowRunner CreateCommonRunner(RuntimeFlowDefinition flow, InMemoryFlowEventSink sink)

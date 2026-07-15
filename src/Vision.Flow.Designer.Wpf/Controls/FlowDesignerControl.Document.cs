@@ -188,23 +188,23 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _document = CreateDocument("designer-core-basic", "Core Basic Flow");
             var flow = _document.Runtime;
 
-            AddTemplateNode("set_result", FlowNodeTypes.VariableSet, "Set Result", 80, 120, new Dictionary<string, object>
+            AddTemplateNode("set_result", FlowNodeTypes.VariableSet, "设置检测结果", 80, 120, new Dictionary<string, object>
             {
                 { FlowSettingNames.VariableName, "Inspection.Result" },
                 { FlowSettingNames.Value, "OK" }
             });
-            AddTemplateNode("condition_1", FlowNodeTypes.ConditionIf, "Check Result", 380, 120, new Dictionary<string, object>
+            AddTemplateNode("condition_1", FlowNodeTypes.ConditionIf, "判断检测结果", 380, 120, new Dictionary<string, object>
             {
                 { FlowSettingNames.LeftBinding, "{{ set_result.Value }}" },
                 { FlowSettingNames.Operator, "Equal" },
                 { FlowSettingNames.RightValue, "OK" }
             });
-            AddTemplateNode("log_ok", FlowNodeTypes.LogWrite, "Log OK", 700, 40, new Dictionary<string, object>
+            AddTemplateNode("log_ok", FlowNodeTypes.LogWrite, "记录合格结果", 700, 40, new Dictionary<string, object>
             {
                 { FlowSettingNames.Level, "Info" },
                 { FlowSettingNames.Message, "Inspection result is OK." }
             });
-            AddTemplateNode("log_ng", FlowNodeTypes.LogWrite, "Log NG", 700, 220, new Dictionary<string, object>
+            AddTemplateNode("log_ng", FlowNodeTypes.LogWrite, "记录不合格结果", 700, 220, new Dictionary<string, object>
             {
                 { FlowSettingNames.Level, "Warning" },
                 { FlowSettingNames.Message, "Inspection result is not OK." }

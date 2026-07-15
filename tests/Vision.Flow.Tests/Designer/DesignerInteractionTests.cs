@@ -22,6 +22,7 @@ using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
 using Vision.Flow.Designer.Wpf.ViewModels;
+using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
@@ -344,6 +345,28 @@ namespace Vision.Flow.Tests
                 AssertEx.True(card.SnapsToDevicePixels, "Node cards should snap to device pixels while zoomed out.");
                 AssertEx.Equal(TextFormattingMode.Ideal, TextOptions.GetTextFormattingMode(card), "Node cards should use scalable ideal text formatting.");
                 AssertEx.Equal(TextRenderingMode.ClearType, TextOptions.GetTextRenderingMode(card), "Node cards should use ClearType text rendering.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PaletteAndNodeCardShowDescriptorDescription()
+        {
+            RunOnSta(delegate
+            {
+                var descriptor = DelayNodeDescriptor.Create();
+                var palette = new NodePaletteControl();
+                palette.SetDescriptors(new[] { descriptor });
+                var paletteTexts = FindChildren<TextBlock>(palette).Select(x => x.Text ?? string.Empty).ToList();
+                AssertEx.True(paletteTexts.Contains(descriptor.DisplayName), "Palette should show the localized node display name.");
+                AssertEx.True(paletteTexts.Contains(descriptor.Description), "Palette should show the localized node description instead of the protocol node type.");
+
+                var node = CreateNode();
+                node.Name = descriptor.DisplayName;
+                node.Type = descriptor.NodeType;
+                var card = new NodeCardControl(new NodeViewModel(node, descriptor));
+                var cardTexts = FindChildren<TextBlock>(card).Select(x => x.Text ?? string.Empty).ToList();
+                AssertEx.True(cardTexts.Contains(descriptor.DisplayName), "Node card should show the localized node name.");
+                AssertEx.True(cardTexts.Contains(descriptor.Description), "Node card should show the localized node description.");
             });
             return Task.FromResult(0);
         }

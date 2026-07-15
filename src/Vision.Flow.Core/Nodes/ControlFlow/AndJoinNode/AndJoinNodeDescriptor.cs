@@ -11,10 +11,10 @@ namespace Vision.Flow.Nodes
             return new NodeDescriptor
             {
                 NodeType = AndJoinNodeFactory.TypeName,
-                DisplayName = "AND Join",
-                Category = "Flow",
+                DisplayName = "与汇合",
+                Category = "流程控制",
                 Version = "1.0.0",
-                Description = "Collects multiple inputs by JoinKey and continues when all expected inputs arrive.",
+                Description = "按汇合键收集多个输入，全部到达后继续执行。",
                 InputPorts =
                 {
                     CreatePort(FlowPortNames.In, FlowPortNames.In, FlowPortDirection.Input, "Execution input.")

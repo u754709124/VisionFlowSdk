@@ -54,10 +54,10 @@ namespace Vision.Flow.Nodes
             return new NodeDescriptor
             {
                 NodeType = SplitNodeFactory.TypeName,
-                DisplayName = "Split",
-                Category = "Common",
+                DisplayName = "分支",
+                Category = "通用",
                 Version = "1.0.0",
-                Description = "Routes execution through the default branch.",
+                Description = "从默认分支继续执行流程。",
                 InputPorts =
                 {
                     new NodePortDescriptor

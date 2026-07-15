@@ -80,6 +80,7 @@ namespace Vision.Flow.Tests
                 new TestCase("VisionImageReference supports clone and disposal", CoreDeviceContractTests.VisionImageReferenceLifecycle),
                 new TestCase("CommonNodeRegistration resolves common factories", CommonNodeTests.RegisterAllResolvesFactories),
                 new TestCase("Common descriptors use strong enum types", CommonNodeTests.CommonDescriptorsUseStrongEnumTypes),
+                new TestCase("Common descriptors use Chinese node metadata", CommonNodeTests.CommonDescriptorsUseChineseNodeMetadata),
                 new TestCase("LogNode publishes a runtime log event", CommonNodeTests.LogNodePublishesRuntimeEvent),
                 new TestCase("LogNode accepts a strong enum level", CommonNodeTests.LogNodeAcceptsStrongEnumLevel),
                 new TestCase("DelayNode executes a configured delay", CommonNodeTests.DelayNodeExecutes),
@@ -103,6 +104,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer palette default add uses viewport center", DesignerInteractionTests.PaletteDefaultAddUsesViewportCenter),
                 new TestCase("Designer canvas zoom keeps viewport anchor stable", DesignerInteractionTests.CanvasZoomKeepsViewportAnchorStable),
                 new TestCase("Designer node card uses sharp text rendering options", DesignerInteractionTests.NodeCardUsesSharpTextRenderingOptions),
+                new TestCase("Designer palette and node card show descriptor descriptions", DesignerInteractionTests.PaletteAndNodeCardShowDescriptorDescription),
                 new TestCase("Designer node card shows runtime summary above card", DesignerInteractionTests.NodeCardShowsRuntimeSummaryAboveCard)
             };
 

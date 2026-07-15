@@ -11,7 +11,7 @@
       {
         "id": "set_result",
         "type": "variable.set",
-        "name": "Set Result",
+        "name": "设置检测结果",
         "version": "1.0.0",
         "settings": {
           "VariableName": "Inspection.Result",
@@ -22,7 +22,7 @@
       {
         "id": "condition_1",
         "type": "condition.if",
-        "name": "Check Result",
+        "name": "判断检测结果",
         "version": "1.0.0",
         "settings": {
           "LeftBinding": "{{ set_result.Value }}",
@@ -34,7 +34,7 @@
       {
         "id": "log_ok",
         "type": "log.write",
-        "name": "Log OK",
+        "name": "记录合格结果",
         "version": "1.0.0",
         "settings": {
           "Level": "Info",
@@ -45,7 +45,7 @@
       {
         "id": "log_ng",
         "type": "log.write",
-        "name": "Log NG",
+        "name": "记录不合格结果",
         "version": "1.0.0",
         "settings": {
           "Level": "Warning",

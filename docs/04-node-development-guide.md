@@ -102,6 +102,8 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 
 `NodePortDescriptor.Direction` 使用 `FlowPortDirection`，`NodePortDescriptor.DataType`、`NodeSettingDescriptor.DataType` 和 `NodeOutputDescriptor.DataType` 使用 `FlowDataType`。
 
+节点 `Descriptor.DisplayName`、`Descriptor.Description` 和面向用户展示的 `Descriptor.Category` 必须使用中文；`NodeType`、端口名、设置键和输出名属于稳定流程协议，继续使用兼容的英文标识，不得为了界面中文化修改协议值。
+
 ```csharp
 new NodePortDescriptor
 {

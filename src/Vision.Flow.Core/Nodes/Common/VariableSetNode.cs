@@ -109,10 +109,10 @@ namespace Vision.Flow.Nodes
             return new NodeDescriptor
             {
                 NodeType = VariableSetNodeFactory.TypeName,
-                DisplayName = "Set Variable",
-                Category = "Common",
+                DisplayName = "设置变量",
+                Category = "通用",
                 Version = "1.0.0",
-                Description = "Writes a named value to the current flow variable pool.",
+                Description = "将指定名称和值写入当前流程变量池。",
                 InputPorts =
                 {
                     new NodePortDescriptor

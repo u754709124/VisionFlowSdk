@@ -102,10 +102,10 @@ namespace Vision.Flow.Nodes
             return new NodeDescriptor
             {
                 NodeType = DelayNodeFactory.TypeName,
-                DisplayName = "Delay",
-                Category = "Common",
+                DisplayName = "延时",
+                Category = "通用",
                 Version = "1.0.0",
-                Description = "Waits for a configured duration before continuing.",
+                Description = "按配置的时长等待后继续执行。",
                 InputPorts =
                 {
                     new NodePortDescriptor

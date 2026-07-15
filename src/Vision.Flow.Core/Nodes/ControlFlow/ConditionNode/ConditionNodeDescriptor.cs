@@ -10,10 +10,10 @@ namespace Vision.Flow.Nodes
             return new NodeDescriptor
             {
                 NodeType = ConditionNodeFactory.TypeName,
-                DisplayName = "Condition",
-                Category = "Flow",
+                DisplayName = "条件判断",
+                Category = "流程控制",
                 Version = "1.0.0",
-                Description = "Routes execution through True or False according to a configured comparison.",
+                Description = "根据配置的比较条件从真或假分支继续执行。",
                 InputPorts =
                 {
                     CreatePort(FlowPortNames.In, FlowPortNames.In, FlowPortDirection.Input, "Execution input.")

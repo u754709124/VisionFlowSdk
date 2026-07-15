@@ -173,7 +173,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             _type = new TextBlock
             {
-                Text = viewModel.Node.Type,
+                Text = GetNodeDescription(viewModel),
                 FontSize = 9.5,
                 Foreground = FlowDesignerControl.BrushFromRgb(100, 116, 139),
                 TextTrimming = TextTrimming.CharacterEllipsis,
@@ -203,13 +203,20 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public void UpdateSummary()
         {
             _title.Text = string.IsNullOrWhiteSpace(ViewModel.Node.Name) ? ViewModel.Node.Id : ViewModel.Node.Name;
-            _type.Text = ViewModel.Node.Type;
+            _type.Text = GetNodeDescription(ViewModel);
 
             _summaryRows.Children.Clear();
             foreach (var row in CreateSummaryRows())
             {
                 _summaryRows.Children.Add(CreateSummaryRow(row.Key, row.Value));
             }
+        }
+
+        private static string GetNodeDescription(NodeViewModel viewModel)
+        {
+            return viewModel.Descriptor == null || string.IsNullOrWhiteSpace(viewModel.Descriptor.Description)
+                ? viewModel.Node.Type
+                : viewModel.Descriptor.Description;
         }
 
         private IEnumerable<KeyValuePair<string, string>> CreateSummaryRows()

@@ -249,7 +249,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             });
             panel.Children.Add(new TextBlock
             {
-                Text = descriptor.NodeType,
+                Text = string.IsNullOrWhiteSpace(descriptor.Description) ? descriptor.NodeType : descriptor.Description,
                 FontSize = 11,
                 Foreground = FlowDesignerControl.BrushFromRgb(100, 116, 139),
                 TextTrimming = TextTrimming.CharacterEllipsis

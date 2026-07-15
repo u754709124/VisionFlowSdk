@@ -116,10 +116,10 @@ namespace Vision.Flow.Nodes
             return new NodeDescriptor
             {
                 NodeType = LogNodeFactory.TypeName,
-                DisplayName = "Write Log",
-                Category = "Common",
+                DisplayName = "写日志",
+                Category = "通用",
                 Version = "1.0.0",
-                Description = "Publishes a runtime log event.",
+                Description = "发布一条运行时日志事件。",
                 InputPorts =
                 {
                     new NodePortDescriptor
