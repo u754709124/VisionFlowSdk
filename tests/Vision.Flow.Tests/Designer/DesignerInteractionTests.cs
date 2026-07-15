@@ -107,6 +107,153 @@ namespace Vision.Flow.Tests
                 AssertEx.Equal("hello", editableNode.Settings["Message"].ConstantValue,
                     "Switching back should restore the preserved constant value.");
 
+                var policyDescriptor = CreateDescriptor();
+                policyDescriptor.Outputs.Add(new NodeOutputDescriptor
+                {
+                    Name = "Result",
+                    DisplayName = "结果",
+                    DataType = FlowDataType.String
+                });
+                policyDescriptor.Outputs.Add(new NodeOutputDescriptor
+                {
+                    Name = "Count",
+                    DisplayName = "数量",
+                    DataType = FlowDataType.Int32
+                });
+                policyDescriptor.Outputs.Add(new NodeOutputDescriptor
+                {
+                    Name = "Score",
+                    DisplayName = "分数",
+                    DataType = FlowDataType.Double
+                });
+                policyDescriptor.Outputs.Add(new NodeOutputDescriptor
+                {
+                    Name = "Passed",
+                    DisplayName = "通过",
+                    DataType = FlowDataType.Boolean
+                });
+
+                var policyNode = CreateNode();
+                var policyChanges = 0;
+                var policyPanel = new PropertyPanelControl();
+                policyPanel.ShowNode(policyNode, policyDescriptor, null, delegate { policyChanges++; }, false);
+                AssertEx.True(FindChildren<TextBlock>(policyPanel).Any(x => string.Equals(x.Text, "执行策略", StringComparison.Ordinal)),
+                    "Every node should expose the common execution-policy section.");
+                AssertEx.False(policyNode.ExecutionPolicy.RetryPolicy.Enabled,
+                    "Retry should be disabled by default.");
+                AssertEx.Equal(3, policyNode.ExecutionPolicy.RetryPolicy.MaxRetries,
+                    "The Dify-style retry editor should start with three retries.");
+                AssertEx.Equal(1000, policyNode.ExecutionPolicy.RetryPolicy.RetryIntervalMs,
+                    "The Dify-style retry editor should start with a 1000 ms interval.");
+
+                var retryToggle = FindChildren<CheckBox>(policyPanel)
+                    .FirstOrDefault(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.RetryPolicy.Enabled", StringComparison.Ordinal));
+                AssertEx.NotNull(retryToggle, "The execution policy should render an Enable Retry switch.");
+                AssertEx.False(FindChildren<TextBox>(policyPanel).Any(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.RetryPolicy.MaxRetries",
+                        StringComparison.Ordinal)),
+                    "Retry details should stay hidden while retry is disabled.");
+                retryToggle.IsChecked = true;
+                AssertEx.True(policyNode.ExecutionPolicy.RetryPolicy.Enabled,
+                    "Turning on retry should persist RetryPolicy.Enabled.");
+
+                var timeoutEditor = FindChildren<TextBox>(policyPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.TimeoutMs", StringComparison.Ordinal));
+                timeoutEditor.Text = "2500";
+                timeoutEditor.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent, timeoutEditor));
+                var concurrencyEditor = FindChildren<TextBox>(policyPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.MaxConcurrentExecutions", StringComparison.Ordinal));
+                concurrencyEditor.Text = "4";
+                concurrencyEditor.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent, concurrencyEditor));
+                var maxRetriesEditor = FindChildren<TextBox>(policyPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.RetryPolicy.MaxRetries", StringComparison.Ordinal));
+                maxRetriesEditor.Text = "5";
+                maxRetriesEditor.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent, maxRetriesEditor));
+                var retryIntervalEditor = FindChildren<TextBox>(policyPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.RetryPolicy.RetryIntervalMs", StringComparison.Ordinal));
+                retryIntervalEditor.Text = "750";
+                retryIntervalEditor.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent, retryIntervalEditor));
+                AssertEx.Equal(2500, policyNode.ExecutionPolicy.TimeoutMs,
+                    "TimeoutMs should persist from the static execution-policy editor.");
+                AssertEx.Equal(4, policyNode.ExecutionPolicy.MaxConcurrentExecutions,
+                    "MaxConcurrentExecutions should persist from the static execution-policy editor.");
+                AssertEx.Equal(5, policyNode.ExecutionPolicy.RetryPolicy.MaxRetries,
+                    "MaxRetries should persist from the Dify-style retry editor.");
+                AssertEx.Equal(750, policyNode.ExecutionPolicy.RetryPolicy.RetryIntervalMs,
+                    "RetryIntervalMs should persist from the Dify-style retry editor.");
+
+                var failureSelector = FindChildren<ComboBox>(policyPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.FailureStrategy", StringComparison.Ordinal));
+                failureSelector.SelectedIndex = 2;
+                AssertEx.Equal(FailureStrategy.DefaultOutputs, policyNode.ExecutionPolicy.FailureStrategy,
+                    "Switching to default outputs should persist the failure strategy.");
+                AssertEx.True(FindChildren<TextBlock>(policyPanel).Any(x => (x.Text ?? string.Empty).IndexOf("常量回退输出", StringComparison.Ordinal) >= 0),
+                    "DefaultOutputs should explain that constant fallback values continue through Next.");
+
+                var resultEditor = FindChildren<TextBox>(policyPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.DefaultOutputs.Result", StringComparison.Ordinal));
+                resultEditor.Text = "fallback";
+                resultEditor.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent, resultEditor));
+                var countEditor = FindChildren<TextBox>(policyPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.DefaultOutputs.Count", StringComparison.Ordinal));
+                countEditor.Text = "42";
+                countEditor.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent, countEditor));
+                var scoreEditor = FindChildren<TextBox>(policyPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.DefaultOutputs.Score", StringComparison.Ordinal));
+                scoreEditor.Text = "1.5";
+                scoreEditor.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent, scoreEditor));
+                var passedEditor = FindChildren<CheckBox>(policyPanel)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.DefaultOutputs.Passed", StringComparison.Ordinal));
+                passedEditor.IsChecked = true;
+                AssertEx.Equal("fallback", policyNode.ExecutionPolicy.DefaultOutputs["Result"],
+                    "String fallback output should persist as a constant string.");
+                AssertEx.Equal(42, policyNode.ExecutionPolicy.DefaultOutputs["Count"],
+                    "Int32 fallback output should be converted before persistence.");
+                AssertEx.Equal(1.5d, policyNode.ExecutionPolicy.DefaultOutputs["Score"],
+                    "Double fallback output should be converted before persistence.");
+                AssertEx.Equal(true, policyNode.ExecutionPolicy.DefaultOutputs["Passed"],
+                    "Boolean fallback output should be converted before persistence.");
+
+                failureSelector.SelectedIndex = 1;
+                AssertEx.True(FindChildren<TextBlock>(policyPanel).Any(x => (x.Text ?? string.Empty).IndexOf("Error 或 Timeout", StringComparison.Ordinal) >= 0),
+                    "ErrorBranch should explain its control-port continuation behavior.");
+                AssertEx.False(FindChildren<TextBox>(policyPanel).Any(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.DefaultOutputs.Result",
+                        StringComparison.Ordinal)),
+                    "Default-output editors should be hidden outside DefaultOutputs mode.");
+                failureSelector.SelectedIndex = 0;
+                AssertEx.True(FindChildren<TextBlock>(policyPanel).Any(x => (x.Text ?? string.Empty).IndexOf("停止本次流程", StringComparison.Ordinal) >= 0),
+                    "StopFlow should explain that the current flow run stops.");
+                failureSelector.SelectedIndex = 2;
+                AssertEx.Equal("fallback", policyNode.ExecutionPolicy.DefaultOutputs["Result"],
+                    "Switching failure modes should preserve existing fallback constants.");
+
+                var retryCard = new NodeCardControl(new NodeViewModel(policyNode, policyDescriptor));
+                AssertEx.True(FindChildren<TextBlock>(retryCard).Any(x => string.Equals(x.Text, "重试", StringComparison.Ordinal)),
+                    "An enabled retry policy should add a Chinese retry summary to the node card.");
+                AssertEx.True(FindChildren<TextBlock>(retryCard).Any(x => string.Equals(x.Text, "5 次 · 750 ms", StringComparison.Ordinal)),
+                    "The node-card retry summary should show retry count and interval.");
+                policyNode.ExecutionPolicy.RetryPolicy.Enabled = false;
+                retryCard.UpdateSummary();
+                AssertEx.False(FindChildren<TextBlock>(retryCard).Any(x => string.Equals(x.Text, "重试", StringComparison.Ordinal)),
+                    "Disabling retry should remove its node-card summary.");
+
+                policyNode.ExecutionPolicy.RetryPolicy.Enabled = true;
+                var readOnlyPolicyPanel = new NodeExecutionPolicyPanelControl();
+                readOnlyPolicyPanel.ShowPolicy(policyNode, policyDescriptor, delegate { }, true);
+                AssertEx.True(FindChildren<TextBox>(readOnlyPolicyPanel).All(x => x.IsReadOnly),
+                    "Read-only mode should make every execution-policy TextBox read-only.");
+                AssertEx.True(FindChildren<ComboBox>(readOnlyPolicyPanel).All(x => !x.IsEnabled),
+                    "Read-only mode should disable failure-strategy selectors.");
+                AssertEx.True(FindChildren<CheckBox>(readOnlyPolicyPanel).All(x => !x.IsEnabled),
+                    "Read-only mode should disable retry and Boolean fallback switches.");
+                AssertEx.Equal(0, FindChildren<VariableSelectorControl>(readOnlyPolicyPanel).Count(),
+                    "Execution policies and fallback outputs must never create variable selectors.");
+                AssertEx.True(policyChanges >= 10,
+                    "Execution-policy edits should notify the designer so cards and persistence state refresh.");
+
                 var flow = new RuntimeFlowDefinition();
                 flow.Edges.Add(new EdgeDefinition { FromNodeId = "a", ToNodeId = "b" });
                 flow.Edges.Add(new EdgeDefinition { FromNodeId = "b", ToNodeId = "c" });

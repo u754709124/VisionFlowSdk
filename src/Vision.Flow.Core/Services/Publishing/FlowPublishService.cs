@@ -120,7 +120,27 @@ namespace Vision.Flow.Core.Services.Publishing
                 Type = source.Type,
                 Name = source.Name,
                 Version = source.Version,
-                Settings = CloneSettingDictionary(source.Settings)
+                Settings = CloneSettingDictionary(source.Settings),
+                ExecutionPolicy = CloneNodeExecutionPolicy(source.ExecutionPolicy)
+            };
+        }
+
+        private static NodeExecutionPolicy CloneNodeExecutionPolicy(NodeExecutionPolicy source)
+        {
+            var effective = source ?? new NodeExecutionPolicy();
+            var retry = effective.RetryPolicy ?? new RetryPolicy();
+            return new NodeExecutionPolicy
+            {
+                TimeoutMs = effective.TimeoutMs,
+                MaxConcurrentExecutions = effective.MaxConcurrentExecutions,
+                RetryPolicy = new RetryPolicy
+                {
+                    Enabled = retry.Enabled,
+                    MaxRetries = retry.MaxRetries,
+                    RetryIntervalMs = retry.RetryIntervalMs
+                },
+                FailureStrategy = effective.FailureStrategy,
+                DefaultOutputs = CloneCaseInsensitiveObjectDictionary(effective.DefaultOutputs)
             };
         }
 
@@ -199,6 +219,22 @@ namespace Vision.Flow.Core.Services.Publishing
         private static Dictionary<string, object> CloneObjectDictionary(IDictionary<string, object> source)
         {
             var result = new Dictionary<string, object>(StringComparer.Ordinal);
+            if (source == null)
+            {
+                return result;
+            }
+
+            foreach (var item in source)
+            {
+                result[item.Key] = CloneObjectValue(item.Value);
+            }
+
+            return result;
+        }
+
+        private static Dictionary<string, object> CloneCaseInsensitiveObjectDictionary(IDictionary<string, object> source)
+        {
+            var result = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             if (source == null)
             {
                 return result;

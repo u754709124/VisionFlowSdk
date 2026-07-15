@@ -19,6 +19,9 @@ namespace Vision.Flow.Core.Runtime.Events
         FlowRunCompleted = 11,
         FlowRunFailed = 12,
         FlowRunCancelled = 13,
-        FlowRunRejected = 14
+        FlowRunRejected = 14,
+        NodeRetrying = 15,
+        NodeRecovered = 16,
+        NodeCancelled = 17
     }
 }

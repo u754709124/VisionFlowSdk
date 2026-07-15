@@ -120,6 +120,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 }
             }
 
+            _rows.Children.Add(CreateSection("执行策略"));
+            var executionPolicyPanel = new NodeExecutionPolicyPanelControl();
+            executionPolicyPanel.ShowPolicy(node, descriptor, RaiseChanged, _isReadOnly);
+            _rows.Children.Add(executionPolicyPanel);
+
             if (descriptor != null && descriptor.Outputs.Count > 0)
             {
                 _rows.Children.Add(CreateSection("Outputs"));

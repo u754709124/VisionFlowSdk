@@ -142,7 +142,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0"
             };
 
-            flow.Nodes.Add(new NodeDefinition
+            var joinNode = new NodeDefinition
             {
                 Id = "join1",
                 Type = AndJoinNodeFactory.TypeName,
@@ -155,7 +155,13 @@ namespace Vision.Flow.Tests
                     { "TimeoutMs", NodeSettingValue.ForConstant(0) },
                     { "DuplicatePolicy", NodeSettingValue.ForConstant(duplicatePolicy) }
                 }
-            });
+            };
+            if (includeErrorHandler)
+            {
+                joinNode.ExecutionPolicy.FailureStrategy = FailureStrategy.ErrorBranch;
+            }
+
+            flow.Nodes.Add(joinNode);
             flow.Nodes.Add(CreateRecordNode("Done"));
             flow.Edges.Add(CreateEdge("join1", "Next", "Done"));
 

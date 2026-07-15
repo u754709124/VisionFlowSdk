@@ -40,7 +40,6 @@ namespace Vision.Flow.Tests
                     { "DelayMs", NodeSettingValue.ForConstant(0) }
                 }
             });
-
             var result = CreateValidator().Validate(flow);
 
             AssertHasIssue(result, FlowValidationIssueCodes.NodeIdDuplicate, "Duplicate NodeId should be reported.");
@@ -105,6 +104,11 @@ namespace Vision.Flow.Tests
                     { "DelayMs", NodeSettingValue.ForConstant(-1) }
                 }
             });
+            flow.Nodes[0].ExecutionPolicy.TimeoutMs = -1;
+            flow.Nodes[0].ExecutionPolicy.MaxConcurrentExecutions = 0;
+            flow.Nodes[0].ExecutionPolicy.RetryPolicy.MaxRetries = -1;
+            flow.Nodes[0].ExecutionPolicy.RetryPolicy.RetryIntervalMs = -1;
+            flow.Nodes[0].ExecutionPolicy.FailureStrategy = FailureStrategy.ErrorBranch;
 
             flow.Nodes.Add(new NodeDefinition
             {
@@ -133,6 +137,18 @@ namespace Vision.Flow.Tests
                     { "Operator", NodeSettingValue.ForConstant("Bogus") }
                 }
             });
+            flow.Nodes[2].ExecutionPolicy.FailureStrategy = FailureStrategy.DefaultOutputs;
+            flow.Nodes[2].ExecutionPolicy.DefaultOutputs["Undeclared"] = "bad";
+
+            var noErrorPortNode = new NodeDefinition
+            {
+                Id = "noErrorPort1",
+                Type = NoErrorPortFactory.TypeName,
+                Name = "No Error Port",
+                Version = "1.0.0"
+            };
+            noErrorPortNode.ExecutionPolicy.FailureStrategy = FailureStrategy.ErrorBranch;
+            flow.Nodes.Add(noErrorPortNode);
 
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "delay1" });
 
@@ -140,6 +156,9 @@ namespace Vision.Flow.Tests
 
             AssertHasIssue(result, FlowValidationIssueCodes.SettingValueInvalid, "Invalid core numeric/operator settings should be reported.");
             AssertHasIssue(result, FlowValidationIssueCodes.DuplicatePolicyInvalid, "Invalid DuplicatePolicy should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.NodeExecutionPolicyInvalid, "Invalid node policy numbers should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.NodeErrorPortMissing, "ErrorBranch should require an Error control port.");
+            AssertHasIssue(result, FlowValidationIssueCodes.NodeDefaultOutputInvalid, "DefaultOutputs should match descriptor outputs.");
             AssertEx.True(
                 result.Issues.Count(x => string.Equals(x.Code, FlowValidationIssueCodes.SettingValueInvalid, StringComparison.OrdinalIgnoreCase)) >= 4,
                 "Invalid core node numeric/operator settings should be reported.");
@@ -178,7 +197,11 @@ namespace Vision.Flow.Tests
 
         public static Task ValidFlowPublishesSuccessfully()
         {
-            var result = new FlowPublishService(CreateRegistry()).Publish(CreateValidDesignDocument());
+            var document = CreateValidDesignDocument();
+            document.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.Enabled = true;
+            document.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.MaxRetries = 2;
+            document.Runtime.Nodes[0].ExecutionPolicy.DefaultOutputs["Mutable"] = new List<object> { "source" };
+            var result = new FlowPublishService(CreateRegistry()).Publish(document);
 
             AssertEx.True(result.IsSuccess, "Valid design should publish successfully.");
             AssertEx.NotNull(result.Runtime, "Publish result should include runtime definition.");
@@ -188,6 +211,18 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(1, result.Runtime.Entries.Count, "Published runtime entries should be preserved.");
             AssertEx.Equal(NodeSettingValueMode.Variable, result.Runtime.Nodes[1].Settings["Message"].Mode, "Variable setting should be preserved.");
             AssertEx.Equal("delay1", result.Runtime.Nodes[1].Settings["Message"].Selector.Path[0], "Variable source should be preserved.");
+            AssertEx.False(object.ReferenceEquals(document.Runtime.Nodes[0].ExecutionPolicy, result.Runtime.Nodes[0].ExecutionPolicy),
+                "Publish should clone node execution policies.");
+            AssertEx.False(object.ReferenceEquals(document.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy, result.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy),
+                "Publish should clone nested retry policies.");
+            AssertEx.False(object.ReferenceEquals(document.Runtime.Nodes[0].ExecutionPolicy.DefaultOutputs, result.Runtime.Nodes[0].ExecutionPolicy.DefaultOutputs),
+                "Publish should clone default output dictionaries.");
+            document.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.MaxRetries = 99;
+            ((List<object>)document.Runtime.Nodes[0].ExecutionPolicy.DefaultOutputs["Mutable"])[0] = "changed";
+            AssertEx.Equal(2, result.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.MaxRetries,
+                "Published retry policy should not alias the design document.");
+            AssertEx.Equal("source", Convert.ToString(((List<object>)result.Runtime.Nodes[0].ExecutionPolicy.DefaultOutputs["Mutable"])[0]),
+                "Published default output values should be deep-cloned.");
             return Task.FromResult(0);
         }
 
@@ -216,6 +251,7 @@ namespace Vision.Flow.Tests
         {
             var registry = new NodeRegistry();
             CommonNodeRegistration.RegisterAll(registry);
+            registry.Register(new NoErrorPortFactory());
             return registry;
         }
 
@@ -280,6 +316,45 @@ namespace Vision.Flow.Tests
             AssertEx.True(
                 result.Issues.Any(x => x.Severity == FlowValidationSeverity.Error && string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase)),
                 message + " Issues: " + string.Join(", ", result.Issues.Select(x => x.Code)));
+        }
+
+        private sealed class NoErrorPortFactory : INodeFactory
+        {
+            public const string TypeName = "test.no-error-port";
+
+            public string NodeType
+            {
+                get { return TypeName; }
+            }
+
+            public NodeDescriptor Descriptor
+            {
+                get
+                {
+                    return new NodeDescriptor
+                    {
+                        NodeType = TypeName,
+                        DisplayName = "无错误端口测试节点",
+                        Category = "测试",
+                        Version = "1.0.0",
+                        OutputPorts =
+                        {
+                            new NodePortDescriptor
+                            {
+                                Name = FlowPortNames.Next,
+                                DisplayName = FlowPortNames.Next,
+                                Direction = FlowPortDirection.Output,
+                                DataType = FlowDataType.Control
+                            }
+                        }
+                    };
+                }
+            }
+
+            public IFlowNode Create(NodeDefinition definition)
+            {
+                return null;
+            }
         }
     }
 }

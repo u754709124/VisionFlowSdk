@@ -340,6 +340,7 @@ namespace Vision.Flow.Tests
 
             var failing = CreateNode("A", null, null);
             failing.Settings["Mode"] = NodeSettingValue.ForConstant("Fail");
+            failing.ExecutionPolicy.FailureStrategy = FailureStrategy.ErrorBranch;
             flow.Nodes.Add(failing);
             flow.Nodes.Add(CreateNode("ErrorHandler", null, null));
             flow.Edges.Add(CreateEdge("A", "Error", "ErrorHandler"));
@@ -395,6 +396,7 @@ namespace Vision.Flow.Tests
             var timedOut = CreateNode("A", null, null);
             timedOut.Settings["Mode"] = NodeSettingValue.ForConstant("Timeout");
             timedOut.Settings["TimeoutOutputPort"] = NodeSettingValue.ForConstant("Timeout");
+            timedOut.ExecutionPolicy.FailureStrategy = FailureStrategy.ErrorBranch;
             flow.Nodes.Add(timedOut);
             flow.Nodes.Add(CreateNode("TimeoutHandler", null, null));
             flow.Edges.Add(CreateEdge("A", "Timeout", "TimeoutHandler"));

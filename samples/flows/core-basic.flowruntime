@@ -12,6 +12,13 @@
       "settings": {
         "VariableName": { "Mode": "Constant", "ConstantValue": "Inspection.Result", "Selector": null },
         "Value": { "Mode": "Constant", "ConstantValue": "OK", "Selector": null }
+      },
+      "executionPolicy": {
+        "timeoutMs": 0,
+        "maxConcurrentExecutions": 1,
+        "retryPolicy": { "enabled": false, "maxRetries": 3, "retryIntervalMs": 1000 },
+        "failureStrategy": "StopFlow",
+        "defaultOutputs": {}
       }
     },
     {
@@ -23,6 +30,13 @@
         "LeftBinding": { "Mode": "Variable", "ConstantValue": null, "Selector": { "Scope": "NodeOutput", "Path": ["set_result", "Value"] } },
         "Operator": { "Mode": "Constant", "ConstantValue": "Equal", "Selector": null },
         "RightValue": { "Mode": "Constant", "ConstantValue": "OK", "Selector": null }
+      },
+      "executionPolicy": {
+        "timeoutMs": 0,
+        "maxConcurrentExecutions": 1,
+        "retryPolicy": { "enabled": false, "maxRetries": 3, "retryIntervalMs": 1000 },
+        "failureStrategy": "StopFlow",
+        "defaultOutputs": {}
       }
     },
     {
@@ -33,6 +47,13 @@
       "settings": {
         "Level": { "Mode": "Constant", "ConstantValue": "Info", "Selector": null },
         "Message": { "Mode": "Constant", "ConstantValue": "Inspection result is OK.", "Selector": null }
+      },
+      "executionPolicy": {
+        "timeoutMs": 0,
+        "maxConcurrentExecutions": 1,
+        "retryPolicy": { "enabled": false, "maxRetries": 3, "retryIntervalMs": 1000 },
+        "failureStrategy": "StopFlow",
+        "defaultOutputs": {}
       }
     },
     {
@@ -43,6 +64,13 @@
       "settings": {
         "Level": { "Mode": "Constant", "ConstantValue": "Warning", "Selector": null },
         "Message": { "Mode": "Constant", "ConstantValue": "Inspection result is not OK.", "Selector": null }
+      },
+      "executionPolicy": {
+        "timeoutMs": 0,
+        "maxConcurrentExecutions": 1,
+        "retryPolicy": { "enabled": false, "maxRetries": 3, "retryIntervalMs": 1000 },
+        "failureStrategy": "StopFlow",
+        "defaultOutputs": {}
       }
     }
   ],

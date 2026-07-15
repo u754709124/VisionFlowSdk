@@ -226,6 +226,17 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 new KeyValuePair<string, string>("TYPE", ShortNodeType(ViewModel.Node.Type))
             };
 
+            var retryPolicy = ViewModel.Node.ExecutionPolicy == null
+                ? null
+                : ViewModel.Node.ExecutionPolicy.RetryPolicy;
+            if (retryPolicy != null && retryPolicy.Enabled)
+            {
+                rows.Add(new KeyValuePair<string, string>(
+                    "重试",
+                    retryPolicy.MaxRetries.ToString(CultureInfo.InvariantCulture) + " 次 · " +
+                    retryPolicy.RetryIntervalMs.ToString(CultureInfo.InvariantCulture) + " ms"));
+            }
+
             if (rows.Count < 3 && ViewModel.Node.Settings != null)
             {
                 foreach (var setting in ViewModel.Node.Settings)

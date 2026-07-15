@@ -46,6 +46,17 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(FlowDataType.String, restored.Entries[0].Inputs[0].DataType, "Entry input type should round-trip.");
             AssertEx.Equal(2, restored.Entries[0].ExecutionPolicy.MaxConcurrentRuns, "Entry concurrency policy should round-trip.");
             AssertEx.Equal(3, restored.Entries[0].ExecutionPolicy.QueueCapacity, "Entry queue capacity should round-trip.");
+            AssertEx.True(json.IndexOf("\"ExecutionPolicy\"", StringComparison.OrdinalIgnoreCase) >= 0,
+                "Every serialized node should contain its execution policy.");
+            AssertEx.Equal(2500, restored.Nodes[0].ExecutionPolicy.TimeoutMs, "Node timeout should round-trip.");
+            AssertEx.Equal(2, restored.Nodes[0].ExecutionPolicy.MaxConcurrentExecutions, "Node concurrency should round-trip.");
+            AssertEx.True(restored.Nodes[0].ExecutionPolicy.RetryPolicy.Enabled, "Retry enabled state should round-trip.");
+            AssertEx.Equal(4, restored.Nodes[0].ExecutionPolicy.RetryPolicy.MaxRetries, "Retry count should round-trip.");
+            AssertEx.Equal(250, restored.Nodes[0].ExecutionPolicy.RetryPolicy.RetryIntervalMs, "Retry interval should round-trip.");
+            AssertEx.Equal(FailureStrategy.DefaultOutputs, restored.Nodes[0].ExecutionPolicy.FailureStrategy,
+                "Node failure strategy should round-trip as a stable wire value.");
+            AssertEx.Equal("fallback", Convert.ToString(restored.Nodes[0].ExecutionPolicy.DefaultOutputs["Value"]),
+                "Node default outputs should round-trip.");
             AssertEx.False(json.IndexOf("Zoom", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view zoom.");
             AssertEx.False(json.IndexOf("OffsetX", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view offsets.");
             AssertEx.False(json.IndexOf("CanvasWidth", StringComparison.OrdinalIgnoreCase) >= 0, "Runtime JSON must not contain view canvas width.");
@@ -180,7 +191,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0"
             };
 
-            runtime.Nodes.Add(new NodeDefinition
+            var setResult = new NodeDefinition
             {
                 Id = "set_result",
                 Type = FlowNodeTypes.VariableSet,
@@ -191,7 +202,15 @@ namespace Vision.Flow.Tests
                     { "VariableName", NodeSettingValue.ForConstant("Inspection.Result") },
                     { "Value", NodeSettingValue.ForConstant("OK") }
                 }
-            });
+            };
+            setResult.ExecutionPolicy.TimeoutMs = 2500;
+            setResult.ExecutionPolicy.MaxConcurrentExecutions = 2;
+            setResult.ExecutionPolicy.RetryPolicy.Enabled = true;
+            setResult.ExecutionPolicy.RetryPolicy.MaxRetries = 4;
+            setResult.ExecutionPolicy.RetryPolicy.RetryIntervalMs = 250;
+            setResult.ExecutionPolicy.FailureStrategy = FailureStrategy.DefaultOutputs;
+            setResult.ExecutionPolicy.DefaultOutputs["Value"] = "fallback";
+            runtime.Nodes.Add(setResult);
 
             runtime.Nodes.Add(new NodeDefinition
             {

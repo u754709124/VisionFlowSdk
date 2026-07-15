@@ -4,13 +4,14 @@ using Vision.Flow.Core.Domain.Nodes;
 namespace Vision.Flow.Core.Domain.Flows
 {
     /// <summary>
-    /// 运行态节点定义，保存节点类型、配置和变量绑定。
+    /// 运行态节点定义，保存节点类型、配置和执行策略。
     /// </summary>
     public sealed class NodeDefinition
     {
         public NodeDefinition()
         {
             Settings = new Dictionary<string, NodeSettingValue>(System.StringComparer.OrdinalIgnoreCase);
+            ExecutionPolicy = new NodeExecutionPolicy();
         }
 
         /// <summary>
@@ -31,5 +32,10 @@ namespace Vision.Flow.Core.Domain.Flows
         /// 节点配置字典，键应优先使用 `FlowSettingNames` 常量。
         /// </summary>
         public Dictionary<string, NodeSettingValue> Settings { get; set; }
+
+        /// <summary>
+        /// 节点执行策略，统一描述超时、重试、并发限制和失败后的流程走向。
+        /// </summary>
+        public NodeExecutionPolicy ExecutionPolicy { get; set; }
     }
 }

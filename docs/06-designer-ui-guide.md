@@ -77,6 +77,16 @@ var snapshot = designer.CaptureDocument();
 
 具体项目可以通过传入自己的节点注册表、节点 Descriptor 和调试设备来扩展属性面板的实际体验。
 
+### 节点执行策略
+
+所有节点都显示独立的“执行策略”静态编辑区。它属于引擎控制面，不是节点业务配置，因此不提供“固定值 / 变量”切换，也不会创建 `VariableSelector`：
+
+- `TimeoutMs` 配置单次执行超时，`0` 表示继承流程全局超时；`MaxConcurrentExecutions` 限制同一节点实例的最大并发执行数。
+- 重试采用 Dify 风格的简化界面，默认关闭。开启后只编辑最大重试次数 `MaxRetries` 和固定重试间隔 `RetryIntervalMs`；节点卡片同步显示“重试 N 次 · M ms”中文摘要，关闭后隐藏摘要。
+- `StopFlow` 表示最终失败后停止本次运行；`ErrorBranch` 表示沿 `Error` 或 `Timeout` 控制端口继续，没有对应连线时本次流程失败。
+- `DefaultOutputs` 根据 `NodeDescriptor.Outputs` 生成常量编辑器。String、Int32、Int64、Double、Boolean、DateTime 和 Object 会在写入 `NodeExecutionPolicy.DefaultOutputs` 前完成类型转换；Control、IVisionImage 和 CameraFrameData 等不能由界面创建的运行时对象会明确提示不支持。
+- 切换失败策略时保留已经填写的回退常量；调试运行只读模式会同时禁用超时、并发、重试、失败策略和回退值编辑器。
+
 ## 画布缩放
 
 鼠标滚轮缩放以当前鼠标指针为锚点：缩放前后，指针下方对应的画布逻辑坐标保持不变。工具栏的缩放按钮以当前可见视口中心为锚点。节点卡片文字使用适合几何缩放的字形度量，并在倍率变化后重新布局和绘制，避免缩放过程中复用模糊的文字渲染结果。

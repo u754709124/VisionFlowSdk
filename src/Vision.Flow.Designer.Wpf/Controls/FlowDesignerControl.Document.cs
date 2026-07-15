@@ -886,7 +886,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Id = CreateNodeId(node.Type),
                 Type = node.Type,
                 Name = (string.IsNullOrWhiteSpace(node.Name) ? node.Id : node.Name) + " Copy",
-                Version = node.Version
+                Version = node.Version,
+                ExecutionPolicy = CloneNodeExecutionPolicy(node.ExecutionPolicy)
             };
 
             foreach (var setting in node.Settings)
@@ -993,6 +994,35 @@ namespace Vision.Flow.Designer.Wpf.Controls
                             : new List<string>(source.Selector.Path)
                     }
             };
+        }
+
+        private static NodeExecutionPolicy CloneNodeExecutionPolicy(NodeExecutionPolicy source)
+        {
+            var effective = source ?? new NodeExecutionPolicy();
+            var retry = effective.RetryPolicy ?? new RetryPolicy();
+            var clone = new NodeExecutionPolicy
+            {
+                TimeoutMs = effective.TimeoutMs,
+                MaxConcurrentExecutions = effective.MaxConcurrentExecutions,
+                FailureStrategy = effective.FailureStrategy,
+                RetryPolicy = new RetryPolicy
+                {
+                    Enabled = retry.Enabled,
+                    MaxRetries = retry.MaxRetries,
+                    RetryIntervalMs = retry.RetryIntervalMs
+                },
+                DefaultOutputs = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+            };
+
+            if (effective.DefaultOutputs != null)
+            {
+                foreach (var output in effective.DefaultOutputs)
+                {
+                    clone.DefaultOutputs[output.Key] = CloneSettingConstantValue(output.Value);
+                }
+            }
+
+            return clone;
         }
 
         private static object CloneSettingConstantValue(object source)

@@ -71,6 +71,12 @@ namespace Vision.Flow.Core.Services.Serialization
                 node.Settings = ToSettingDictionary(settingsValue);
             }
 
+            object executionPolicyValue;
+            if (TryGetValue(dictionary, "ExecutionPolicy", out executionPolicyValue) && executionPolicyValue != null)
+            {
+                node.ExecutionPolicy = ToNodeExecutionPolicy(executionPolicyValue);
+            }
+
             return node;
         }
 

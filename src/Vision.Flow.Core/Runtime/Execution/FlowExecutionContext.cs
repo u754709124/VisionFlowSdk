@@ -125,13 +125,18 @@ namespace Vision.Flow.Core.Runtime.Execution
         {
             if (string.IsNullOrWhiteSpace(settingName))
             {
-                throw new ArgumentException("Setting name is required.", "settingName");
+                throw new NodeConfigurationException("Setting name is required.");
             }
 
             NodeSettingValue setting;
-            if (!TryGetSettingValue(settingName, out setting) || setting == null)
+            if (!TryGetSettingValue(settingName, out setting))
             {
                 return null;
+            }
+
+            if (setting == null)
+            {
+                throw new NodeConfigurationException("Setting '" + settingName + "' must not be null.");
             }
 
             if (setting.Mode == NodeSettingValueMode.Constant)
@@ -141,15 +146,36 @@ namespace Vision.Flow.Core.Runtime.Execution
 
             if (setting.Mode != NodeSettingValueMode.Variable || setting.Selector == null)
             {
-                throw new InvalidOperationException("Setting '" + settingName + "' does not contain a valid variable selector.");
+                if (setting.Mode == NodeSettingValueMode.Variable)
+                {
+                    throw new SettingBindingException("Setting '" + settingName + "' does not contain a valid variable selector.");
+                }
+
+                throw new NodeConfigurationException("Setting '" + settingName + "' mode is invalid: " + setting.Mode + ".");
             }
 
-            return SettingValueResolver.Resolve(setting.Selector, this);
+            try
+            {
+                return SettingValueResolver.Resolve(setting.Selector, this);
+            }
+            catch (SettingBindingException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new SettingBindingException("Setting '" + settingName + "' variable binding could not be resolved.", ex);
+            }
         }
 
         public T GetSettingValue<T>(string settingName)
         {
-            return ConvertValue<T>(GetSettingValue(settingName), settingName);
+            NodeSettingValue setting;
+            TryGetSettingValue(settingName, out setting);
+            return ConvertValue<T>(
+                GetSettingValue(settingName),
+                settingName,
+                setting != null && setting.Mode == NodeSettingValueMode.Variable);
         }
 
         private bool TryGetSettingValue(string settingName, out NodeSettingValue setting)
@@ -172,7 +198,7 @@ namespace Vision.Flow.Core.Runtime.Execution
             return false;
         }
 
-        private static T ConvertValue<T>(object value, string name)
+        private static T ConvertValue<T>(object value, string name, bool isVariableBinding)
         {
             if (value == null)
             {
@@ -190,7 +216,13 @@ namespace Vision.Flow.Core.Runtime.Execution
             }
             catch (Exception ex)
             {
-                throw new InvalidCastException("Value '" + name + "' cannot be converted to " + typeof(T).FullName + ".", ex);
+                var message = "Value '" + name + "' cannot be converted to " + typeof(T).FullName + ".";
+                if (isVariableBinding)
+                {
+                    throw new SettingBindingException(message, ex);
+                }
+
+                throw new NodeConfigurationException(message, ex);
             }
         }
     }

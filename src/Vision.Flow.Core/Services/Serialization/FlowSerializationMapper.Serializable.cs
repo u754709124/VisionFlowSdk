@@ -57,7 +57,8 @@ namespace Vision.Flow.Core.Services.Serialization
                     { "Type", node.Type },
                     { "Name", node.Name },
                     { "Version", node.Version },
-                    { "Settings", ToSerializableSettings(node.Settings) }
+                    { "Settings", ToSerializableSettings(node.Settings) },
+                    { "ExecutionPolicy", ToSerializableNodeExecutionPolicy(node.ExecutionPolicy) }
                 });
             }
 

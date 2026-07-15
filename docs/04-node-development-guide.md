@@ -100,6 +100,62 @@ var timeoutMs = context.GetSettingValue<int>("TimeoutMs");
 
 不要为控制输入端口创建变量绑定。节点输出通过 `VariableSelector.ForNodeOutput(nodeId, outputName)` 绑定到具体配置项。
 
+## NodeExecutionPolicy 协议
+
+Schema v2 的每个节点在 `.flowdesign` 和 `.flowruntime` 中都必须按下面的稳定结构序列化。生产序列化器始终输出完整的 `ExecutionPolicy`；读取缺失或 `null` 的策略时使用默认值，不提供 v1 兼容或迁移逻辑。
+
+```json
+{
+  "Id": "inspect_1",
+  "Type": "station.inspect.run",
+  "Name": "执行检测",
+  "Version": "1.0.0",
+  "Settings": {},
+  "ExecutionPolicy": {
+    "TimeoutMs": 0,
+    "MaxConcurrentExecutions": 1,
+    "RetryPolicy": {
+      "Enabled": false,
+      "MaxRetries": 3,
+      "RetryIntervalMs": 1000
+    },
+    "FailureStrategy": "StopFlow",
+    "DefaultOutputs": {}
+  }
+}
+```
+
+协议规则：
+
+- `TimeoutMs = 0` 继承全局节点超时；负数非法。
+- `MaxConcurrentExecutions` 必须大于 0。当前版本只固化协议和校验，尚不作为节点级调度门。
+- `MaxRetries` 是首次失败后的附加重试次数，不包含首次执行，必须大于或等于 0。
+- `RetryIntervalMs` 是固定重试间隔，必须大于或等于 0。
+- `RetryPolicy.Enabled = false` 时只尝试一次，即使 `MaxRetries` 为正数也不重试。
+- `FailureStrategy` 使用稳定字符串 `StopFlow`、`ErrorBranch` 或 `DefaultOutputs`。
+- `DefaultOutputs` 顶层键按大小写不敏感比较；序列化、反序列化和发布克隆都必须保持该语义。
+
+## 发布校验
+
+`FlowValidator` 对节点执行策略执行以下发布前校验：
+
+- 数值范围或枚举值无效时返回 `NodeExecutionPolicyInvalid`。
+- `FailureStrategy = ErrorBranch` 时，Descriptor 必须声明名称为 `Error`、方向为 Output、类型为 `Control` 的端口；否则返回 `NodeErrorPortMissing`。
+- `FailureStrategy = DefaultOutputs` 时，字典必须覆盖 `NodeDescriptor.Outputs` 声明的全部输出，不能包含未声明键，并且每个非空值必须能转换到对应 `FlowDataType`；否则返回 `NodeDefaultOutputInvalid`。
+
+发布服务会深拷贝策略及默认输出。输入策略、重试策略或默认输出字典为 `null` 时均回落到模型默认值，运行态文件不依赖 Designer 对象。
+
+## 失败分类约定
+
+节点配置统一通过 `FlowExecutionContext.GetSettingValue` 读取，以便 Runtime 明确区分失败类型：
+
+- Selector 无效、变量不可解析或变量值转换失败使用 `SettingBindingException`，归类为 `NodeFailureKind.Binding`。
+- Setting 结构、常量配置或常量值转换失败使用 `NodeConfigurationException`，归类为 `NodeFailureKind.Configuration`。
+- 节点返回失败或抛出其他异常归类为 `NodeFailureKind.Execution`。
+- 超时由统一包装器归类为 `NodeFailureKind.Timeout`；取消令牌导致的中止归类为 `NodeFailureKind.Cancelled`。
+
+节点不应自行实现策略重试、超时计时或失败分支调度，也不应吞掉 `OperationCanceledException`。长耗时节点必须把传入的 `CancellationToken` 继续传给 Adapter、I/O 和等待操作，使超时、停止与重试等待取消能够及时收敛。
+
 ## 测试要求
 
 新增节点时应覆盖：
@@ -108,9 +164,12 @@ var timeoutMs = context.GetSettingValue<int>("TimeoutMs");
 - 缺少必要 Setting
 - Adapter 不存在或返回失败
 - Error / Timeout 路由
+- 重试成功、重试耗尽和重试等待取消
+- Binding / Configuration 不重试
+- StopFlow / ErrorBranch / DefaultOutputs 三种失败策略
 - 输出变量
-- RuntimeEvent
-- 序列化 / 发布兼容性
+- RuntimeEvent 的 Attempt / FailureKind / FailureStrategy 数据
+- Schema v2 执行策略 round-trip、缺失策略默认值与发布校验
 
 ## Descriptor 枚举字段
 

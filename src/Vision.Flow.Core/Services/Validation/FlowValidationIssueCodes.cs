@@ -18,6 +18,9 @@ namespace Vision.Flow.Core.Services.Validation
         public const string NodeDescriptorMissing = "NodeDescriptorMissing";
         public const string NodeDescriptorTypeMissing = "NodeDescriptorTypeMissing";
         public const string NodeDescriptorTypeMismatch = "NodeDescriptorTypeMismatch";
+        public const string NodeExecutionPolicyInvalid = "NodeExecutionPolicyInvalid";
+        public const string NodeErrorPortMissing = "NodeErrorPortMissing";
+        public const string NodeDefaultOutputInvalid = "NodeDefaultOutputInvalid";
         public const string EdgeMissing = "EdgeMissing";
         public const string EdgeSourceMissing = "EdgeSourceMissing";
         public const string EdgeTargetMissing = "EdgeTargetMissing";

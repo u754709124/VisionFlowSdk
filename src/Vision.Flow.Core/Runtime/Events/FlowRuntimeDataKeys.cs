@@ -24,5 +24,8 @@ namespace Vision.Flow.Core.Runtime.Events
         public const string TriggerSource = "TriggerSource";
         public const string TriggerInputs = "TriggerInputs";
         public const string FlowRunStatus = "FlowRunStatus";
+        public const string Attempt = "Attempt";
+        public const string FailureKind = "FailureKind";
+        public const string FailureStrategy = "FailureStrategy";
     }
 }
