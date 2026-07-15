@@ -128,6 +128,7 @@ namespace Vision.Flow.Tests
                 new TestCase("ConditionNode routes true and false branches", ControlFlowNodeTests.ConditionTrueFalseRoutes),
                 new TestCase("ConditionNode accepts a strong operator", ControlFlowNodeTests.ConditionAcceptsStrongOperator),
                 new TestCase("Designer property panel read-only mode disables editors", DesignerInteractionTests.PropertyPanelReadOnlyDisablesEditors),
+                new TestCase("Designer property panel uses host provided constant options", DesignerInteractionTests.PropertyPanelUsesHostProvidedConstantOptions),
                 new TestCase("Designer node palette read-only mode blocks node requests", DesignerInteractionTests.NodePaletteReadOnlyBlocksNodeRequests),
                 new TestCase("Designer node palette single click selects only", DesignerInteractionTests.NodePaletteSingleClickSelectsOnly),
                 new TestCase("Designer node palette double click requests node once", DesignerInteractionTests.NodePaletteDoubleClickRequestsNodeOnce),

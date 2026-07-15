@@ -83,6 +83,12 @@ namespace Vision.Flow.Tests
                 var modeSelector = FindChildren<ComboBox>(editablePanel)
                     .FirstOrDefault(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "Message:Mode", StringComparison.Ordinal));
                 AssertEx.NotNull(modeSelector, "A bindable setting should render an inline constant/variable mode selector.");
+                var inlineGrid = FindAncestor<Grid>(modeSelector);
+                AssertEx.NotNull(inlineGrid, "The mode selector and value editor should share an inline grid.");
+                AssertEx.Equal(0, Grid.GetColumn(modeSelector), "The mode selector should occupy the first inline column.");
+                AssertEx.True(
+                    inlineGrid.Children.OfType<ContentControl>().Any(x => Grid.GetColumn(x) == 1),
+                    "The fixed-value or variable editor should occupy the second inline column.");
                 modeSelector.SelectedIndex = 1;
                 AssertEx.Equal(NodeSettingValueMode.Variable, editableNode.Settings["Message"].Mode,
                     "Switching the setting mode should store Variable in the setting itself.");
@@ -438,6 +444,46 @@ namespace Vision.Flow.Tests
                 conflictPanel.ShowNode(CreateNode(), descriptor, triggerOptions, triggerIssues, delegate { }, false);
                 AssertEx.True(FindChildren<TextBlock>(conflictPanel).Any(x => (x.Text ?? string.Empty).IndexOf("Conflict", StringComparison.OrdinalIgnoreCase) >= 0),
                     "Trigger-input conflicts should be visible in the property panel.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PropertyPanelUsesHostProvidedConstantOptions()
+        {
+            RunOnSta(delegate
+            {
+                var descriptor = CreateDescriptor();
+                descriptor.Settings[0].Name = "CameraId";
+                descriptor.Settings[0].DisplayName = "相机";
+                var node = CreateNode();
+                node.Settings.Clear();
+                node.Settings["CameraId"] = NodeSettingValue.ForConstant("Camera-B");
+
+                var panel = new PropertyPanelControl(setting =>
+                    string.Equals(setting.Name, "CameraId", StringComparison.OrdinalIgnoreCase)
+                        ? new[] { "Camera-A", "Camera-B" }
+                        : null);
+                panel.ShowNode(node, descriptor, delegate { });
+
+                var valueSelector = FindChildren<ComboBox>(panel)
+                    .FirstOrDefault(x => !string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "CameraId:Mode",
+                        StringComparison.Ordinal));
+                AssertEx.NotNull(valueSelector, "Host-provided camera ids should render a fixed-value selector.");
+                AssertEx.False(valueSelector.IsEditable,
+                    "Host-provided options should restrict the fixed value to configured items.");
+                AssertEx.True(valueSelector.Items.Cast<object>().Any(x => string.Equals(Convert.ToString(x), "Camera-A", StringComparison.Ordinal)),
+                    "The selector should contain the first configured camera.");
+                AssertEx.True(valueSelector.Items.Cast<object>().Any(x => string.Equals(Convert.ToString(x), "Camera-B", StringComparison.Ordinal)),
+                    "The selector should contain the second configured camera.");
+                AssertEx.False(valueSelector.Items.Cast<object>().Any(x => string.Equals(Convert.ToString(x), "Camera01", StringComparison.Ordinal)),
+                    "The designer should not inject a hard-coded camera id.");
+
+                var emptyPanel = new PropertyPanelControl(setting => new string[0]);
+                emptyPanel.ShowNode(node, descriptor, delegate { });
+                AssertEx.True(FindChildren<ComboBox>(emptyPanel).Any(x => !x.IsEditable),
+                    "An empty host data source should remain an empty selector instead of falling back to free text.");
             });
             return Task.FromResult(0);
         }

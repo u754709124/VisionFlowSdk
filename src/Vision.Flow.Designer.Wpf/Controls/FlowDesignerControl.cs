@@ -53,6 +53,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public bool ShowStandaloneDocumentCommands { get; set; }
 
         public IDeviceRegistry DebugDevices { get; set; }
+
+        /// <summary>
+        /// 由嵌入式宿主为节点固定值编辑器提供动态候选项；返回 null 时沿用设计器内置枚举候选。
+        /// </summary>
+        public Func<NodeSettingDescriptor, IEnumerable<string>> SettingConstantOptionsProvider { get; set; }
     }
 
     public sealed partial class FlowDesignerControl : UserControl
@@ -136,7 +141,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _nodeStartTimes = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
             _interactionMode = DesignerInteractionMode.Edit;
             _palette = new NodePaletteControl();
-            _properties = new PropertyPanelControl();
+            _properties = new PropertyPanelControl(_options.SettingConstantOptionsProvider);
             _entryTriggerPanel = new EntryTriggerPanelControl
             {
                 Visibility = Visibility.Collapsed,
@@ -201,6 +206,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public FlowDesignerOptions Options
         {
             get { return _options; }
+        }
+
+        /// <summary>
+        /// 在宿主更新动态固定值候选项后，重新呈现当前节点属性面板。
+        /// </summary>
+        public void RefreshSelectedNodeProperties()
+        {
+            RenderProperties();
         }
 
         private bool CanEditDocument

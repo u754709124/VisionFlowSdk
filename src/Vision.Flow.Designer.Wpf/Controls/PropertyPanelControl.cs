@@ -18,12 +18,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
     public sealed class PropertyPanelControl : Border
     {
         private readonly StackPanel _rows;
+        private readonly Func<NodeSettingDescriptor, IEnumerable<string>> _constantOptionProvider;
         private Action _changed;
         private IList<VariableSelectionOption> _variableOptions;
         private bool _isReadOnly;
 
         public PropertyPanelControl()
+            : this(null)
         {
+        }
+
+        public PropertyPanelControl(Func<NodeSettingDescriptor, IEnumerable<string>> constantOptionProvider)
+        {
+            _constantOptionProvider = constantOptionProvider;
             Padding = new Thickness(12);
             Background = Brushes.White;
             BorderBrush = FlowDesignerControl.BrushFromRgb(222, 229, 238);
@@ -156,7 +163,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
-            var container = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
+            var container = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+            container.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(92) });
+            container.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             var modeSelector = new ComboBox
             {
                 IsEnabled = !_isReadOnly,
@@ -167,9 +176,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
             modeSelector.Items.Add(new ComboBoxItem { Content = "固定值", Tag = NodeSettingValueMode.Constant });
             modeSelector.Items.Add(new ComboBoxItem { Content = "变量", Tag = NodeSettingValueMode.Variable });
             modeSelector.SelectedIndex = current.Mode == NodeSettingValueMode.Variable ? 1 : 0;
+            Grid.SetColumn(modeSelector, 0);
             container.Children.Add(modeSelector);
 
-            var editorHost = new ContentControl { Margin = new Thickness(0, 4, 0, 0) };
+            var editorHost = new ContentControl { Margin = new Thickness(8, 0, 0, 0) };
+            Grid.SetColumn(editorHost, 1);
             container.Children.Add(editorHost);
 
             Action renderEditor = null;
@@ -277,12 +288,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return checkBox;
             }
 
-            var selectorItems = GetSelectorItems(setting);
-            if (selectorItems.Count > 0)
+            bool usesHostOptions;
+            var selectorItems = GetSelectorItems(setting, out usesHostOptions);
+            if (usesHostOptions || selectorItems.Count > 0)
             {
                 var comboBox = new ComboBox
                 {
-                    IsEditable = true,
+                    IsEditable = !usesHostOptions,
                     IsEnabled = !_isReadOnly,
                     Text = ToEditorText(setting, value),
                     MinHeight = 28,
@@ -484,19 +496,35 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
         }
 
-        private static IList<string> GetSelectorItems(NodeSettingDescriptor setting)
+        private IList<string> GetSelectorItems(NodeSettingDescriptor setting, out bool usesHostOptions)
         {
             var items = new List<string>();
+            usesHostOptions = false;
             if (setting == null)
             {
                 return items;
             }
 
-            if (string.Equals(setting.Name, "CameraId", StringComparison.OrdinalIgnoreCase))
+            if (_constantOptionProvider != null)
             {
-                items.Add("Camera01");
+                var providedItems = _constantOptionProvider(setting);
+                if (providedItems != null)
+                {
+                    usesHostOptions = true;
+                    foreach (var item in providedItems.Where(x => !string.IsNullOrWhiteSpace(x)))
+                    {
+                        if (!items.Contains(item, StringComparer.OrdinalIgnoreCase))
+                            items.Add(item);
+                    }
+                }
             }
-            else if (string.Equals(setting.Name, FlowSettingNames.DuplicatePolicy, StringComparison.OrdinalIgnoreCase))
+
+            if (usesHostOptions)
+            {
+                return items;
+            }
+
+            if (string.Equals(setting.Name, FlowSettingNames.DuplicatePolicy, StringComparison.OrdinalIgnoreCase))
             {
                 AddWireValues<FlowDuplicatePolicy>(items);
             }

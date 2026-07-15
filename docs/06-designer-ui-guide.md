@@ -81,6 +81,10 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 
 具体项目可以通过传入自己的节点注册表、节点 Descriptor 和调试设备来扩展属性面板的实际体验。
 
+嵌入式宿主还可以通过 `FlowDesignerOptions.SettingConstantOptionsProvider` 为固定值编辑器提供动态候选项。例如项目相机节点的 `CameraId` 可以直接读取宿主当前绑定的设备配置；候选项发生变化后调用 `RefreshSelectedNodeProperties()` 即可刷新当前属性面板。宿主返回非空枚举对象时，编辑器使用不可自由输入的下拉框；即使枚举为空也保持空下拉框。设计器不再为相机标识提供硬编码默认值。
+
+对于支持“固定值 / 变量”切换的配置项，模式下拉框与右侧固定值编辑器或变量选择器保持在同一行，状态或校验提示仍显示在右侧编辑区域内。
+
 ### 节点执行策略
 
 所有节点都显示独立的“执行策略”静态编辑区。它属于引擎控制面，不是节点业务配置，因此不提供“固定值 / 变量”切换，也不会创建 `VariableSelector`：
