@@ -316,6 +316,24 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task CanvasZoomKeepsViewportAnchorStable()
+        {
+            var offset = InvokePrivateStatic<double>(
+                typeof(FlowDesignerControl),
+                "CalculateZoomedOffset",
+                200.0,
+                300.0,
+                1.0,
+                1.5);
+
+            AssertEx.Equal(450.0, offset, "Zoom should compensate the scroll offset around the viewport anchor.");
+            AssertEx.Equal(
+                (200.0 + 300.0) / 1.0,
+                (offset + 300.0) / 1.5,
+                "The logical canvas point below the mouse should stay unchanged after zooming.");
+            return Task.FromResult(0);
+        }
+
         public static Task NodeCardUsesSharpTextRenderingOptions()
         {
             RunOnSta(delegate
@@ -324,7 +342,7 @@ namespace Vision.Flow.Tests
 
                 AssertEx.True(card.UseLayoutRounding, "Node cards should round layout pixels to reduce blurry text while zoomed out.");
                 AssertEx.True(card.SnapsToDevicePixels, "Node cards should snap to device pixels while zoomed out.");
-                AssertEx.Equal(TextFormattingMode.Display, TextOptions.GetTextFormattingMode(card), "Node cards should use display text formatting.");
+                AssertEx.Equal(TextFormattingMode.Ideal, TextOptions.GetTextFormattingMode(card), "Node cards should use scalable ideal text formatting.");
                 AssertEx.Equal(TextRenderingMode.ClearType, TextOptions.GetTextRenderingMode(card), "Node cards should use ClearType text rendering.");
             });
             return Task.FromResult(0);

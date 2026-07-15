@@ -413,33 +413,79 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void OnCanvasMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            ChangeCanvasZoom(e.Delta > 0 ? 1.1 : 0.9);
+            var anchor = _canvasScroll == null
+                ? new Point(0, 0)
+                : e.GetPosition(_canvasScroll);
+            ChangeCanvasZoom(e.Delta > 0 ? 1.1 : 0.9, anchor);
             e.Handled = true;
         }
 
         private void ChangeCanvasZoom(double factor)
+        {
+            var anchor = _canvasScroll == null
+                ? new Point(0, 0)
+                : new Point(_canvasScroll.ViewportWidth / 2.0, _canvasScroll.ViewportHeight / 2.0);
+            ChangeCanvasZoom(factor, anchor);
+        }
+
+        private void ChangeCanvasZoom(double factor, Point viewportAnchor)
         {
             if (_canvasScale == null)
             {
                 return;
             }
 
-            SetCanvasZoom(_canvasScale.ScaleX * factor);
+            SetCanvasZoom(_canvasScale.ScaleX * factor, viewportAnchor);
         }
 
-        private void SetCanvasZoom(double zoom)
+        private void SetCanvasZoom(double zoom, Point viewportAnchor)
         {
             if (_canvasScale == null || _document == null)
             {
                 return;
             }
 
+            var previousZoom = _canvasScale.ScaleX;
             var clamped = ClampZoom(zoom);
+            var horizontalOffset = _canvasScroll == null ? 0 : _canvasScroll.HorizontalOffset;
+            var verticalOffset = _canvasScroll == null ? 0 : _canvasScroll.VerticalOffset;
+            var targetHorizontalOffset = CalculateZoomedOffset(
+                horizontalOffset,
+                viewportAnchor.X,
+                previousZoom,
+                clamped);
+            var targetVerticalOffset = CalculateZoomedOffset(
+                verticalOffset,
+                viewportAnchor.Y,
+                previousZoom,
+                clamped);
+
             _canvasScale.ScaleX = clamped;
             _canvasScale.ScaleY = clamped;
+            _surface.InvalidateMeasure();
+            _surface.InvalidateVisual();
+            if (_canvasScroll != null)
+            {
+                _canvasScroll.UpdateLayout();
+                _canvasScroll.ScrollToHorizontalOffset(targetHorizontalOffset);
+                _canvasScroll.ScrollToVerticalOffset(targetVerticalOffset);
+            }
+
             SaveCanvasViewState();
             UpdateZoomText();
             UpdateStatus();
+        }
+
+        private static double CalculateZoomedOffset(
+            double currentOffset,
+            double viewportAnchor,
+            double previousZoom,
+            double nextZoom)
+        {
+            var safePreviousZoom = previousZoom <= 0 || !IsFinite(previousZoom) ? 1.0 : previousZoom;
+            var safeNextZoom = nextZoom <= 0 || !IsFinite(nextZoom) ? 1.0 : nextZoom;
+            var logicalAnchor = (Math.Max(0, currentOffset) + Math.Max(0, viewportAnchor)) / safePreviousZoom;
+            return Math.Max(0, logicalAnchor * safeNextZoom - Math.Max(0, viewportAnchor));
         }
 
         private void UpdateZoomText()

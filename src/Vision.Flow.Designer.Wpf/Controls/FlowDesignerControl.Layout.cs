@@ -150,7 +150,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 UseLayoutRounding = true,
                 SnapsToDevicePixels = true
             };
-            TextOptions.SetTextFormattingMode(_surface, TextFormattingMode.Display);
+            TextOptions.SetTextFormattingMode(_surface, TextFormattingMode.Ideal);
             TextOptions.SetTextRenderingMode(_surface, TextRenderingMode.ClearType);
             _surface.LayoutTransform = _canvasScale;
             _gridLayer = CreateGridLayer();

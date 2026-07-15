@@ -57,7 +57,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Cursor = Cursors.SizeAll;
             UseLayoutRounding = true;
             SnapsToDevicePixels = true;
-            TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
+            TextOptions.SetTextFormattingMode(this, TextFormattingMode.Ideal);
             TextOptions.SetTextRenderingMode(this, TextRenderingMode.ClearType);
             InputPortControls = new List<PortControl>();
             OutputPortControls = new List<PortControl>();

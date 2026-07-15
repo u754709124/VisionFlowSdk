@@ -149,7 +149,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 UseLayoutRounding = true,
                 SnapsToDevicePixels = true
             };
-            TextOptions.SetTextFormattingMode(_nodeLayer, TextFormattingMode.Display);
+            TextOptions.SetTextFormattingMode(_nodeLayer, TextFormattingMode.Ideal);
             TextOptions.SetTextRenderingMode(_nodeLayer, TextRenderingMode.ClearType);
             _nodeLayer.LayoutUpdated += OnNodeLayerLayoutUpdated;
             _statusText = new TextBlock

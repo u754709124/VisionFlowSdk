@@ -101,6 +101,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer host API loads and captures deep copies", DesignerInteractionTests.HostDocumentApiLoadsCapturesAndDeepCopies),
                 new TestCase("Designer host API resets to an empty document", DesignerInteractionTests.HostResetCreatesEmptyDocument),
                 new TestCase("Designer palette default add uses viewport center", DesignerInteractionTests.PaletteDefaultAddUsesViewportCenter),
+                new TestCase("Designer canvas zoom keeps viewport anchor stable", DesignerInteractionTests.CanvasZoomKeepsViewportAnchorStable),
                 new TestCase("Designer node card uses sharp text rendering options", DesignerInteractionTests.NodeCardUsesSharpTextRenderingOptions),
                 new TestCase("Designer node card shows runtime summary above card", DesignerInteractionTests.NodeCardShowsRuntimeSummaryAboveCard)
             };
