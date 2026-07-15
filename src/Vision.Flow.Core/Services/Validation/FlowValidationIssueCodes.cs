@@ -7,6 +7,7 @@ namespace Vision.Flow.Core.Services.Validation
     {
         public const string FlowDesignMissing = "FlowDesignMissing";
         public const string RuntimeMissing = "RuntimeMissing";
+        public const string SchemaVersionUnsupported = "SchemaVersionUnsupported";
         public const string FlowIdMissing = "FlowIdMissing";
         public const string NodesMissing = "NodesMissing";
         public const string NodeMissing = "NodeMissing";
@@ -32,13 +33,15 @@ namespace Vision.Flow.Core.Services.Validation
         public const string EntryTargetMissing = "EntryTargetMissing";
         public const string EntryTargetNotFound = "EntryTargetNotFound";
         public const string RequiredSettingMissing = "RequiredSettingMissing";
-        public const string BindingInvalid = "BindingInvalid";
-        public const string BindingSourceNodeMissing = "BindingSourceNodeMissing";
-        public const string BindingSourceMissing = "BindingSourceMissing";
-        public const string BindingSourceNotFound = "BindingSourceNotFound";
-        public const string BindingOutputMissing = "BindingOutputMissing";
         public const string RuntimeContainsViewState = "RuntimeContainsViewState";
         public const string DuplicatePolicyInvalid = "DuplicatePolicyInvalid";
         public const string SettingValueInvalid = "SettingValueInvalid";
+        public const string VariableSelectorInvalid = "VariableSelectorInvalid";
+        public const string VariableSelectorNotAllowed = "VariableSelectorNotAllowed";
+        public const string VariableSourceNodeMissing = "VariableSourceNodeMissing";
+        public const string VariableSourceNotUpstream = "VariableSourceNotUpstream";
+        public const string VariableOutputMissing = "VariableOutputMissing";
+        public const string VariableTypeIncompatible = "VariableTypeIncompatible";
+        public const string VariableTypeWarning = "VariableTypeWarning";
     }
 }

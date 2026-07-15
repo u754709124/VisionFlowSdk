@@ -86,6 +86,20 @@ Descriptor 必须声明：
 
 Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 
+每个 `NodeSettingDescriptor` 还必须明确声明：
+
+- `BindingMode`：`ConstantOnly` 或 `ConstantOrVariable`
+- `EvaluationPhase`：`Execution` 或 `ListenerStart`
+- `AllowedVariableSources`：允许的 NodeOutput、Token、TriggerInput 范围
+
+执行期配置在节点中统一读取：
+
+```csharp
+var timeoutMs = context.GetSettingValue<int>("TimeoutMs");
+```
+
+不要为控制输入端口创建变量绑定。节点输出通过 `VariableSelector.ForNodeOutput(nodeId, outputName)` 绑定到具体配置项。
+
 ## 测试要求
 
 新增节点时应覆盖：
@@ -116,3 +130,5 @@ new NodePortDescriptor
 ```
 
 节点配置中的固定策略也应优先使用枚举，例如 `ConditionOperator.Equal`、`FlowDuplicatePolicy.Ignore`、`FlowLogLevel.Info`。当这些值进入 `NodeDefinition.Settings` 或流程文件时，由 `FlowEnumConverter` 转换为稳定字符串协议值。
+
+`NodeDefinition.Settings` 的值必须使用 `NodeSettingValue.ForConstant(value)` 或 `NodeSettingValue.ForVariable(selector, retainedConstant)` 创建。Factory 只能读取常量作为构造默认值；动态值必须在 `ExecuteAsync` 中读取。

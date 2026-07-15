@@ -276,8 +276,8 @@ namespace Vision.Flow.Tests
             var flow = CreateFanOutFlow();
             flow.FlowId = "parallel-fanout";
             flow.FlowName = "Parallel Fan Out";
-            flow.Nodes[1].Settings["DelayMs"] = delayMs;
-            flow.Nodes[2].Settings["DelayMs"] = delayMs;
+            flow.Nodes[1].Settings["DelayMs"] = NodeSettingValue.ForConstant(delayMs);
+            flow.Nodes[2].Settings["DelayMs"] = NodeSettingValue.ForConstant(delayMs);
             return flow;
         }
 
@@ -334,7 +334,7 @@ namespace Vision.Flow.Tests
             };
 
             var failing = CreateNode("A", null, null);
-            failing.Settings["Mode"] = "Fail";
+            failing.Settings["Mode"] = NodeSettingValue.ForConstant("Fail");
             flow.Nodes.Add(failing);
             flow.Nodes.Add(CreateNode("ErrorHandler", null, null));
             flow.Edges.Add(CreateEdge("A", "Error", "ErrorHandler"));
@@ -352,7 +352,7 @@ namespace Vision.Flow.Tests
             };
 
             var node = CreateNode("A", null, null);
-            node.Settings["DelayMs"] = 1000;
+            node.Settings["DelayMs"] = NodeSettingValue.ForConstant(1000);
             flow.Nodes.Add(node);
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "A" });
             return flow;
@@ -368,9 +368,9 @@ namespace Vision.Flow.Tests
             };
 
             var source = CreateNode("A", null, null);
-            source.Settings["Mode"] = "ContinueFrame";
-            source.Settings["ContinuationOutputName"] = "Value";
-            source.Settings["ContinuationOutputValue"] = "continued";
+            source.Settings["Mode"] = NodeSettingValue.ForConstant("ContinueFrame");
+            source.Settings["ContinuationOutputName"] = NodeSettingValue.ForConstant("Value");
+            source.Settings["ContinuationOutputValue"] = NodeSettingValue.ForConstant("continued");
             flow.Nodes.Add(source);
             flow.Nodes.Add(CreateNode("B", null, "A.Value"));
             flow.Edges.Add(CreateEdge("A", "Frame", "B"));
@@ -388,8 +388,8 @@ namespace Vision.Flow.Tests
             };
 
             var timedOut = CreateNode("A", null, null);
-            timedOut.Settings["Mode"] = "Timeout";
-            timedOut.Settings["TimeoutOutputPort"] = "Timeout";
+            timedOut.Settings["Mode"] = NodeSettingValue.ForConstant("Timeout");
+            timedOut.Settings["TimeoutOutputPort"] = NodeSettingValue.ForConstant("Timeout");
             flow.Nodes.Add(timedOut);
             flow.Nodes.Add(CreateNode("TimeoutHandler", null, null));
             flow.Edges.Add(CreateEdge("A", "Timeout", "TimeoutHandler"));
@@ -440,13 +440,13 @@ namespace Vision.Flow.Tests
 
             if (!string.IsNullOrWhiteSpace(outputName))
             {
-                node.Settings["OutputName"] = outputName;
-                node.Settings["OutputValue"] = id + "-output";
+                node.Settings["OutputName"] = NodeSettingValue.ForConstant(outputName);
+                node.Settings["OutputValue"] = NodeSettingValue.ForConstant(id + "-output");
             }
 
             if (!string.IsNullOrWhiteSpace(requiredVariable))
             {
-                node.Settings["RequiredVariable"] = requiredVariable;
+                node.Settings["RequiredVariable"] = NodeSettingValue.ForConstant(requiredVariable);
             }
 
             return node;

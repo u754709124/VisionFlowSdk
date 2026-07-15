@@ -7,11 +7,13 @@ namespace Vision.Flow.Core.Services.Serialization
         public static RuntimeFlowDefinition ToRuntimeFlowDefinition(object value)
         {
             var dictionary = AsDictionary(value);
+            var schemaVersion = GetInt32(dictionary, "SchemaVersion", 0);
+            FlowSchema.EnsureSupported(schemaVersion);
             var definition = new RuntimeFlowDefinition
             {
                 FlowId = GetString(dictionary, "FlowId"),
                 FlowName = GetString(dictionary, "FlowName"),
-                SchemaVersion = GetInt32(dictionary, "SchemaVersion", 1),
+                SchemaVersion = schemaVersion,
                 Version = GetString(dictionary, "Version")
             };
 
@@ -64,13 +66,7 @@ namespace Vision.Flow.Core.Services.Serialization
             object settingsValue;
             if (TryGetValue(dictionary, "Settings", out settingsValue))
             {
-                node.Settings = ToObjectDictionary(settingsValue);
-            }
-
-            object inputBindingsValue;
-            if (TryGetValue(dictionary, "InputBindings", out inputBindingsValue))
-            {
-                node.InputBindings = ToBindingDictionary(inputBindingsValue);
+                node.Settings = ToSettingDictionary(settingsValue);
             }
 
             return node;

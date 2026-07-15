@@ -14,6 +14,8 @@ namespace Vision.Flow.Core.Services.Serialization
                 throw new ArgumentNullException("definition");
             }
 
+            FlowSchema.EnsureSupported(definition.SchemaVersion);
+
             return CreateSerializer().Serialize(FlowSerializationMapper.ToSerializableRuntimeFlowDefinition(definition));
         }
 

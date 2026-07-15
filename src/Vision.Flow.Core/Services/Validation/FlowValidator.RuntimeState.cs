@@ -22,17 +22,16 @@ namespace Vision.Flow.Core.Services.Validation
                     continue;
                 }
 
-                CheckNoDesignerStateValue("Nodes[" + index + "].Settings", node.Settings, result, 0);
-                if (node.InputBindings == null)
+                if (node.Settings == null)
                 {
                     continue;
                 }
 
-                foreach (var binding in node.InputBindings)
+                foreach (var setting in node.Settings)
                 {
-                    if (binding.Value != null && binding.Value.IsConstant)
+                    if (setting.Value != null)
                     {
-                        CheckNoDesignerStateValue("Nodes[" + index + "].InputBindings." + binding.Key + ".ConstantValue", binding.Value.ConstantValue, result, 0);
+                        CheckNoDesignerStateValue("Nodes[" + index + "].Settings." + setting.Key + ".ConstantValue", setting.Value.ConstantValue, result, 0);
                     }
                 }
             }

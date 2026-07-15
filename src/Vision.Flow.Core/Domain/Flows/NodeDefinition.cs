@@ -10,8 +10,7 @@ namespace Vision.Flow.Core.Domain.Flows
     {
         public NodeDefinition()
         {
-            Settings = new Dictionary<string, object>();
-            InputBindings = new Dictionary<string, VariableBinding>();
+            Settings = new Dictionary<string, NodeSettingValue>(System.StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -31,11 +30,6 @@ namespace Vision.Flow.Core.Domain.Flows
         /// <summary>
         /// 节点配置字典，键应优先使用 `FlowSettingNames` 常量。
         /// </summary>
-        public Dictionary<string, object> Settings { get; set; }
-
-        /// <summary>
-        /// 输入端口到变量表达式的绑定，数据主要通过该结构跨节点传递。
-        /// </summary>
-        public Dictionary<string, VariableBinding> InputBindings { get; set; }
+        public Dictionary<string, NodeSettingValue> Settings { get; set; }
     }
 }

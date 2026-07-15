@@ -37,7 +37,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "DelayMs", 0 }
+                    { "DelayMs", NodeSettingValue.ForConstant(0) }
                 }
             });
 
@@ -75,14 +75,14 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task MissingBindingOutputReturnsError()
+        public static Task MissingVariableOutputReturnsError()
         {
             var flow = CreateValidRuntime();
-            flow.Nodes[1].InputBindings["Message"] = VariableBinding.ForVariable("delay1", "MissingOutput");
+            flow.Nodes[1].Settings["Message"] = NodeSettingValue.ForVariable(VariableSelector.ForNodeOutput("delay1", "MissingOutput"));
 
             var result = CreateValidator().Validate(flow);
 
-            AssertHasIssue(result, FlowValidationIssueCodes.BindingOutputMissing, "Missing source output should be reported.");
+            AssertHasIssue(result, FlowValidationIssueCodes.VariableOutputMissing, "Missing source output should be reported.");
             return Task.FromResult(0);
         }
 
@@ -102,7 +102,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "DelayMs", -1 }
+                    { "DelayMs", NodeSettingValue.ForConstant(-1) }
                 }
             });
 
@@ -114,10 +114,10 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "JoinKeyBinding", "{{ token.PositionId }}" },
-                    { "ExpectedInputCount", 0 },
-                    { "TimeoutMs", -1 },
-                    { "DuplicatePolicy", "KeepFirst" }
+                    { "JoinKeyBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { "ExpectedInputCount", NodeSettingValue.ForConstant(0) },
+                    { "TimeoutMs", NodeSettingValue.ForConstant(-1) },
+                    { "DuplicatePolicy", NodeSettingValue.ForConstant("KeepFirst") }
                 }
             });
 
@@ -129,8 +129,8 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "LeftBinding", "{{ token.PositionId }}" },
-                    { "Operator", "Bogus" }
+                    { "LeftBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { "Operator", NodeSettingValue.ForConstant("Bogus") }
                 }
             });
 
@@ -186,7 +186,24 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(2, result.Runtime.Nodes.Count, "Published runtime nodes should be preserved.");
             AssertEx.Equal(1, result.Runtime.Edges.Count, "Published runtime edges should be preserved.");
             AssertEx.Equal(1, result.Runtime.Entries.Count, "Published runtime entries should be preserved.");
-            AssertEx.Equal("delay1.DelayMs", result.Runtime.Nodes[1].InputBindings["Message"].GetVariableName(), "Input binding should be preserved.");
+            AssertEx.Equal(NodeSettingValueMode.Variable, result.Runtime.Nodes[1].Settings["Message"].Mode, "Variable setting should be preserved.");
+            AssertEx.Equal("delay1", result.Runtime.Nodes[1].Settings["Message"].Selector.Path[0], "Variable source should be preserved.");
+            return Task.FromResult(0);
+        }
+
+        public static Task PublishRejectsV1Schemas()
+        {
+            var document = CreateValidDesignDocument();
+            document.SchemaVersion = 1;
+            AssertEx.Throws<UnsupportedFlowSchemaVersionException>(
+                () => new FlowPublishService(CreateRegistry()).Publish(document),
+                "Publishing a v1 design schema should fail.");
+
+            document = CreateValidDesignDocument();
+            document.Runtime.SchemaVersion = 1;
+            AssertEx.Throws<UnsupportedFlowSchemaVersionException>(
+                () => new FlowPublishService(CreateRegistry()).Publish(document),
+                "Publishing a v1 runtime schema should fail.");
             return Task.FromResult(0);
         }
 
@@ -230,7 +247,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "DelayMs", 0 }
+                    { "DelayMs", NodeSettingValue.ForConstant(0) }
                 }
             });
 
@@ -242,11 +259,8 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "Level", "Info" }
-                },
-                InputBindings =
-                {
-                    { "Message", VariableBinding.ForVariable("delay1", "DelayMs") }
+                    { "Level", NodeSettingValue.ForConstant("Info") },
+                    { "Message", NodeSettingValue.ForVariable(VariableSelector.ForNodeOutput("delay1", "DelayMs")) }
                 }
             });
 

@@ -84,8 +84,8 @@ namespace Vision.Flow.Tests
                 LogNodeFactory.TypeName,
                 delegate(NodeDefinition node)
                 {
-                    node.Settings[FlowSettingNames.Level] = FlowLogLevel.Warning;
-                    node.Settings[FlowSettingNames.Message] = "Part reached station.";
+                    node.Settings[FlowSettingNames.Level] = NodeSettingValue.ForConstant(FlowLogLevel.Warning);
+                    node.Settings[FlowSettingNames.Message] = NodeSettingValue.ForConstant("Part reached station.");
                 }),
                 sink);
 
@@ -109,8 +109,8 @@ namespace Vision.Flow.Tests
                 LogNodeFactory.TypeName,
                 delegate(NodeDefinition node)
                 {
-                    node.Settings["Level"] = "Info";
-                    node.Settings["Message"] = "Part reached station.";
+                    node.Settings["Level"] = NodeSettingValue.ForConstant("Info");
+                    node.Settings["Message"] = NodeSettingValue.ForConstant("Part reached station.");
                 }),
                 sink);
 
@@ -136,7 +136,7 @@ namespace Vision.Flow.Tests
                 DelayNodeFactory.TypeName,
                 delegate(NodeDefinition node)
                 {
-                    node.Settings["DelayMs"] = 1;
+                    node.Settings["DelayMs"] = NodeSettingValue.ForConstant(1);
                 }),
                 sink);
 
@@ -180,8 +180,8 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "VariableName", "Shared.Value" },
-                    { "Value", "station-ok" }
+                    { "VariableName", NodeSettingValue.ForConstant("Shared.Value") },
+                    { "Value", NodeSettingValue.ForConstant("station-ok") }
                 }
             });
 
@@ -193,7 +193,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "RequiredVariable", "Shared.Value" }
+                    { "RequiredVariable", NodeSettingValue.ForConstant("Shared.Value") }
                 }
             });
 

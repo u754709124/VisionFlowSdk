@@ -109,10 +109,10 @@ namespace Vision.Flow.Tests
 
         private string GetSetting(string name)
         {
-            object value;
-            if (_definition.Settings != null && _definition.Settings.TryGetValue(name, out value))
+            NodeSettingValue setting;
+            if (_definition.Settings != null && _definition.Settings.TryGetValue(name, out setting) && setting != null)
             {
-                return Convert.ToString(value);
+                return Convert.ToString(setting.ConstantValue);
             }
 
             return null;

@@ -26,10 +26,10 @@ namespace Vision.Flow.Nodes
                 },
                 Settings =
                 {
-                    CreateStringSetting(FlowSettingNames.LeftBinding, "Left Binding", null, true, "Expression used to resolve the left value."),
+                    CreateObjectSetting(FlowSettingNames.LeftBinding, "Left Value", null, true, "Left comparison value or variable selector."),
                     CreateStringSetting(FlowSettingNames.Operator, "Operator", FlowEnumConverter.ToWireValue(ConditionOperator.Equal), true, "Equal, NotEqual, GreaterThan, LessThan, Contains, IsNull, or IsNotNull."),
                     CreateObjectSetting(FlowSettingNames.RightValue, "Right Value", null, false, "Constant right value."),
-                    CreateStringSetting(FlowSettingNames.RightBinding, "Right Binding", null, false, "Optional expression used to resolve the right value.")
+                    CreateObjectSetting(FlowSettingNames.RightBinding, "Right Variable", null, false, "Optional right comparison variable selector.")
                 },
                 Outputs =
                 {
@@ -64,7 +64,10 @@ namespace Vision.Flow.Nodes
                 DataType = FlowDataType.String,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
-                Description = description
+                Description = description,
+                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
             };
         }
 
@@ -77,7 +80,10 @@ namespace Vision.Flow.Nodes
                 DataType = FlowDataType.Object,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
-                Description = description
+                Description = description,
+                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
             };
         }
 

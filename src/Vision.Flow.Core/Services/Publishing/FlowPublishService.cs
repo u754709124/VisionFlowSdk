@@ -36,6 +36,12 @@ namespace Vision.Flow.Core.Services.Publishing
                 throw new ArgumentNullException("document");
             }
 
+            FlowSchema.EnsureSupported(document.SchemaVersion);
+            if (document.Runtime != null)
+            {
+                FlowSchema.EnsureSupported(document.Runtime.SchemaVersion);
+            }
+
             var runtime = CreateRuntime(document);
             var validation = _validator.Validate(runtime);
             return new FlowPublishResult(runtime, validation);
@@ -65,7 +71,9 @@ namespace Vision.Flow.Core.Services.Publishing
 
         private static RuntimeFlowDefinition CreateRuntime(FlowDesignDocument document)
         {
+            FlowSchema.EnsureSupported(document.SchemaVersion);
             var source = document.Runtime ?? new RuntimeFlowDefinition();
+            FlowSchema.EnsureSupported(source.SchemaVersion);
             var runtime = new RuntimeFlowDefinition
             {
                 FlowId = string.IsNullOrWhiteSpace(source.FlowId) ? document.FlowId : source.FlowId,
@@ -112,8 +120,7 @@ namespace Vision.Flow.Core.Services.Publishing
                 Type = source.Type,
                 Name = source.Name,
                 Version = source.Version,
-                Settings = CloneObjectDictionary(source.Settings),
-                InputBindings = CloneBindingDictionary(source.InputBindings)
+                Settings = CloneSettingDictionary(source.Settings)
             };
         }
 
@@ -163,9 +170,9 @@ namespace Vision.Flow.Core.Services.Publishing
             return result;
         }
 
-        private static Dictionary<string, VariableBinding> CloneBindingDictionary(IDictionary<string, VariableBinding> source)
+        private static Dictionary<string, NodeSettingValue> CloneSettingDictionary(IDictionary<string, NodeSettingValue> source)
         {
-            var result = new Dictionary<string, VariableBinding>(StringComparer.Ordinal);
+            var result = new Dictionary<string, NodeSettingValue>(StringComparer.OrdinalIgnoreCase);
             if (source == null)
             {
                 return result;
@@ -173,7 +180,7 @@ namespace Vision.Flow.Core.Services.Publishing
 
             foreach (var item in source)
             {
-                result[item.Key] = CloneBinding(item.Value);
+                result[item.Key] = CloneSettingValue(item.Value);
             }
 
             return result;
@@ -189,12 +196,6 @@ namespace Vision.Flow.Core.Services.Publishing
             if (value.GetType().IsEnum)
             {
                 return FlowEnumConverter.NormalizeValue(value);
-            }
-
-            var binding = value as VariableBinding;
-            if (binding != null)
-            {
-                return CloneBinding(binding);
             }
 
             if (value is string)
@@ -230,21 +231,32 @@ namespace Vision.Flow.Core.Services.Publishing
             return value;
         }
 
-        private static VariableBinding CloneBinding(VariableBinding source)
+        private static NodeSettingValue CloneSettingValue(NodeSettingValue source)
         {
             if (source == null)
             {
                 return null;
             }
 
-            return new VariableBinding
+            return new NodeSettingValue
             {
-                Expression = source.Expression,
-                SourceNodeId = source.SourceNodeId,
-                SourceOutputName = source.SourceOutputName,
+                Mode = source.Mode,
                 ConstantValue = CloneObjectValue(source.ConstantValue),
-                ValueType = source.ValueType,
-                IsConstant = source.IsConstant
+                Selector = CloneSelector(source.Selector)
+            };
+        }
+
+        private static VariableSelector CloneSelector(VariableSelector source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new VariableSelector
+            {
+                Scope = source.Scope,
+                Path = source.Path == null ? new List<string>() : new List<string>(source.Path)
             };
         }
     }

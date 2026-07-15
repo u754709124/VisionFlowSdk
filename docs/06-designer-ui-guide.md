@@ -62,12 +62,18 @@ var snapshot = designer.CaptureDocument();
 
 ## 属性面板
 
-属性面板根据 `NodeSettingDescriptor` 动态生成编辑器。绑定类设置可以使用变量选择器引用上游输出：
+属性面板根据 `NodeSettingDescriptor` 动态生成编辑器。输入端口只用于控制流连线，不生成独立的 `Input Bindings` 编辑区。
 
-```text
-{{ set_result.Value }}
-{{ token.TokenId }}
-```
+配置项声明为 `ConstantOrVariable` 后，会在同一行提供“固定值 / 变量”切换：
+
+- 固定值模式继续使用文本、数字、复选框或枚举编辑器。
+- 变量模式用结构化 `VariableSelector` 替换整个配置值；切换期间保留原 `ConstantValue`，切回固定值时恢复。
+- 节点输出候选只来自当前节点沿控制入边反向遍历得到的全部直接、间接前置节点，不显示自身、下游或无关节点。
+- 候选项显示节点名称、节点 ID、输出名称和 `FlowDataType`，并按目标配置类型过滤；`Object` 到具体类型的转换会显示风险提示。
+- Token 字段单独分组。变量来源因删除节点、删除连线或 Descriptor 变化而失效时，选择器保留原 Selector 并显示错误，不会静默清空。
+- `ConstantOnly` 或 `ListenerStart` 配置不开放执行期节点输出变量；只读模式同时禁用模式切换、固定值编辑器和变量选择器。
+
+节点卡片只摘要显示变量模式的配置来源，不再摘要控制输入端口绑定。
 
 具体项目可以通过传入自己的节点注册表、节点 Descriptor 和调试设备来扩展属性面板的实际体验。
 

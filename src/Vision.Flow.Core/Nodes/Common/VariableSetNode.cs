@@ -82,20 +82,15 @@ namespace Vision.Flow.Nodes
 
         private static string ResolveString(FlowExecutionContext context, string name, string defaultValue)
         {
-            var value = context.GetInputValue(name);
+            var value = context.GetSettingValue(name);
             return value == null ? defaultValue : Convert.ToString(value);
         }
 
         private object ResolveValue(FlowExecutionContext context)
         {
-            if (context.Node.InputBindings != null && context.Node.InputBindings.ContainsKey(FlowSettingNames.Value))
-            {
-                return context.GetInputValue(FlowSettingNames.Value);
-            }
-
             if (context.Node.Settings != null && context.Node.Settings.ContainsKey(FlowSettingNames.Value))
             {
-                return context.GetInputValue(FlowSettingNames.Value);
+                return context.GetSettingValue(FlowSettingNames.Value);
             }
 
             return _config.Value;
@@ -153,7 +148,10 @@ namespace Vision.Flow.Nodes
                         DataType = FlowDataType.String,
                         DefaultValue = null,
                         IsRequired = true,
-                        Description = "Name of the variable to write."
+                        Description = "Name of the variable to write.",
+                        BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                        EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
                     },
                     new NodeSettingDescriptor
                     {
@@ -162,7 +160,10 @@ namespace Vision.Flow.Nodes
                         DataType = FlowDataType.Object,
                         DefaultValue = null,
                         IsRequired = false,
-                        Description = "Value to store. This can also be provided by an input binding."
+                        Description = "Value to store. It can reference an upstream output or token value.",
+                        BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                        EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
                     }
                 },
                 Outputs =

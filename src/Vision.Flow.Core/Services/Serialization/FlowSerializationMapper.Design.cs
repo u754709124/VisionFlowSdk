@@ -7,11 +7,13 @@ namespace Vision.Flow.Core.Services.Serialization
         public static FlowDesignDocument ToDesignDocument(object value)
         {
             var dictionary = AsDictionary(value);
+            var schemaVersion = GetInt32(dictionary, "SchemaVersion", 0);
+            FlowSchema.EnsureSupported(schemaVersion);
             var document = new FlowDesignDocument
             {
                 FlowId = GetString(dictionary, "FlowId"),
                 FlowName = GetString(dictionary, "FlowName"),
-                SchemaVersion = GetInt32(dictionary, "SchemaVersion", 1)
+                SchemaVersion = schemaVersion
             };
 
             object runtimeValue;

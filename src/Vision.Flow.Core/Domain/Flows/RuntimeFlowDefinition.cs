@@ -10,7 +10,7 @@ namespace Vision.Flow.Core.Domain.Flows
     {
         public RuntimeFlowDefinition()
         {
-            SchemaVersion = 1;
+            SchemaVersion = FlowSchema.CurrentVersion;
             Nodes = new List<NodeDefinition>();
             Edges = new List<EdgeDefinition>();
             Entries = new List<FlowEntryDefinition>();

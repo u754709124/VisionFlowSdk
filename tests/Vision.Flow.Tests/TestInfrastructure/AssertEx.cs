@@ -84,5 +84,20 @@ namespace Vision.Flow.Tests
 
             throw new InvalidOperationException("Expected exception was not thrown: " + typeof(TException).FullName);
         }
+
+        public static TException Throws<TException>(Action action, string message)
+            where TException : Exception
+        {
+            try
+            {
+                action();
+            }
+            catch (TException ex)
+            {
+                return ex;
+            }
+
+            throw new InvalidOperationException(message + " Expected exception: " + typeof(TException).FullName);
+        }
     }
 }

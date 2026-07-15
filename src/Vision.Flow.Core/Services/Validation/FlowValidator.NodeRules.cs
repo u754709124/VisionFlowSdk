@@ -48,7 +48,7 @@ namespace Vision.Flow.Core.Services.Validation
         private static void ValidateConditionNode(NodeDefinition node, string fieldPrefix, FlowValidationResult result)
         {
             object operatorName;
-            if (!TryGetIgnoreCase(node.Settings, FlowSettingNames.Operator, out operatorName))
+            if (!TryGetConstantSettingValue(node, FlowSettingNames.Operator, out operatorName))
             {
                 operatorName = ConditionOperator.Equal;
             }
@@ -63,7 +63,7 @@ namespace Vision.Flow.Core.Services.Validation
         private static void ValidateDuplicatePolicy(NodeDefinition node, string fieldPrefix, FlowValidationResult result)
         {
             object duplicatePolicy;
-            if (!TryGetIgnoreCase(node.Settings, FlowSettingNames.DuplicatePolicy, out duplicatePolicy))
+            if (!TryGetConstantSettingValue(node, FlowSettingNames.DuplicatePolicy, out duplicatePolicy))
             {
                 duplicatePolicy = FlowDuplicatePolicy.Error;
             }

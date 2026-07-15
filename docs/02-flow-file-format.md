@@ -1,28 +1,53 @@
 # 02 - Flow File Format
 
+## Schema v2
+
+当前开发版本只支持 `SchemaVersion = 2`。`.flowdesign` 和 `.flowruntime` 缺少版本号或版本号不是 2 时，反序列化器抛出 `UnsupportedFlowSchemaVersionException`；SDK 不提供 v1 迁移或兼容读取。
+
 ## 文件类型
 
-### `.flowdesign`
+`.flowdesign` 包含可发布的 `RuntimeFlowDefinition` 与画布坐标、缩放、折叠状态等设计器视图数据。
 
-设计态文件，包含运行态流程和设计器视图状态：
-
-- `RuntimeFlowDefinition`
-- 节点坐标
-- 画布缩放与偏移
-- 节点折叠等设计态状态
-
-### `.flowruntime`
-
-生产运行态文件，只包含运行所需信息：
+`.flowruntime` 只包含生产执行所需的数据：
 
 - FlowId / FlowName / Version
 - Nodes
-- Edges
+- Edges（只表达控制流）
 - Entries
 - Settings
-- InputBindings
 
-`.flowruntime` 禁止包含 WPF 类型名、节点坐标、画布缩放、样式、Designer ViewModel 或 Debug-only UI 状态。
+运行文件不得包含 WPF 类型、节点坐标、画布样式或 Designer ViewModel。
+
+## 节点配置值
+
+节点端口只用于连线和调度，不传递业务变量，也不存在 `InputBindings`。每个可编辑配置项统一保存为 `NodeSettingValue`：
+
+```json
+{
+  "Mode": "Constant",
+  "ConstantValue": 5000,
+  "Selector": null
+}
+```
+
+变量模式保留原常量，方便界面切回固定值：
+
+```json
+{
+  "Mode": "Variable",
+  "ConstantValue": 5000,
+  "Selector": {
+    "Scope": "NodeOutput",
+    "Path": ["camera_1", "FrameId"]
+  }
+}
+```
+
+选择器范围：
+
+- `NodeOutput`：Path 前两段为上游节点 ID 和输出名，后续段用于访问对象、字典或列表的子路径。
+- `Token`：Path 从 Token 属性、Values 或 Metadata 开始解析。
+- `TriggerInput`：协议预留，当前发布校验会拒绝使用。
 
 ## Runtime 示例
 
@@ -30,19 +55,29 @@
 {
   "flowId": "core-basic",
   "flowName": "Core Basic Demo",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "version": "1.0.0",
   "nodes": [
     {
       "id": "set_result",
       "type": "variable.set",
-      "name": "Set Result",
+      "name": "设置结果",
       "version": "1.0.0",
       "settings": {
-        "VariableName": "Inspection.Result",
-        "Value": "OK"
-      },
-      "inputBindings": {}
+        "VariableName": {
+          "Mode": "Constant",
+          "ConstantValue": "Inspection.Result",
+          "Selector": null
+        },
+        "Value": {
+          "Mode": "Variable",
+          "ConstantValue": "OK",
+          "Selector": {
+            "Scope": "NodeOutput",
+            "Path": ["inspect_1", "Result"]
+          }
+        }
+      }
     }
   ],
   "edges": [],
@@ -55,46 +90,17 @@
 }
 ```
 
-## 发布流程
+## 发布和校验
 
 ```text
 .flowdesign
   -> FlowValidator
+  -> validate setting selectors, upstream topology and data types
   -> FlowPublishService
   -> remove ViewState
   -> .flowruntime
 ```
 
-## 扩展节点
+变量输出按 `NodeId.OutputName` 写入运行时变量池。NodeOutput 选择器只能引用控制流拓扑中的前置节点输出；`Control` 类型不能绑定到配置项。类型兼容规则由 `FlowDataTypeCompatibility` 统一提供给 Validator 和 Designer。
 
-项目专属节点可以在 `settings` 和 `inputBindings` 中定义自己的协议字段。Core 只校验通用结构、端口、绑定和 Core 内置节点规则；算法、保存、数据库和复杂图像队列等语义校验由具体项目实现。
-
-## 项目专属相机节点协议
-
-相机节点不再由 Core 内置。项目专属节点库应定义自己的稳定 NodeType，例如：
-
-```text
-station.camera.soft_trigger
-station.camera.hard_trigger
-station.camera.parameter.set
-```
-
-这些节点的设备访问可通过 `CameraId` 设置绑定到运行时 `IDeviceRegistry` 中的 `ICameraAdapter`。流程文件只保存节点类型、端口、设置和变量绑定，不保存具体相机 SDK 类型或运行时回调状态。
-
-## 枚举与文件协议值
-
-SDK 公共 API 中的固定集合使用枚举，例如 `FlowPortDirection`、`FlowDataType`、`ConditionOperator`、`FlowDuplicatePolicy` 和 `FlowLogLevel`。
-
-流程文件仍写入可读字符串协议值，不写入枚举数字。例如：
-
-```json
-{
-  "settings": {
-    "Operator": "Equal",
-    "DuplicatePolicy": "Ignore",
-    "Level": "Warning"
-  }
-}
-```
-
-序列化由 `FlowEnumConverter` 统一把枚举转换为字符串，避免枚举顺序调整影响 `.flowruntime` 兼容性。项目专属节点如果需要开放的数据类型，应使用 `FlowDataType.Object`，并在自己的设置或 Adapter 契约中定义更细的业务语义。
+固定策略值继续使用枚举公共 API，并在 JSON 的 `ConstantValue` 中序列化为稳定字符串，例如 `Equal`、`Ignore`、`Warning`。

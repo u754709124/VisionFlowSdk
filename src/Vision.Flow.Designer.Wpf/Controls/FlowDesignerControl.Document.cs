@@ -195,7 +195,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             });
             AddTemplateNode("condition_1", FlowNodeTypes.ConditionIf, "判断检测结果", 380, 120, new Dictionary<string, object>
             {
-                { FlowSettingNames.LeftBinding, "{{ set_result.Value }}" },
+                { FlowSettingNames.LeftBinding, NodeSettingValue.ForVariable(VariableSelector.ForNodeOutput("set_result", "Value")) },
                 { FlowSettingNames.Operator, "Equal" },
                 { FlowSettingNames.RightValue, "OK" }
             });
@@ -243,7 +243,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             foreach (var setting in settings)
             {
-                node.Settings[setting.Key] = setting.Value;
+                var settingValue = setting.Value as NodeSettingValue;
+                node.Settings[setting.Key] = settingValue == null
+                    ? NodeSettingValue.ForConstant(CloneSettingConstantValue(setting.Value))
+                    : CloneSettingValue(settingValue);
             }
 
             _document.Runtime.Nodes.Add(node);
@@ -355,24 +358,24 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 80 + (_document.Runtime.Nodes.Count / 4) * 170);
         }
 
-        private object CreateDefaultSettingValue(NodeSettingDescriptor setting)
+        private NodeSettingValue CreateDefaultSettingValue(NodeSettingDescriptor setting)
         {
             if (setting == null)
             {
-                return null;
+                return NodeSettingValue.ForConstant(null);
             }
 
             if (setting.DefaultValue != null)
             {
-                return setting.DefaultValue;
+                return NodeSettingValue.ForConstant(setting.DefaultValue);
             }
 
             if (StringEquals(setting.Name, FlowSettingNames.Message))
             {
-                return "Debug node executed.";
+                return NodeSettingValue.ForConstant("Debug node executed.");
             }
 
-            return null;
+            return NodeSettingValue.ForConstant(null);
         }
 
         private void AddEdge(string fromNodeId, string toNodeId)
@@ -544,25 +547,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 !CanEditDocument);
         }
 
-        private IList<string> CreateVariableSuggestions(NodeDefinition currentNode)
+        private IList<VariableSelectionOption> CreateVariableSuggestions(NodeDefinition currentNode)
         {
-            var items = new List<string>();
+            var items = new List<VariableSelectionOption>();
             AddTokenVariableSuggestions(items);
 
-            if (_document == null || _document.Runtime == null || _document.Runtime.Nodes == null)
+            if (_document == null || _document.Runtime == null || _document.Runtime.Nodes == null || currentNode == null)
             {
                 return items;
             }
 
-            foreach (var node in _document.Runtime.Nodes)
+            var ancestorIds = FindAncestorNodeIds(_document.Runtime, currentNode.Id);
+            foreach (var node in _document.Runtime.Nodes.Where(x => x != null && ancestorIds.Contains(x.Id)))
             {
-                if (node == null ||
-                    string.IsNullOrWhiteSpace(node.Id) ||
-                    (currentNode != null && StringEquals(node.Id, currentNode.Id)))
-                {
-                    continue;
-                }
-
                 var descriptor = GetDescriptor(node.Type);
                 if (descriptor == null || descriptor.Outputs == null)
                 {
@@ -573,38 +570,81 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 {
                     if (!string.IsNullOrWhiteSpace(output.Name))
                     {
-                        AddVariableSuggestion(items, node.Id, output.Name);
+                        var displayName = string.IsNullOrWhiteSpace(node.Name) ? node.Id : node.Name;
+                        var outputDisplayName = string.IsNullOrWhiteSpace(output.DisplayName) ? output.Name : output.DisplayName;
+                        items.Add(new VariableSelectionOption(
+                            VariableSelector.ForNodeOutput(node.Id, output.Name),
+                            displayName + " [" + node.Id + "]",
+                            displayName,
+                            node.Id,
+                            outputDisplayName + " (" + output.Name + ")",
+                            output.DataType));
                     }
                 }
             }
 
             return items
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(x => x.StartsWith("{{ token.", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-                .ThenBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(x => VariableSelectionOption.FormatSelector(x.Selector), StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.First())
+                .OrderBy(x => x.Selector.Scope == VariableSelectorScope.Token ? 0 : 1)
+                .ThenBy(x => x.GroupName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(x => x.ValueName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
 
-        private static void AddTokenVariableSuggestions(ICollection<string> items)
+        private static HashSet<string> FindAncestorNodeIds(RuntimeFlowDefinition flow, string currentNodeId)
         {
-            AddVariableSuggestion(items, "token", "TokenId");
-            AddVariableSuggestion(items, "token", "ProductId");
-            AddVariableSuggestion(items, "token", "WorkpieceId");
-            AddVariableSuggestion(items, "token", "PositionId");
-            AddVariableSuggestion(items, "token", "TriggerId");
-            AddVariableSuggestion(items, "token", "FrameId");
-            AddVariableSuggestion(items, "token", "Image");
-            AddVariableSuggestion(items, "token", "Frame");
-        }
-
-        private static void AddVariableSuggestion(ICollection<string> items, string scope, string name)
-        {
-            if (items == null || string.IsNullOrWhiteSpace(scope) || string.IsNullOrWhiteSpace(name))
+            var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (flow == null || flow.Edges == null || string.IsNullOrWhiteSpace(currentNodeId))
             {
-                return;
+                return result;
             }
 
-            items.Add("{{ " + scope + "." + name + " }}");
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { currentNodeId };
+            var pending = new Queue<string>();
+            pending.Enqueue(currentNodeId);
+            while (pending.Count > 0)
+            {
+                var target = pending.Dequeue();
+                foreach (var edge in flow.Edges.Where(x => x != null && StringEquals(x.ToNodeId, target)))
+                {
+                    if (string.IsNullOrWhiteSpace(edge.FromNodeId) || !visited.Add(edge.FromNodeId))
+                    {
+                        continue;
+                    }
+
+                    result.Add(edge.FromNodeId);
+                    pending.Enqueue(edge.FromNodeId);
+                }
+            }
+
+            return result;
+        }
+
+        private static void AddTokenVariableSuggestions(ICollection<VariableSelectionOption> items)
+        {
+            AddTokenVariableSuggestion(items, "TokenId", FlowDataType.String);
+            AddTokenVariableSuggestion(items, "CreatedAtUtc", FlowDataType.DateTime);
+            AddTokenVariableSuggestion(items, "ProductId", FlowDataType.String);
+            AddTokenVariableSuggestion(items, "WorkpieceId", FlowDataType.String);
+            AddTokenVariableSuggestion(items, "PositionId", FlowDataType.String);
+            AddTokenVariableSuggestion(items, "FrameId", FlowDataType.String);
+            AddTokenVariableSuggestion(items, "Metadata", FlowDataType.Object);
+            AddTokenVariableSuggestion(items, "Values", FlowDataType.Object);
+        }
+
+        private static void AddTokenVariableSuggestion(
+            ICollection<VariableSelectionOption> items,
+            string name,
+            FlowDataType dataType)
+        {
+            items.Add(new VariableSelectionOption(
+                VariableSelector.ForToken(name),
+                "Token",
+                "Token",
+                null,
+                name,
+                dataType));
         }
 
         private void SelectNode(NodeDefinition node)
@@ -744,12 +784,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             foreach (var setting in node.Settings)
             {
-                clone.Settings[setting.Key] = setting.Value;
-            }
-
-            foreach (var binding in node.InputBindings)
-            {
-                clone.InputBindings[binding.Key] = CloneBinding(binding.Value);
+                clone.Settings[setting.Key] = CloneSettingValue(setting.Value);
             }
 
             _document.Runtime.Nodes.Add(clone);
@@ -813,37 +848,84 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
-            node.Settings[FlowSettingNames.Disabled] = !IsNodeDisabled(node);
+            node.Settings[FlowSettingNames.Disabled] = NodeSettingValue.ForConstant(!IsNodeDisabled(node));
             RenderCanvas();
             SelectNode(node);
         }
 
         private static bool IsNodeDisabled(NodeDefinition node)
         {
-            object value;
+            NodeSettingValue value;
             return node != null &&
                 node.Settings != null &&
                 node.Settings.TryGetValue(FlowSettingNames.Disabled, out value) &&
                 value != null &&
-                Convert.ToBoolean(value, CultureInfo.InvariantCulture);
+                value.Mode == NodeSettingValueMode.Constant &&
+                value.ConstantValue != null &&
+                Convert.ToBoolean(value.ConstantValue, CultureInfo.InvariantCulture);
         }
 
-        private static VariableBinding CloneBinding(VariableBinding source)
+        private static NodeSettingValue CloneSettingValue(NodeSettingValue source)
         {
             if (source == null)
             {
                 return null;
             }
 
-            return new VariableBinding
+            return new NodeSettingValue
             {
-                Expression = source.Expression,
-                SourceNodeId = source.SourceNodeId,
-                SourceOutputName = source.SourceOutputName,
-                ConstantValue = source.ConstantValue,
-                ValueType = source.ValueType,
-                IsConstant = source.IsConstant
+                ConstantValue = CloneSettingConstantValue(source.ConstantValue),
+                Mode = source.Mode,
+                Selector = source.Selector == null
+                    ? null
+                    : new VariableSelector
+                    {
+                        Scope = source.Selector.Scope,
+                        Path = source.Selector.Path == null
+                            ? new List<string>()
+                            : new List<string>(source.Selector.Path)
+                    }
             };
+        }
+
+        private static object CloneSettingConstantValue(object source)
+        {
+            if (source == null || source is string)
+            {
+                return source;
+            }
+
+            if (source.GetType().IsEnum)
+            {
+                return FlowEnumConverter.NormalizeValue(source);
+            }
+
+            var dictionary = source as System.Collections.IDictionary;
+            if (dictionary != null)
+            {
+                var result = new Dictionary<string, object>(StringComparer.Ordinal);
+                foreach (System.Collections.DictionaryEntry item in dictionary)
+                {
+                    var key = Convert.ToString(item.Key, CultureInfo.InvariantCulture);
+                    result[key] = CloneSettingConstantValue(item.Value);
+                }
+
+                return result;
+            }
+
+            var enumerable = source as System.Collections.IEnumerable;
+            if (enumerable != null)
+            {
+                var result = new List<object>();
+                foreach (var item in enumerable)
+                {
+                    result.Add(CloneSettingConstantValue(item));
+                }
+
+                return result;
+            }
+
+            return source;
         }
     }
 }

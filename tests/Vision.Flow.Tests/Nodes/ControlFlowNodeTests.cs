@@ -150,10 +150,10 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "JoinKeyBinding", "{{ token.PositionId }}" },
-                    { "ExpectedInputCount", 2 },
-                    { "TimeoutMs", 0 },
-                    { "DuplicatePolicy", duplicatePolicy }
+                    { "JoinKeyBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { "ExpectedInputCount", NodeSettingValue.ForConstant(2) },
+                    { "TimeoutMs", NodeSettingValue.ForConstant(0) },
+                    { "DuplicatePolicy", NodeSettingValue.ForConstant(duplicatePolicy) }
                 }
             });
             flow.Nodes.Add(CreateRecordNode("Done"));
@@ -196,9 +196,9 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "LeftBinding", "{{ token.PositionId }}" },
-                    { "Operator", operatorName },
-                    { "RightValue", "P01" }
+                    { "LeftBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { "Operator", NodeSettingValue.ForConstant(operatorName) },
+                    { "RightValue", NodeSettingValue.ForConstant("P01") }
                 }
             });
             flow.Nodes.Add(CreateRecordNode("TrueNode"));

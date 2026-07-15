@@ -36,8 +36,7 @@ namespace Vision.Flow.Nodes
                 return Task.FromResult(NodeExecutionResult.Failure("TimeoutMs must be greater than or equal to zero."));
             }
 
-            var joinKeyBinding = ControlFlowNodeHelpers.ResolveString(context, FlowSettingNames.JoinKeyBinding, _config.JoinKeyBinding);
-            var joinKeyValue = ControlFlowNodeHelpers.ResolveBindingExpression(context, joinKeyBinding);
+            var joinKeyValue = ControlFlowNodeHelpers.ResolveObject(context, FlowSettingNames.JoinKeyBinding, _config.JoinKeyBinding);
             var joinKey = joinKeyValue == null ? null : Convert.ToString(joinKeyValue, CultureInfo.InvariantCulture);
             if (string.IsNullOrWhiteSpace(joinKey))
             {
@@ -105,7 +104,7 @@ namespace Vision.Flow.Nodes
 
         private static FlowDuplicatePolicy ResolveDuplicatePolicy(FlowExecutionContext context, FlowDuplicatePolicy defaultValue)
         {
-            var value = context.GetInputValue(FlowSettingNames.DuplicatePolicy);
+            var value = context.GetSettingValue(FlowSettingNames.DuplicatePolicy);
             return FlowEnumConverter.ParseOrDefault(value, defaultValue);
         }
 

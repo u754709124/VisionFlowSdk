@@ -36,8 +36,20 @@ namespace Vision.Flow.Tests
                 var node = CreateNode();
                 var descriptor = CreateDescriptor();
                 var panel = new PropertyPanelControl();
+                node.Settings["Message"] = NodeSettingValue.ForVariable(
+                    VariableSelector.ForNodeOutput("missing", "Image"),
+                    "hello");
 
-                panel.ShowNode(node, descriptor, new[] { "{{ source.Image }}" }, delegate { }, true);
+                panel.ShowNode(node, descriptor, new[]
+                {
+                    new VariableSelectionOption(
+                        VariableSelector.ForNodeOutput("source", "Image"),
+                        "Source [source]",
+                        "Source",
+                        "source",
+                        "Image",
+                        FlowDataType.Object)
+                }, delegate { }, true);
 
                 var textBoxes = FindChildren<TextBox>(panel).ToList();
                 var checkBoxes = FindChildren<CheckBox>(panel).ToList();
@@ -47,6 +59,81 @@ namespace Vision.Flow.Tests
                 AssertEx.True(textBoxes.All(x => x.IsReadOnly), "Read-only property panel should make every TextBox read-only.");
                 AssertEx.True(checkBoxes.Count >= 1 && checkBoxes.All(x => !x.IsEnabled), "Read-only property panel should disable CheckBox editors.");
                 AssertEx.True(variableSelectors.Count >= 1 && variableSelectors.All(x => !x.IsEnabled), "Read-only property panel should disable variable selector buttons.");
+                AssertEx.False(FindChildren<TextBlock>(panel).Any(x => string.Equals(x.Text, "Input Bindings", StringComparison.Ordinal)),
+                    "Control input ports should not create an Input Bindings section.");
+                AssertEx.True(FindChildren<TextBlock>(panel).Any(x => (x.Text ?? string.Empty).IndexOf("变量来源不可用", StringComparison.Ordinal) >= 0),
+                    "An unavailable selector should remain visible as an error instead of being deleted.");
+                AssertEx.Equal(NodeSettingValueMode.Variable, node.Settings["Message"].Mode,
+                    "Rendering an invalid selector in read-only mode should preserve its variable mode.");
+                AssertEx.Equal("missing", node.Settings["Message"].Selector.Path[0],
+                    "Rendering an invalid selector should preserve its original source path.");
+
+                var editableNode = CreateNode();
+                var editablePanel = new PropertyPanelControl();
+                var compatibleOption = new VariableSelectionOption(
+                    VariableSelector.ForNodeOutput("source", "Image"),
+                    "Source [source]",
+                    "Source",
+                    "source",
+                    "Image",
+                    FlowDataType.Object);
+                editablePanel.ShowNode(editableNode, descriptor, new[] { compatibleOption }, delegate { }, false);
+
+                var modeSelector = FindChildren<ComboBox>(editablePanel)
+                    .FirstOrDefault(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "Message:Mode", StringComparison.Ordinal));
+                AssertEx.NotNull(modeSelector, "A bindable setting should render an inline constant/variable mode selector.");
+                modeSelector.SelectedIndex = 1;
+                AssertEx.Equal(NodeSettingValueMode.Variable, editableNode.Settings["Message"].Mode,
+                    "Switching the setting mode should store Variable in the setting itself.");
+                AssertEx.Equal("hello", editableNode.Settings["Message"].ConstantValue,
+                    "Switching to variable mode should preserve the previous constant value.");
+
+                var editableVariableSelector = FindChildren<VariableSelectorControl>(editablePanel).FirstOrDefault();
+                AssertEx.NotNull(editableVariableSelector, "Variable mode should replace the constant editor with a structured variable selector.");
+                editableVariableSelector.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, editableVariableSelector));
+                var sourceGroup = editableVariableSelector.ContextMenu.Items.OfType<MenuItem>().FirstOrDefault(x => x.Items.Count > 0);
+                AssertEx.NotNull(sourceGroup, "The variable selector should group compatible variables by source.");
+                var sourceItem = sourceGroup.Items.OfType<MenuItem>().FirstOrDefault();
+                AssertEx.NotNull(sourceItem, "The variable selector should show a structured source/output/type item.");
+                sourceItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, sourceItem));
+                AssertEx.Equal("source", editableNode.Settings["Message"].Selector.Path[0],
+                    "Selecting an item should persist its structured node-output path.");
+                AssertEx.False(FindChildren<TextBlock>(editablePanel).Any(x => (x.Text ?? string.Empty).IndexOf("请选择变量", StringComparison.Ordinal) >= 0),
+                    "Selecting a valid item should clear the incomplete-variable error immediately.");
+
+                modeSelector.SelectedIndex = 0;
+                AssertEx.Equal(NodeSettingValueMode.Constant, editableNode.Settings["Message"].Mode,
+                    "Switching back should restore constant mode.");
+                AssertEx.Equal("hello", editableNode.Settings["Message"].ConstantValue,
+                    "Switching back should restore the preserved constant value.");
+
+                var flow = new RuntimeFlowDefinition();
+                flow.Edges.Add(new EdgeDefinition { FromNodeId = "a", ToNodeId = "b" });
+                flow.Edges.Add(new EdgeDefinition { FromNodeId = "b", ToNodeId = "c" });
+                flow.Edges.Add(new EdgeDefinition { FromNodeId = "d", ToNodeId = "c" });
+                flow.Edges.Add(new EdgeDefinition { FromNodeId = "x", ToNodeId = "y" });
+                var ancestors = InvokePrivateStatic<HashSet<string>>(
+                    typeof(FlowDesignerControl),
+                    "FindAncestorNodeIds",
+                    flow,
+                    "c");
+                AssertEx.True(ancestors.SetEquals(new[] { "a", "b", "d" }),
+                    "Variable candidates should come from every direct and indirect ancestor, excluding unrelated nodes and the current node.");
+
+                var sourceSetting = NodeSettingValue.ForConstant(new List<Dictionary<string, object>>
+                {
+                    new Dictionary<string, object> { { "Name", "Exposure" }, { "Value", 1000 } }
+                });
+                var clonedSetting = InvokePrivateStatic<NodeSettingValue>(
+                    typeof(FlowDesignerControl),
+                    "CloneSettingValue",
+                    sourceSetting);
+                var clonedItems = (System.Collections.IList)clonedSetting.ConstantValue;
+                var clonedItem = (System.Collections.IDictionary)clonedItems[0];
+                clonedItem["Value"] = 2000;
+                var sourceItems = (List<Dictionary<string, object>>)sourceSetting.ConstantValue;
+                AssertEx.Equal(1000, sourceItems[0]["Value"],
+                    "Duplicating a node should deep-copy collection and dictionary constant values.");
             });
             return Task.FromResult(0);
         }
@@ -295,6 +382,14 @@ namespace Vision.Flow.Tests
                 AssertEx.Equal(0, captured.Runtime.Nodes.Count, "Reset should not add sample nodes.");
                 AssertEx.Equal(0, captured.Runtime.Edges.Count, "Reset should create no edges.");
                 AssertEx.Equal(0, captured.Runtime.Entries.Count, "Reset should create no entries.");
+
+                InvokePrivate(control, "LoadCoreBasicTemplate");
+                var sample = control.CaptureDocument();
+                var condition = sample.Runtime.Nodes.First(x => x.Id == "condition_1");
+                AssertEx.Equal(NodeSettingValueMode.Variable, condition.Settings[FlowSettingNames.LeftBinding].Mode,
+                    "The built-in sample should store its condition source as a structured variable setting.");
+                AssertEx.True(condition.Settings[FlowSettingNames.LeftBinding].Selector.Path.SequenceEqual(new[] { "set_result", "Value" }),
+                    "The built-in sample should select set_result.Value without a legacy expression string.");
             });
             return Task.FromResult(0);
         }
@@ -505,8 +600,8 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "Message", "hello" },
-                    { "Enabled", true }
+                    { "Message", NodeSettingValue.ForConstant("hello") },
+                    { "Enabled", NodeSettingValue.ForConstant(true) }
                 }
             };
         }
@@ -524,7 +619,9 @@ namespace Vision.Flow.Tests
             {
                 Name = "Message",
                 DisplayName = "Message",
-                DataType = FlowDataType.String
+                DataType = FlowDataType.String,
+                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
             });
             descriptor.Settings.Add(new NodeSettingDescriptor
             {

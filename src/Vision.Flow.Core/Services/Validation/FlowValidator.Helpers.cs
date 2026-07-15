@@ -13,14 +13,8 @@ namespace Vision.Flow.Core.Services.Validation
     {
         private static bool HasConfiguredValue(NodeDefinition node, string settingName)
         {
-            object value;
-            if (TryGetIgnoreCase(node.Settings, settingName, out value) && !IsValueMissing(value))
-            {
-                return true;
-            }
-
-            VariableBinding binding;
-            return TryGetIgnoreCase(node.InputBindings, settingName, out binding) && !IsBindingMissing(binding);
+            NodeSettingValue value;
+            return TryGetIgnoreCase(node.Settings, settingName, out value) && !IsValueMissing(value);
         }
 
         private static bool IsValueMissing(object value)
@@ -36,10 +30,15 @@ namespace Vision.Flow.Core.Services.Validation
                 return string.IsNullOrWhiteSpace(text);
             }
 
-            var binding = value as VariableBinding;
-            if (binding != null)
+            var setting = value as NodeSettingValue;
+            if (setting != null)
             {
-                return IsBindingMissing(binding);
+                if (setting.Mode == NodeSettingValueMode.Variable)
+                {
+                    return setting.Selector == null || setting.Selector.Path == null || setting.Selector.Path.Count == 0;
+                }
+
+                return IsValueMissing(setting.ConstantValue);
             }
 
             var dictionary = value as IDictionary;
@@ -60,26 +59,6 @@ namespace Vision.Flow.Core.Services.Validation
             }
 
             return false;
-        }
-
-        private static bool IsBindingMissing(VariableBinding binding)
-        {
-            if (binding == null)
-            {
-                return true;
-            }
-
-            if (binding.IsConstant)
-            {
-                return IsValueMissing(binding.ConstantValue);
-            }
-
-            if (!string.IsNullOrWhiteSpace(binding.SourceNodeId) && !string.IsNullOrWhiteSpace(binding.SourceOutputName))
-            {
-                return false;
-            }
-
-            return string.IsNullOrWhiteSpace(binding.Expression);
         }
 
         private static bool ContainsPort(IList<NodePortDescriptor> ports, string portName)
@@ -115,51 +94,16 @@ namespace Vision.Flow.Core.Services.Validation
             return false;
         }
 
-        private static bool LooksLikeTemplateBinding(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
-            }
-
-            var trimmed = value.Trim();
-            return trimmed.StartsWith("{{", StringComparison.Ordinal) && trimmed.EndsWith("}}", StringComparison.Ordinal);
-        }
-
-        private static bool IsTokenBindingExpression(string value)
-        {
-            if (!LooksLikeTemplateBinding(value))
-            {
-                return false;
-            }
-
-            var trimmed = value.Trim();
-            trimmed = trimmed.Substring(2, trimmed.Length - 4).Trim();
-            return trimmed.StartsWith("token.", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool LooksLikeBindingField(string field)
-        {
-            if (string.IsNullOrWhiteSpace(field))
-            {
-                return false;
-            }
-
-            return field.EndsWith(".ValueBinding", StringComparison.OrdinalIgnoreCase) ||
-                field.EndsWith(".Binding", StringComparison.OrdinalIgnoreCase) ||
-                field.EndsWith(".Expression", StringComparison.OrdinalIgnoreCase);
-        }
-
         private static bool HasSetting(NodeDefinition node, string name)
         {
-            object value;
+            NodeSettingValue value;
             return node != null && TryGetIgnoreCase(node.Settings, name, out value);
         }
 
         private static string GetSettingString(NodeDefinition node, string name, string defaultValue)
         {
             object value;
-            if (!TryGetIgnoreCase(node.Settings, name, out value) || value == null)
+            if (!TryGetConstantSettingValue(node, name, out value) || value == null)
             {
                 return defaultValue;
             }
@@ -222,7 +166,7 @@ namespace Vision.Flow.Core.Services.Validation
             string field)
         {
             object rawValue;
-            if (!TryGetIgnoreCase(node.Settings, name, out rawValue) || rawValue == null)
+            if (!TryGetConstantSettingValue(node, name, out rawValue) || rawValue == null)
             {
                 value = defaultValue;
                 return true;
@@ -249,7 +193,7 @@ namespace Vision.Flow.Core.Services.Validation
             string field)
         {
             object rawValue;
-            if (!TryGetIgnoreCase(node.Settings, name, out rawValue) || rawValue == null)
+            if (!TryGetConstantSettingValue(node, name, out rawValue) || rawValue == null)
             {
                 value = false;
                 return true;
@@ -279,6 +223,20 @@ namespace Vision.Flow.Core.Services.Validation
             }
 
             return false;
+        }
+
+        private static bool TryGetConstantSettingValue(NodeDefinition node, string name, out object value)
+        {
+            value = null;
+            NodeSettingValue setting;
+            if (node == null || !TryGetIgnoreCase(node.Settings, name, out setting) || setting == null ||
+                setting.Mode != NodeSettingValueMode.Constant)
+            {
+                return false;
+            }
+
+            value = setting.ConstantValue;
+            return true;
         }
 
         private static bool IsSimpleValue(object value)

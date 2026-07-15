@@ -32,7 +32,7 @@ namespace Vision.Flow.Core.Runtime.State
 
         public VariablePool()
         {
-            _values = new Dictionary<string, object>(StringComparer.Ordinal);
+            _values = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         }
 
         public void Set(string name, object value)
@@ -95,7 +95,7 @@ namespace Vision.Flow.Core.Runtime.State
         {
             lock (_gate)
             {
-                return new Dictionary<string, object>(_values, StringComparer.Ordinal);
+                return new Dictionary<string, object>(_values, StringComparer.OrdinalIgnoreCase);
             }
         }
 

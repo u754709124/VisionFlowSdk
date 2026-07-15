@@ -32,10 +32,19 @@ namespace Vision.Flow.Nodes
 
         protected static object GetSetting(NodeDefinition definition, string name, object defaultValue)
         {
-            object value;
-            if (definition.Settings != null && definition.Settings.TryGetValue(name, out value))
+            NodeSettingValue value;
+            if (definition.Settings != null)
             {
-                return value;
+                foreach (var item in definition.Settings)
+                {
+                    if (string.Equals(item.Key, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        value = item.Value;
+                        return value != null && value.Mode == NodeSettingValueMode.Constant
+                            ? value.ConstantValue
+                            : defaultValue;
+                    }
+                }
             }
 
             return defaultValue;

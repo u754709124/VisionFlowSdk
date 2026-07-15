@@ -77,6 +77,7 @@ namespace Vision.Flow.Core.Runtime.Execution
             Devices = devices ?? EmptyDeviceRegistry.Instance;
             Continuations = continuations ?? NullFlowContinuationDispatcher.Instance;
             FlowRunId = flowRunId;
+            SettingValueResolver = DefaultSettingValueResolver.Instance;
         }
 
         public RuntimeFlowDefinition Flow { get; private set; }
@@ -95,52 +96,57 @@ namespace Vision.Flow.Core.Runtime.Execution
 
         public string FlowRunId { get; private set; }
 
-        public object GetInputValue(string inputName)
+        public ISettingValueResolver SettingValueResolver { get; private set; }
+
+        public object GetSettingValue(string settingName)
         {
-            if (string.IsNullOrWhiteSpace(inputName))
+            if (string.IsNullOrWhiteSpace(settingName))
             {
-                throw new ArgumentException("Input name is required.", "inputName");
+                throw new ArgumentException("Setting name is required.", "settingName");
             }
 
-            VariableBinding binding;
-            if (Node.InputBindings != null && Node.InputBindings.TryGetValue(inputName, out binding))
-            {
-                return ResolveBinding(binding);
-            }
-
-            object settingValue;
-            if (Node.Settings != null && Node.Settings.TryGetValue(inputName, out settingValue))
-            {
-                return settingValue;
-            }
-
-            return null;
-        }
-
-        public T GetInputValue<T>(string inputName)
-        {
-            return ConvertValue<T>(GetInputValue(inputName), inputName);
-        }
-
-        public object ResolveBinding(VariableBinding binding)
-        {
-            if (binding == null)
+            NodeSettingValue setting;
+            if (!TryGetSettingValue(settingName, out setting) || setting == null)
             {
                 return null;
             }
 
-            if (binding.IsConstant)
+            if (setting.Mode == NodeSettingValueMode.Constant)
             {
-                return binding.ConstantValue;
+                return setting.ConstantValue;
             }
 
-            var variableName = binding.GetVariableName();
-            if (string.IsNullOrWhiteSpace(variableName))
+            if (setting.Mode != NodeSettingValueMode.Variable || setting.Selector == null)
             {
-                throw new InvalidOperationException("Variable binding does not contain a valid variable path.");
+                throw new InvalidOperationException("Setting '" + settingName + "' does not contain a valid variable selector.");
             }
 
-            return Variables.Get(variableName);
+            return SettingValueResolver.Resolve(setting.Selector, this);
+        }
+
+        public T GetSettingValue<T>(string settingName)
+        {
+            return ConvertValue<T>(GetSettingValue(settingName), settingName);
+        }
+
+        private bool TryGetSettingValue(string settingName, out NodeSettingValue setting)
+        {
+            setting = null;
+            if (Node.Settings == null)
+            {
+                return false;
+            }
+
+            foreach (var item in Node.Settings)
+            {
+                if (string.Equals(item.Key, settingName, StringComparison.OrdinalIgnoreCase))
+                {
+                    setting = item.Value;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static T ConvertValue<T>(object value, string name)

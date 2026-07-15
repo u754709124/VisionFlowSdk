@@ -13,8 +13,8 @@ namespace Vision.Flow.Core.Runtime.State
         {
             TokenId = Guid.NewGuid().ToString("N");
             CreatedAtUtc = DateTime.UtcNow;
-            Metadata = new Dictionary<string, object>();
-            Values = new Dictionary<string, object>();
+            Metadata = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            Values = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>

@@ -14,6 +14,12 @@ namespace Vision.Flow.Core.Services.Serialization
                 throw new ArgumentNullException("document");
             }
 
+            FlowSchema.EnsureSupported(document.SchemaVersion);
+            if (document.Runtime != null)
+            {
+                FlowSchema.EnsureSupported(document.Runtime.SchemaVersion);
+            }
+
             return CreateSerializer().Serialize(FlowSerializationMapper.ToSerializableDesignDocument(document));
         }
 

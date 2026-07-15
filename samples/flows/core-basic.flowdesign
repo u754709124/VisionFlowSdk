@@ -1,11 +1,11 @@
 {
   "flowId": "core-basic",
   "flowName": "Core Basic Demo",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "runtime": {
     "flowId": "core-basic",
     "flowName": "Core Basic Demo",
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "version": "1.0.0",
     "nodes": [
       {
@@ -14,10 +14,9 @@
         "name": "设置检测结果",
         "version": "1.0.0",
         "settings": {
-          "VariableName": "Inspection.Result",
-          "Value": "OK"
-        },
-        "inputBindings": {}
+          "VariableName": { "Mode": "Constant", "ConstantValue": "Inspection.Result", "Selector": null },
+          "Value": { "Mode": "Constant", "ConstantValue": "OK", "Selector": null }
+        }
       },
       {
         "id": "condition_1",
@@ -25,11 +24,10 @@
         "name": "判断检测结果",
         "version": "1.0.0",
         "settings": {
-          "LeftBinding": "{{ set_result.Value }}",
-          "Operator": "Equal",
-          "RightValue": "OK"
-        },
-        "inputBindings": {}
+          "LeftBinding": { "Mode": "Variable", "ConstantValue": null, "Selector": { "Scope": "NodeOutput", "Path": ["set_result", "Value"] } },
+          "Operator": { "Mode": "Constant", "ConstantValue": "Equal", "Selector": null },
+          "RightValue": { "Mode": "Constant", "ConstantValue": "OK", "Selector": null }
+        }
       },
       {
         "id": "log_ok",
@@ -37,10 +35,9 @@
         "name": "记录合格结果",
         "version": "1.0.0",
         "settings": {
-          "Level": "Info",
-          "Message": "Inspection result is OK."
-        },
-        "inputBindings": {}
+          "Level": { "Mode": "Constant", "ConstantValue": "Info", "Selector": null },
+          "Message": { "Mode": "Constant", "ConstantValue": "Inspection result is OK.", "Selector": null }
+        }
       },
       {
         "id": "log_ng",
@@ -48,37 +45,18 @@
         "name": "记录不合格结果",
         "version": "1.0.0",
         "settings": {
-          "Level": "Warning",
-          "Message": "Inspection result is not OK."
-        },
-        "inputBindings": {}
+          "Level": { "Mode": "Constant", "ConstantValue": "Warning", "Selector": null },
+          "Message": { "Mode": "Constant", "ConstantValue": "Inspection result is not OK.", "Selector": null }
+        }
       }
     ],
     "edges": [
-      {
-        "fromNodeId": "set_result",
-        "fromPort": "Next",
-        "toNodeId": "condition_1",
-        "toPort": "In"
-      },
-      {
-        "fromNodeId": "condition_1",
-        "fromPort": "True",
-        "toNodeId": "log_ok",
-        "toPort": "In"
-      },
-      {
-        "fromNodeId": "condition_1",
-        "fromPort": "False",
-        "toNodeId": "log_ng",
-        "toPort": "In"
-      }
+      { "fromNodeId": "set_result", "fromPort": "Next", "toNodeId": "condition_1", "toPort": "In" },
+      { "fromNodeId": "condition_1", "fromPort": "True", "toNodeId": "log_ok", "toPort": "In" },
+      { "fromNodeId": "condition_1", "fromPort": "False", "toNodeId": "log_ng", "toPort": "In" }
     ],
     "entries": [
-      {
-        "entryName": "ManualStart",
-        "targetNodeId": "set_result"
-      }
+      { "entryName": "ManualStart", "targetNodeId": "set_result" }
     ]
   },
   "view": {
@@ -88,26 +66,10 @@
     "canvasWidth": 2200.0,
     "canvasHeight": 1400.0,
     "nodes": {
-      "set_result": {
-        "x": 80.0,
-        "y": 120.0,
-        "isCollapsed": false
-      },
-      "condition_1": {
-        "x": 380.0,
-        "y": 120.0,
-        "isCollapsed": false
-      },
-      "log_ok": {
-        "x": 700.0,
-        "y": 40.0,
-        "isCollapsed": false
-      },
-      "log_ng": {
-        "x": 700.0,
-        "y": 220.0,
-        "isCollapsed": false
-      }
+      "set_result": { "x": 80.0, "y": 120.0, "isCollapsed": false },
+      "condition_1": { "x": 380.0, "y": 120.0, "isCollapsed": false },
+      "log_ok": { "x": 700.0, "y": 40.0, "isCollapsed": false },
+      "log_ng": { "x": 700.0, "y": 220.0, "isCollapsed": false }
     }
   }
 }

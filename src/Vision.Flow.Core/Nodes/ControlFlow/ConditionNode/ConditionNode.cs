@@ -24,20 +24,18 @@ namespace Vision.Flow.Nodes
 
             try
             {
-                var leftBinding = ControlFlowNodeHelpers.ResolveString(context, FlowSettingNames.LeftBinding, _config.LeftBinding);
-                if (string.IsNullOrWhiteSpace(leftBinding))
+                var left = ControlFlowNodeHelpers.ResolveObject(context, FlowSettingNames.LeftBinding, _config.LeftBinding);
+                if (left == null)
                 {
-                    return Task.FromResult(NodeExecutionResult.Failure("LeftBinding is required."));
+                    return Task.FromResult(NodeExecutionResult.Failure("Left value is required."));
                 }
 
                 var operatorName = ResolveOperator(context, _config.Operator);
                 var operatorText = FlowEnumConverter.ToWireValue(operatorName);
 
-                var left = ControlFlowNodeHelpers.ResolveBindingExpression(context, leftBinding);
-                var rightBinding = ControlFlowNodeHelpers.ResolveString(context, FlowSettingNames.RightBinding, _config.RightBinding);
-                var right = string.IsNullOrWhiteSpace(rightBinding)
-                    ? ControlFlowNodeHelpers.ResolveObject(context, FlowSettingNames.RightValue, _config.RightValue)
-                    : ControlFlowNodeHelpers.ResolveBindingExpression(context, rightBinding);
+                var right = context.Node.Settings != null && context.Node.Settings.ContainsKey(FlowSettingNames.RightBinding)
+                    ? ControlFlowNodeHelpers.ResolveObject(context, FlowSettingNames.RightBinding, _config.RightBinding)
+                    : ControlFlowNodeHelpers.ResolveObject(context, FlowSettingNames.RightValue, _config.RightValue);
 
                 var isMatched = Evaluate(left, operatorName, right);
                 return Task.FromResult(
@@ -60,7 +58,7 @@ namespace Vision.Flow.Nodes
 
         private static ConditionOperator ResolveOperator(FlowExecutionContext context, ConditionOperator defaultValue)
         {
-            var value = context.GetInputValue(FlowSettingNames.Operator);
+            var value = context.GetSettingValue(FlowSettingNames.Operator);
             return FlowEnumConverter.ParseOrDefault(value, defaultValue);
         }
 

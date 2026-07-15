@@ -7,7 +7,7 @@ namespace Vision.Flow.Core.Domain.Flows
     {
         public FlowDesignDocument()
         {
-            SchemaVersion = 1;
+            SchemaVersion = FlowSchema.CurrentVersion;
             Runtime = new RuntimeFlowDefinition();
             View = new FlowViewState();
         }

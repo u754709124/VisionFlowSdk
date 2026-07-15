@@ -56,8 +56,7 @@ namespace Vision.Flow.Core.Services.Serialization
                     { "Type", node.Type },
                     { "Name", node.Name },
                     { "Version", node.Version },
-                    { "Settings", NormalizeObject(node.Settings) },
-                    { "InputBindings", ToSerializableBindings(node.InputBindings) }
+                    { "Settings", ToSerializableSettings(node.Settings) }
                 });
             }
 
@@ -116,40 +115,6 @@ namespace Vision.Flow.Core.Services.Serialization
             }
 
             return result;
-        }
-
-        private static object ToSerializableBindings(IDictionary<string, VariableBinding> bindings)
-        {
-            var result = new Dictionary<string, object>();
-            if (bindings == null)
-            {
-                return result;
-            }
-
-            foreach (var item in bindings)
-            {
-                result[item.Key] = ToSerializableBinding(item.Value);
-            }
-
-            return result;
-        }
-
-        private static object ToSerializableBinding(VariableBinding binding)
-        {
-            if (binding == null)
-            {
-                return null;
-            }
-
-            return new Dictionary<string, object>
-            {
-                { "Expression", binding.Expression },
-                { "SourceNodeId", binding.SourceNodeId },
-                { "SourceOutputName", binding.SourceOutputName },
-                { "ConstantValue", NormalizeObject(binding.ConstantValue) },
-                { "ValueType", binding.ValueType },
-                { "IsConstant", binding.IsConstant }
-            };
         }
 
         private static object ToSerializableView(FlowViewState view)

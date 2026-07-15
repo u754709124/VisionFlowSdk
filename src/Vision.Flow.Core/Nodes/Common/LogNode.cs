@@ -98,13 +98,13 @@ namespace Vision.Flow.Nodes
 
         private static string ResolveString(FlowExecutionContext context, string name, string defaultValue)
         {
-            var value = context.GetInputValue(name);
+            var value = context.GetSettingValue(name);
             return value == null ? defaultValue : Convert.ToString(value);
         }
 
         private static FlowLogLevel ResolveEnum(FlowExecutionContext context, string name, FlowLogLevel defaultValue)
         {
-            var value = context.GetInputValue(name);
+            var value = context.GetSettingValue(name);
             return FlowEnumConverter.ParseOrDefault(value, defaultValue);
         }
     }
@@ -152,7 +152,10 @@ namespace Vision.Flow.Nodes
                         DataType = FlowDataType.String,
                         DefaultValue = FlowEnumConverter.ToWireValue(FlowLogLevel.Info),
                         IsRequired = false,
-                        Description = "Log level, such as Info, Warning, or Error."
+                        Description = "Log level, such as Info, Warning, or Error.",
+                        BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                        EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
                     },
                     new NodeSettingDescriptor
                     {
@@ -161,7 +164,10 @@ namespace Vision.Flow.Nodes
                         DataType = FlowDataType.String,
                         DefaultValue = string.Empty,
                         IsRequired = false,
-                        Description = "Message to publish."
+                        Description = "Message to publish.",
+                        BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                        EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
                     }
                 },
                 Outputs =

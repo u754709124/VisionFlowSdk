@@ -814,6 +814,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             AddDebugMessage("Connected " + _connectionSourceNode.Id + "." + _connectionSourcePort + " -> " + targetNode.Id + "." + targetPort + ".");
             CancelConnectionPreview();
             RenderCanvas();
+            RenderProperties();
         }
 
         private PortHit FindInputPortNear(Point point)

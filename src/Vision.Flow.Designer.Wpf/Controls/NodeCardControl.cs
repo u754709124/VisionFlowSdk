@@ -226,30 +226,20 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 new KeyValuePair<string, string>("TYPE", ShortNodeType(ViewModel.Node.Type))
             };
 
-            if (ViewModel.Node.InputBindings != null)
-            {
-                foreach (var binding in ViewModel.Node.InputBindings)
-                {
-                    if (binding.Value == null || string.IsNullOrWhiteSpace(binding.Value.Expression))
-                    {
-                        continue;
-                    }
-
-                    rows.Add(new KeyValuePair<string, string>(binding.Key, ToShortText(binding.Value.Expression)));
-                    break;
-                }
-            }
-
             if (rows.Count < 3 && ViewModel.Node.Settings != null)
             {
                 foreach (var setting in ViewModel.Node.Settings)
                 {
-                    if (setting.Value == null)
+                    if (setting.Value == null ||
+                        setting.Value.Mode != NodeSettingValueMode.Variable ||
+                        setting.Value.Selector == null)
                     {
                         continue;
                     }
 
-                    rows.Add(new KeyValuePair<string, string>(setting.Key, ToShortText(setting.Value)));
+                    rows.Add(new KeyValuePair<string, string>(
+                        setting.Key,
+                        ToShortText(VariableSelectionOption.FormatSelector(setting.Value.Selector))));
                     if (rows.Count >= 3)
                     {
                         break;

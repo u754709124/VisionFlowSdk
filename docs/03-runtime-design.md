@@ -58,6 +58,9 @@ condition.if
 - `IDeviceRegistry`
 - `IFlowContinuationDispatcher`
 - `IFlowEventSink`
+- `ISettingValueResolver`
+
+节点在 `ExecuteAsync` 中通过 `GetSettingValue(name)` 或 `GetSettingValue<T>(name)` 获取配置。常量模式直接返回 `ConstantValue`；变量模式由 `ISettingValueResolver` 根据结构化 `VariableSelector` 从上游节点输出变量池或当前 Token 解析。运行时不再提供 `GetInputValue`，控制端口不参与配置取值。
 
 `FlowListenerContext` 携带监听节点启动所需的 `IDeviceRegistry`、`IFlowContinuationDispatcher` 和 `IFlowEventSink`，不承载单次 Token 变量状态。
 

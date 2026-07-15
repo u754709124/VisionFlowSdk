@@ -26,7 +26,7 @@ namespace Vision.Flow.Nodes
                 },
                 Settings =
                 {
-                    CreateStringSetting(FlowSettingNames.JoinKeyBinding, "Join Key Binding", null, true, "Expression used to resolve the join key, for example {{ token.PositionId }}."),
+                    CreateStringSetting(FlowSettingNames.JoinKeyBinding, "Join Key", null, true, "Join key value or variable selector."),
                     CreateIntSetting(FlowSettingNames.ExpectedInputCount, "Expected Inputs", 2, true, "Number of inputs required for the join key."),
                     CreateIntSetting(FlowSettingNames.TimeoutMs, "Timeout (ms)", 0, false, "Reserved timeout. Zero disables timeout handling."),
                     CreateStringSetting(FlowSettingNames.DuplicatePolicy, "Duplicate Policy", FlowEnumConverter.ToWireValue(FlowDuplicatePolicy.Ignore), true, "Ignore, Replace, or Error when the same token arrives twice.")
@@ -64,7 +64,10 @@ namespace Vision.Flow.Nodes
                 DataType = FlowDataType.String,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
-                Description = description
+                Description = description,
+                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
             };
         }
 
@@ -77,7 +80,10 @@ namespace Vision.Flow.Nodes
                 DataType = FlowDataType.Int32,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
-                Description = description
+                Description = description,
+                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
             };
         }
 

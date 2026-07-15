@@ -85,7 +85,7 @@ namespace Vision.Flow.Nodes
 
         private int ResolveDelayMs(FlowExecutionContext context)
         {
-            var value = context.GetInputValue(FlowSettingNames.DelayMs);
+            var value = context.GetSettingValue(FlowSettingNames.DelayMs);
             if (value == null)
             {
                 return _config.DelayMs;
@@ -146,7 +146,10 @@ namespace Vision.Flow.Nodes
                         DataType = FlowDataType.Int32,
                         DefaultValue = 0,
                         IsRequired = true,
-                        Description = "Delay duration in milliseconds."
+                        Description = "Delay duration in milliseconds.",
+                        BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                        EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                        AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.Token
                     }
                 },
                 Outputs =

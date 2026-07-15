@@ -47,6 +47,11 @@ namespace Vision.Flow.Core.Services.Validation
                 return result;
             }
 
+            if (definition.SchemaVersion != FlowSchema.CurrentVersion)
+            {
+                result.AddError(FlowValidationIssueCodes.SchemaVersionUnsupported, "SchemaVersion must be " + FlowSchema.CurrentVersion + ".", field: "SchemaVersion");
+            }
+
             if (string.IsNullOrWhiteSpace(definition.FlowId))
             {
                 result.AddError(FlowValidationIssueCodes.FlowIdMissing, "FlowId is required.", field: "FlowId");
@@ -64,7 +69,7 @@ namespace Vision.Flow.Core.Services.Validation
             ValidateEdges(definition.Edges ?? new List<EdgeDefinition>(), nodeMap, descriptorsByNodeId, result);
             ValidateEntries(definition.Entries ?? new List<FlowEntryDefinition>(), nodeMap, result);
             ValidateRequiredSettings(nodes, descriptorsByNodeId, result);
-            ValidateVariableBindings(nodes, nodeMap, descriptorsByNodeId, result);
+            ValidateSettingValues(nodes, definition.Edges ?? new List<EdgeDefinition>(), nodeMap, descriptorsByNodeId, result);
             ValidateNoDesignerState(definition, result);
             ValidateNodeSpecificRules(nodes, result);
 
