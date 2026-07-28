@@ -22,6 +22,15 @@ namespace Vision.Flow.Core.Domain.Nodes
         public NodeSettingEvaluationPhase EvaluationPhase { get; set; }
 
         public VariableSelectorScopeFlags AllowedVariableSources { get; set; }
+
+        /// <summary>
+        /// 指示常量值变化后是否需要重新解析节点实例 Descriptor。
+        /// </summary>
+        /// <remarks>
+        /// 该值属于设计器元数据，不写入 .flowdesign 或 .flowruntime。
+        /// 影响 Descriptor 的配置项必须同时使用 ConstantOnly。
+        /// </remarks>
+        public bool AffectsDescriptor { get; set; }
     }
 
     /// <summary>

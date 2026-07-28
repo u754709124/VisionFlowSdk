@@ -16,6 +16,7 @@ namespace Vision.Flow.Core.Services.Validation
         public const string NodeTypeMissing = "NodeTypeMissing";
         public const string NodeTypeNotRegistered = "NodeTypeNotRegistered";
         public const string NodeDescriptorMissing = "NodeDescriptorMissing";
+        public const string NodeDescriptorResolutionFailed = "NodeDescriptorResolutionFailed";
         public const string NodeDescriptorTypeMissing = "NodeDescriptorTypeMissing";
         public const string NodeDescriptorTypeMismatch = "NodeDescriptorTypeMismatch";
         public const string NodeExecutionPolicyInvalid = "NodeExecutionPolicyInvalid";

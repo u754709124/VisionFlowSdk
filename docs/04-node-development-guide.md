@@ -91,6 +91,7 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 - `BindingMode`：`ConstantOnly` 或 `ConstantOrVariable`
 - `EvaluationPhase`：`Execution` 或 `ListenerStart`
 - `AllowedVariableSources`：允许的 NodeOutput、Token、TriggerInput 范围
+- `AffectsDescriptor`：该常量变化后是否需要重新解析实例 Descriptor
 
 执行期配置在节点中统一读取：
 
@@ -99,6 +100,31 @@ var timeoutMs = context.GetSettingValue<int>("TimeoutMs");
 ```
 
 不要为控制输入端口创建变量绑定。节点输出通过 `VariableSelector.ForNodeOutput(nodeId, outputName)` 绑定到具体配置项。
+
+## 动态 Descriptor
+
+端口、命令参数或输出会随节点设置变化时，Factory 保持实现 `INodeFactory`，并额外实现可选接口：
+
+```csharp
+public sealed class CommandNodeFactory :
+    INodeFactory,
+    IInstanceNodeDescriptorProvider
+{
+    public NodeDescriptor Descriptor
+    {
+        get { return CreatePaletteDescriptor(); }
+    }
+
+    public NodeDescriptor GetDescriptor(NodeDefinition definition)
+    {
+        return CreateCommandDescriptor(definition);
+    }
+}
+```
+
+静态 `Descriptor` 是节点库和新建节点的基础契约，必须包含用于选择实例形状的设置及默认值；`NodeRegistry.ResolveDescriptor(definition)` 才返回节点实例当前生效的契约。影响实例契约的设置必须设为 `AffectsDescriptor = true`、`BindingMode = ConstantOnly`，不得依赖运行时变量决定端口或输出。
+
+实例 Descriptor 不持久化。Factory 必须只根据 `NodeDefinition` 和稳定项目元数据确定性生成结果，并保持 `NodeType` 与注册值一致。解析失败会由 `FlowValidator` 报告为 `NodeDescriptorResolutionFailed`；普通 Factory 无需修改，会自动回退静态 `Descriptor`。
 
 ## NodeExecutionPolicy 协议
 
@@ -142,6 +168,8 @@ Schema v2 的每个节点在 `.flowdesign` 和 `.flowruntime` 中都必须按下
 - 数值范围或枚举值无效时返回 `NodeExecutionPolicyInvalid`。
 - `FailureStrategy = ErrorBranch` 时，Descriptor 必须声明名称为 `Error`、方向为 Output、类型为 `Control` 的端口；否则返回 `NodeErrorPortMissing`。
 - `FailureStrategy = DefaultOutputs` 时，字典必须覆盖 `NodeDescriptor.Outputs` 声明的全部输出，不能包含未声明键，并且每个非空值必须能转换到对应 `FlowDataType`；否则返回 `NodeDefaultOutputInvalid`。
+
+以上端口、必填设置、变量输出和默认输出校验均使用节点实例解析后的 Descriptor。切换动态命令后，已经不存在的下游输出绑定不会被静默改写，发布校验会返回相应的 `VariableOutputMissing`。
 
 发布服务会深拷贝策略及默认输出。输入策略、重试策略或默认输出字典为 `null` 时均回落到模型默认值，运行态文件不依赖 Designer 对象。
 

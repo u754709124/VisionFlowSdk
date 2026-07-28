@@ -74,7 +74,21 @@ namespace Vision.Flow.Core.Services.Validation
                     continue;
                 }
 
-                var descriptor = factory.Descriptor;
+                NodeDescriptor descriptor;
+                try
+                {
+                    descriptor = _nodeRegistry.ResolveDescriptor(node);
+                }
+                catch (Exception ex)
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.NodeDescriptorResolutionFailed,
+                        "Node descriptor resolution failed. Node=" + node.Id + ", Type=" + node.Type + ", Error=" + ex.Message,
+                        nodeId: node.Id,
+                        field: "Nodes[" + index + "].Settings");
+                    continue;
+                }
+
                 if (descriptor == null)
                 {
                     result.AddError(

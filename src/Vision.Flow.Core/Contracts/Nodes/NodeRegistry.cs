@@ -65,6 +65,27 @@ namespace Vision.Flow.Core.Contracts.Nodes
             return factory;
         }
 
+        /// <summary>
+        /// 解析指定节点实例当前生效的描述符。
+        /// </summary>
+        /// <remarks>
+        /// 动态工厂通过 <see cref="IInstanceNodeDescriptorProvider"/> 返回实例描述符；
+        /// 未实现扩展契约的工厂继续返回静态 Descriptor，保持现有节点兼容。
+        /// </remarks>
+        public NodeDescriptor ResolveDescriptor(NodeDefinition definition)
+        {
+            if (definition == null)
+            {
+                throw new ArgumentNullException("definition");
+            }
+
+            var factory = GetFactory(definition.Type);
+            var provider = factory as IInstanceNodeDescriptorProvider;
+            return provider == null
+                ? factory.Descriptor
+                : provider.GetDescriptor(definition);
+        }
+
         public IFlowNode CreateNode(NodeDefinition definition)
         {
             if (definition == null)

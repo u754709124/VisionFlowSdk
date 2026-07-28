@@ -112,5 +112,6 @@ core-basic.flowruntime
 
 - 使用 Core Adapter 契约或项目自己的兼容契约访问上位机能力。
 - 自行定义 NodeType、Descriptor、Config 和测试。
+- 实例端口、设置或输出会随命令变化时，实现 `IInstanceNodeDescriptorProvider`，并通过 `NodeRegistry.ResolveDescriptor(NodeDefinition)` 使用实例契约；静态 Descriptor 继续作为节点库契约。
 - 对长耗时任务使用异步任务、有界队列和取消令牌。
 - 在发布前通过 `FlowValidator` 和项目专属测试验证。

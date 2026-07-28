@@ -43,6 +43,8 @@
 }
 ```
 
+节点的端口、配置项和输出定义仍由注册工厂的 Descriptor 提供，不写入流程文件。动态节点可以把命令、模式等稳定选择保存为普通 `NodeSettingValue`，再由工厂根据反序列化后的 `NodeDefinition` 重新生成实例 Descriptor。`AffectsDescriptor` 等 Descriptor 元数据不进入 `.flowdesign` 或 `.flowruntime`，Schema 版本仍为 v2。
+
 选择器范围：
 
 - `NodeOutput`：Path 前两段为上游节点 ID 和输出名，后续段用于访问对象、字典或列表的子路径。
@@ -133,5 +135,7 @@
 `FlowPublishService.PublishToFile(document, path)` 是设计态文件落盘为生产运行文件的统一入口：它先按 Schema v2 创建独立运行态快照并完成全部校验，仅在校验成功后写入扩展名为 `.flowruntime` 的目标文件。校验失败时返回 `FlowPublishResult.Validation`，不会创建新文件，也不会覆盖已有运行文件。`FlowPublishResult.Runtime` 与输入设计文档不共享节点、配置值、变量选择器、执行策略或集合等可变对象。
 
 变量输出按 `NodeId.OutputName` 写入运行时变量池。NodeOutput 选择器只能引用控制流拓扑中的前置节点输出；TriggerInput 选择器只能引用可达入口声明的输入；`Control` 类型不能绑定到配置项。类型兼容规则由 `FlowDataTypeCompatibility` 统一提供给 Validator 和 Designer。
+
+`FlowValidator` 按每个 `NodeDefinition` 解析当前实例 Descriptor，再校验必填配置、端口、输出绑定和 `DefaultOutputs`。动态 Descriptor 解析失败时返回 `NodeDescriptorResolutionFailed`，不会把提供程序异常直接抛出到发布调用方。
 
 固定策略值继续使用枚举公共 API，并在 JSON 的 `ConstantValue` 中序列化为稳定字符串，例如 `Equal`、`Ignore`、`Warning`。
