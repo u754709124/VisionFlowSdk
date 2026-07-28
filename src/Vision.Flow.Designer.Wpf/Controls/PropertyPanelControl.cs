@@ -32,6 +32,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private Action _changed;
         private IList<VariableSelectionOption> _variableOptions;
         private bool _isReadOnly;
+        private bool _hasPendingChanges;
         private string _renderedNodeId;
         private NodeDefinition _currentNode;
         private NodeDescriptor _currentDescriptor;
@@ -278,6 +279,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (_executionPolicyPanel == null)
             {
                 _executionPolicyPanel = new NodeExecutionPolicyPanelControl();
+                _executionPolicyPanel.ValidationStateChanged += RefreshActionButtonState;
             }
             _executionPolicyPanel.ShowPolicy(node, descriptor, RaiseChanged, _isReadOnly);
             _rows.Children.Add(CreateSectionCard("执行策略", _executionPolicyPanel, true));
@@ -686,6 +688,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void RaiseChanged()
         {
+            RefreshActionButtonState();
             if (_changed != null)
             {
                 _changed();
@@ -789,13 +792,24 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         public void SetPendingState(bool hasPending, bool isReadOnly)
         {
-            _applyButton.IsEnabled = hasPending && !isReadOnly && _currentNode != null;
+            _hasPendingChanges = hasPending;
+            _isReadOnly = isReadOnly;
+            RefreshActionButtonState();
             _resetButton.IsEnabled = hasPending && !isReadOnly && _currentNode != null;
             _applyButton.Visibility = isReadOnly ? Visibility.Collapsed : Visibility.Visible;
             _resetButton.Visibility = isReadOnly ? Visibility.Collapsed : Visibility.Visible;
             _readOnlyHint.Visibility = isReadOnly && _currentNode != null
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        }
+
+        private void RefreshActionButtonState()
+        {
+            _applyButton.IsEnabled =
+                _hasPendingChanges &&
+                !_isReadOnly &&
+                _currentNode != null &&
+                !HasEditorErrors;
         }
 
         public void ShowValidationError(string error)
@@ -824,6 +838,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 _executionPolicyPanel.ResetEditorState();
             }
             ShowValidationError(null);
+            RefreshActionButtonState();
         }
 
         public void UpdateNodeName(string name)
@@ -905,6 +920,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 editor.BorderBrush = FlowDesignerControl.BrushFromRgb(209, 67, 67);
                 editor.ToolTip = error;
             }
+
+            RefreshActionButtonState();
         }
 
         private void ClearEditorError(string key, Control editor)
@@ -927,6 +944,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 editor.ClearValue(Control.BorderBrushProperty);
                 editor.ToolTip = null;
             }
+
+            RefreshActionButtonState();
         }
 
         private void FocusFirstEditorError()

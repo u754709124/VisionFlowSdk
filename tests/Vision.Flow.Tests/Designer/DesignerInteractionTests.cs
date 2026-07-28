@@ -1101,6 +1101,129 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task PropertyDraftApplyButtonTracksValidationState()
+        {
+            RunOnSta(delegate
+            {
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false
+                });
+                control.LoadDocumentAsync(CreateDelayDocument("apply-state-node", "延时", 30))
+                    .GetAwaiter().GetResult();
+
+                var applyButton = FindChildren<Button>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "PropertyApply",
+                        StringComparison.Ordinal));
+                var timeoutEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.TimeoutMs",
+                        StringComparison.Ordinal));
+
+                AssertEx.False(applyButton.IsEnabled,
+                    "Apply should be disabled while the selected node draft is clean.");
+
+                timeoutEditor.Text = "abc";
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "Invalid execution-policy text should count as a pending property change.");
+                AssertEx.False(applyButton.IsEnabled,
+                    "Apply should be disabled immediately while an execution-policy editor has an error.");
+
+                timeoutEditor.Text = "250";
+                AssertEx.True(applyButton.IsEnabled,
+                    "Apply should be re-enabled immediately after the editor becomes valid and the draft remains dirty.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PropertyPanelLayoutKeepsFieldsAndFooterSeparated()
+        {
+            RunOnSta(delegate
+            {
+                var panel = new PropertyPanelControl();
+                var node = CreateNode();
+                var descriptor = CreateDescriptor();
+                panel.ShowNode(node, descriptor, new[]
+                {
+                    new VariableSelectionOption(
+                        VariableSelector.ForNodeOutput("source", "Image"),
+                        "Source [source]",
+                        "Source",
+                        "source",
+                        "Image",
+                        FlowDataType.String)
+                }, delegate { }, false);
+                panel.SetPendingState(true, false);
+
+                ArrangeAtPropertyPanelMinimum(panel);
+
+                var messageLabel = FindChildren<TextBlock>(panel)
+                    .First(x => string.Equals(x.Text, "Message (Message)", StringComparison.Ordinal));
+                var messageEditor = FindChildren<TextBox>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:Message",
+                        StringComparison.Ordinal));
+                var constantSegment = FindChildren<Button>(panel)
+                    .First(x => string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "固定值", StringComparison.Ordinal));
+                var segmentGroup = LogicalTreeHelper.GetParent(constantSegment) as Grid;
+                AssertEx.NotNull(segmentGroup,
+                    "The fixed/variable controls should remain grouped in one segment row.");
+
+                AssertVerticalSeparation(panel, messageLabel, segmentGroup, 2,
+                    "The setting label must not overlap or stick to its segmented mode control.");
+                AssertHorizontalSeparation(panel, segmentGroup, messageEditor, 6,
+                    "The segmented mode control must remain separated from its value editor.");
+
+                var scrollViewer = GetPrivateField<ScrollViewer>(panel, "_scrollViewer");
+                var applyButton = GetPrivateField<Button>(panel, "_applyButton");
+                var resetButton = GetPrivateField<Button>(panel, "_resetButton");
+                var footer = FindAncestor<Border>(applyButton);
+                AssertEx.NotNull(footer, "The property actions should remain inside the footer chrome.");
+                AssertVerticalSeparation(panel, scrollViewer, footer, 0,
+                    "The fixed property footer must not cover the scrollable form viewport.");
+                AssertHorizontalSeparation(panel, resetButton, applyButton, 7,
+                    "Reset and Apply must retain their intended spacing.");
+                AssertElementIntersectsViewport(panel, applyButton, panel,
+                    "The Apply action should remain visible at 380 x 680.");
+
+                var timeoutLabel = FindChildren<TextBlock>(panel)
+                    .First(x => (x.Text ?? string.Empty).IndexOf("单次超时", StringComparison.Ordinal) >= 0);
+                var timeoutEditor = FindChildren<TextBox>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.TimeoutMs",
+                        StringComparison.Ordinal));
+                timeoutEditor.Text = "abc";
+                ArrangeAtPropertyPanelMinimum(panel);
+
+                var inlineError = FindChildren<TextBlock>(panel)
+                    .First(x =>
+                        x.Visibility == Visibility.Visible &&
+                        (x.Text ?? string.Empty).IndexOf("不小于 0", StringComparison.Ordinal) >= 0);
+                var timeoutHelp = FindChildren<TextBlock>(panel)
+                    .First(x => (x.Text ?? string.Empty).IndexOf("继承流程全局超时", StringComparison.Ordinal) >= 0);
+                inlineError.BringIntoView();
+                panel.UpdateLayout();
+
+                AssertVerticalSeparation(panel, timeoutLabel, timeoutEditor, 2,
+                    "The execution-policy label and editor must not overlap after validation.");
+                AssertVerticalSeparation(panel, timeoutEditor, inlineError, 2,
+                    "The invalid editor and its inline error must not overlap.");
+                AssertVerticalSeparation(panel, inlineError, timeoutHelp, 2,
+                    "The inline error must not overlap the following help text.");
+                AssertElementIntersectsViewport(panel, inlineError, scrollViewer,
+                    "The inline error should remain visible inside the scroll viewport.");
+                AssertVerticalSeparation(panel, scrollViewer, footer, 0,
+                    "Growing inline validation content must not move beneath the fixed footer.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyDraftGuardsLoadAndDebugMode()
         {
             RunOnSta(delegate
@@ -1974,6 +2097,63 @@ namespace Vision.Flow.Tests
             }
 
             return null;
+        }
+
+        private static void ArrangeAtPropertyPanelMinimum(PropertyPanelControl panel)
+        {
+            panel.Measure(new Size(380, 680));
+            panel.Arrange(new Rect(0, 0, 380, 680));
+            panel.UpdateLayout();
+        }
+
+        private static Rect GetBoundsRelativeTo(FrameworkElement element, Visual root)
+        {
+            var topLeft = element.TransformToAncestor(root).Transform(new Point(0, 0));
+            return new Rect(topLeft, element.RenderSize);
+        }
+
+        private static void AssertVerticalSeparation(
+            Visual root,
+            FrameworkElement upper,
+            FrameworkElement lower,
+            double minimumGap,
+            string message)
+        {
+            var upperBounds = GetBoundsRelativeTo(upper, root);
+            var lowerBounds = GetBoundsRelativeTo(lower, root);
+            AssertEx.True(
+                upperBounds.Bottom + minimumGap <= lowerBounds.Top + 0.01,
+                message + " Upper=" + upperBounds + ", Lower=" + lowerBounds + ".");
+        }
+
+        private static void AssertHorizontalSeparation(
+            Visual root,
+            FrameworkElement left,
+            FrameworkElement right,
+            double minimumGap,
+            string message)
+        {
+            var leftBounds = GetBoundsRelativeTo(left, root);
+            var rightBounds = GetBoundsRelativeTo(right, root);
+            AssertEx.True(
+                leftBounds.Right + minimumGap <= rightBounds.Left + 0.01,
+                message + " Left=" + leftBounds + ", Right=" + rightBounds + ".");
+        }
+
+        private static void AssertElementIntersectsViewport(
+            Visual root,
+            FrameworkElement element,
+            FrameworkElement viewport,
+            string message)
+        {
+            var elementBounds = GetBoundsRelativeTo(element, root);
+            var viewportBounds = GetBoundsRelativeTo(viewport, root);
+            AssertEx.True(
+                elementBounds.Left < viewportBounds.Right &&
+                elementBounds.Right > viewportBounds.Left &&
+                elementBounds.Top < viewportBounds.Bottom &&
+                elementBounds.Bottom > viewportBounds.Top,
+                message + " Element=" + elementBounds + ", Viewport=" + viewportBounds + ".");
         }
 
         private static void RunOnSta(Action action)

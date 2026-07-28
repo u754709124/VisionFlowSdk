@@ -37,6 +37,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             get { return _validationErrors.Count > 0; }
         }
 
+        internal event Action ValidationStateChanged;
+
         /// <summary>
         /// 显示节点执行策略，并按只读状态启用或禁用全部编辑器。
         /// </summary>
@@ -628,6 +630,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _rawEditorTexts.Clear();
             _fieldEditors.Clear();
             _renderedNodeId = null;
+            NotifyValidationStateChanged();
         }
 
         private static TextBlock CreateInlineError()
@@ -653,6 +656,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             editor.ToolTip = error;
             errorText.Text = error;
             errorText.Visibility = Visibility.Visible;
+            NotifyValidationStateChanged();
         }
 
         private void ClearFieldError(string tag, Control editor, TextBlock errorText)
@@ -662,15 +666,23 @@ namespace Vision.Flow.Designer.Wpf.Controls
             editor.ToolTip = null;
             errorText.Text = string.Empty;
             errorText.Visibility = Visibility.Collapsed;
+            NotifyValidationStateChanged();
         }
 
         private void RemoveValidationErrors(string prefix)
         {
+            var removed = false;
             foreach (var key in _validationErrors.Keys
                 .Where(x => x.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 .ToList())
             {
                 _validationErrors.Remove(key);
+                removed = true;
+            }
+
+            if (removed)
+            {
+                NotifyValidationStateChanged();
             }
         }
 
@@ -727,6 +739,17 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 editor.ToolTip = error;
                 editor.BringIntoView();
                 editor.Focus();
+            }
+
+            NotifyValidationStateChanged();
+        }
+
+        private void NotifyValidationStateChanged()
+        {
+            var handler = ValidationStateChanged;
+            if (handler != null)
+            {
+                handler();
             }
         }
 
