@@ -30,6 +30,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Control> _fieldEditors =
             new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Border> _fieldErrorOutlines =
+            new Dictionary<string, Border>(StringComparer.OrdinalIgnoreCase);
         private string _renderedNodeId;
 
         public bool HasValidationErrors
@@ -57,6 +59,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             Children.Clear();
             _fieldEditors.Clear();
+            _fieldErrorOutlines.Clear();
             _descriptor = descriptor;
             _changed = changed;
             _isReadOnly = isReadOnly;
@@ -306,6 +309,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
             var errorText = CreateInlineError();
             _fieldEditors[tag] = textBox;
+            var editorFrame = CreateValidationEditorFrame(tag, textBox);
             RestoreFieldError(tag, textBox, errorText);
             var isNormalizing = false;
             Action applyText = delegate
@@ -352,7 +356,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 _rawEditorTexts[tag] = editorText;
             };
             var layout = new StackPanel();
-            layout.Children.Add(textBox);
+            layout.Children.Add(editorFrame);
             layout.Children.Add(errorText);
             return layout;
         }
@@ -387,6 +391,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
             var errorText = CreateInlineError();
             _fieldEditors[tag] = textBox;
+            var editorFrame = CreateValidationEditorFrame(tag, textBox);
             RestoreFieldError(tag, textBox, errorText);
             var isNormalizing = false;
             Action applyText = delegate
@@ -433,7 +438,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 isNormalizing = false;
                 _rawEditorTexts[tag] = normalized;
             };
-            layout.Children.Add(textBox);
+            layout.Children.Add(editorFrame);
             layout.Children.Add(errorText);
             layout.Children.Add(CreateMutedText(help));
         }
@@ -629,6 +634,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _validationErrors.Clear();
             _rawEditorTexts.Clear();
             _fieldEditors.Clear();
+            _fieldErrorOutlines.Clear();
             _renderedNodeId = null;
             NotifyValidationStateChanged();
         }
@@ -656,6 +662,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             editor.ToolTip = error;
             errorText.Text = error;
             errorText.Visibility = Visibility.Visible;
+            SetValidationOutlineVisibility(tag, Visibility.Visible);
             NotifyValidationStateChanged();
         }
 
@@ -666,6 +673,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             editor.ToolTip = null;
             errorText.Text = string.Empty;
             errorText.Visibility = Visibility.Collapsed;
+            SetValidationOutlineVisibility(tag, Visibility.Collapsed);
             NotifyValidationStateChanged();
         }
 
@@ -712,6 +720,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 editor.ToolTip = error;
                 errorText.Text = error;
                 errorText.Visibility = Visibility.Visible;
+                SetValidationOutlineVisibility(tag, Visibility.Visible);
             }
         }
 
@@ -741,7 +750,28 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 editor.Focus();
             }
 
+            SetValidationOutlineVisibility(tag, Visibility.Visible);
             NotifyValidationStateChanged();
+        }
+
+        private FrameworkElement CreateValidationEditorFrame(string tag, Control editor)
+        {
+            var frame = new Grid();
+            frame.Children.Add(editor);
+            var outline = PropertyPanelControl.CreateValidationOutline(tag, editor);
+            Panel.SetZIndex(outline, 1);
+            frame.Children.Add(outline);
+            _fieldErrorOutlines[tag] = outline;
+            return frame;
+        }
+
+        private void SetValidationOutlineVisibility(string tag, Visibility visibility)
+        {
+            Border outline;
+            if (_fieldErrorOutlines.TryGetValue(tag, out outline))
+            {
+                outline.Visibility = visibility;
+            }
         }
 
         private void NotifyValidationStateChanged()

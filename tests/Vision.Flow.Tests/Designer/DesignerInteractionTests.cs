@@ -1224,6 +1224,114 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task PropertyPanelRequiredErrorFitsAboveFooterAtMinimumSize()
+        {
+            RunOnSta(delegate
+            {
+                var panel = new PropertyPanelControl();
+                var node = CreateNode();
+                var descriptor = CreateDescriptor();
+                for (var index = 1; index <= 4; index++)
+                {
+                    var name = "CameraOption" + index.ToString(CultureInfo.InvariantCulture);
+                    node.Settings[name] = NodeSettingValue.ForConstant("Value " + index.ToString(CultureInfo.InvariantCulture));
+                    descriptor.Settings.Add(new NodeSettingDescriptor
+                    {
+                        Name = name,
+                        DisplayName = "相机选项 " + index.ToString(CultureInfo.InvariantCulture),
+                        DataType = FlowDataType.String
+                    });
+                }
+                node.Settings["ParameterName"] = NodeSettingValue.ForConstant("ExposureTime");
+                descriptor.Settings.Add(new NodeSettingDescriptor
+                {
+                    Name = "ParameterName",
+                    DisplayName = "参数名称",
+                    DataType = FlowDataType.String,
+                    IsRequired = true
+                });
+                panel.ShowNode(node, descriptor, null, delegate
+                {
+                    panel.SetPendingState(true, false);
+                }, false);
+                panel.ApplyRequested += delegate
+                {
+                    string error;
+                    if (!panel.TryValidate(out error))
+                    {
+                        panel.ShowValidationError(error);
+                    }
+                };
+
+                ArrangeAtPropertyPanelMinimum(panel);
+                var parameterEditor = FindChildren<TextBox>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:ParameterName",
+                        StringComparison.Ordinal));
+                parameterEditor.Text = "x";
+                parameterEditor.Text = string.Empty;
+                var applyButton = GetPrivateField<Button>(panel, "_applyButton");
+                AssertEx.False(applyButton.IsEnabled,
+                    "A live required-value error should disable Apply before validation runs.");
+
+                string validationError;
+                AssertEx.False(panel.TryValidate(out validationError),
+                    "Host-initiated Apply resolution should reject the required-value error.");
+                panel.ShowValidationError(validationError);
+                ArrangeAtPropertyPanelMinimum(panel);
+
+                var summary = FindChildren<TextBlock>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "PropertyValidationSummary",
+                        StringComparison.Ordinal));
+                var inlineError = FindChildren<TextBlock>(panel)
+                    .First(x =>
+                        !object.ReferenceEquals(x, summary) &&
+                        x.Visibility == Visibility.Visible &&
+                        (x.Text ?? string.Empty).IndexOf("参数名称", StringComparison.Ordinal) >= 0);
+                var scrollViewer = GetPrivateField<ScrollViewer>(panel, "_scrollViewer");
+                var footer = FindAncestor<Border>(applyButton);
+                var actionRow = FindAncestor<DockPanel>(applyButton);
+
+                AssertElementFullyInsideViewport(panel, inlineError, scrollViewer,
+                    "The required-field error must remain fully visible after Apply expands the global summary.");
+                AssertRenderedAtDesiredHeight(inlineError,
+                    "The required-field error must not be vertically clipped.");
+                AssertElementFullyInsideViewport(panel, summary, footer,
+                    "The global validation summary must remain fully inside the fixed footer.");
+                AssertRenderedAtDesiredHeight(summary,
+                    "The global validation summary must not be vertically clipped.");
+                AssertVerticalSeparation(panel, summary, actionRow, 6,
+                    "The global validation summary must remain separated from the footer actions.");
+                AssertVerticalSeparation(panel, scrollViewer, footer, 0,
+                    "The expanded validation footer must not cover the scroll viewport.");
+
+                var errorBrush = (SolidColorBrush)panel.FindResource(FlowDesignerTheme.ErrorBrushKey);
+                var editorBrush = parameterEditor.BorderBrush as SolidColorBrush;
+                AssertEx.NotNull(editorBrush,
+                    "The invalid focused editor should expose a concrete validation border brush.");
+                AssertEx.Equal(errorBrush.Color, editorBrush.Color,
+                    "Validation red must take precedence over the focused field accent.");
+                var validationOutline = FindChildren<Border>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ValidationOutline:Setting:ParameterName",
+                        StringComparison.Ordinal));
+                var outlineBrush = validationOutline.BorderBrush as SolidColorBrush;
+                AssertEx.Equal(Visibility.Visible, validationOutline.Visibility,
+                    "The invalid focused editor should render a validation outline above its focus chrome.");
+                AssertEx.True(Panel.GetZIndex(validationOutline) > Panel.GetZIndex(parameterEditor),
+                    "The validation outline must render above the editor focus chrome.");
+                AssertEx.NotNull(outlineBrush,
+                    "The validation outline should use the shared error brush.");
+                AssertEx.Equal(errorBrush.Color, outlineBrush.Color,
+                    "The topmost validation outline should remain red while the editor is focused.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyDraftGuardsLoadAndDebugMode()
         {
             RunOnSta(delegate
@@ -2154,6 +2262,35 @@ namespace Vision.Flow.Tests
                 elementBounds.Top < viewportBounds.Bottom &&
                 elementBounds.Bottom > viewportBounds.Top,
                 message + " Element=" + elementBounds + ", Viewport=" + viewportBounds + ".");
+        }
+
+        private static void AssertElementFullyInsideViewport(
+            Visual root,
+            FrameworkElement element,
+            FrameworkElement viewport,
+            string message)
+        {
+            var elementBounds = GetBoundsRelativeTo(element, root);
+            var viewportBounds = GetBoundsRelativeTo(viewport, root);
+            AssertEx.True(
+                elementBounds.Left >= viewportBounds.Left - 0.01 &&
+                elementBounds.Right <= viewportBounds.Right + 0.01 &&
+                elementBounds.Top >= viewportBounds.Top - 0.01 &&
+                elementBounds.Bottom <= viewportBounds.Bottom + 0.01,
+                message + " Element=" + elementBounds + ", Viewport=" + viewportBounds + ".");
+        }
+
+        private static void AssertRenderedAtDesiredHeight(FrameworkElement element, string message)
+        {
+            var desiredContentHeight = Math.Max(
+                0,
+                element.DesiredSize.Height - element.Margin.Top - element.Margin.Bottom);
+            AssertEx.True(
+                element.ActualHeight + 0.01 >= desiredContentHeight,
+                message + " ActualHeight=" +
+                element.ActualHeight.ToString(CultureInfo.InvariantCulture) +
+                ", DesiredContentHeight=" +
+                desiredContentHeight.ToString(CultureInfo.InvariantCulture) + ".");
         }
 
         private static void RunOnSta(Action action)

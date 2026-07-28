@@ -27,6 +27,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private readonly Dictionary<string, string> _editorErrors;
         private readonly Dictionary<string, TextBlock> _editorErrorBlocks;
         private readonly Dictionary<string, Control> _editorControls;
+        private readonly Dictionary<string, Border> _editorErrorOutlines;
         private readonly Dictionary<string, string> _rawEditorTexts;
         private readonly ScrollViewer _scrollViewer;
         private Action _changed;
@@ -58,6 +59,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _editorErrors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             _editorErrorBlocks = new Dictionary<string, TextBlock>(StringComparer.OrdinalIgnoreCase);
             _editorControls = new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
+            _editorErrorOutlines = new Dictionary<string, Border>(StringComparer.OrdinalIgnoreCase);
             _rawEditorTexts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             var shell = new Grid();
@@ -226,6 +228,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
             _editorControls.Clear();
             _editorErrorBlocks.Clear();
+            _editorErrorOutlines.Clear();
             _rows.Children.Clear();
 
             if (node == null)
@@ -831,6 +834,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _editorErrors.Clear();
             _editorErrorBlocks.Clear();
             _editorControls.Clear();
+            _editorErrorOutlines.Clear();
             _rawEditorTexts.Clear();
             _renderedNodeId = null;
             if (_executionPolicyPanel != null)
@@ -866,7 +870,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private UIElement WrapEditorWithError(string key, FrameworkElement editor)
         {
             var layout = new StackPanel();
-            layout.Children.Add(editor);
+            var editorFrame = new Grid();
+            editorFrame.Children.Add(editor);
+            var errorOutline = CreateValidationOutline(key, editor);
+            Panel.SetZIndex(errorOutline, 1);
+            editorFrame.Children.Add(errorOutline);
+            layout.Children.Add(editorFrame);
             var control = editor as Control;
             if (control != null && !string.IsNullOrWhiteSpace(key))
             {
@@ -888,6 +897,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 error.Text = existing;
                 error.Visibility = Visibility.Visible;
+                errorOutline.Visibility = Visibility.Visible;
                 if (control != null)
                 {
                     control.BorderBrush = FlowDesignerControl.BrushFromRgb(209, 67, 67);
@@ -896,8 +906,27 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             _editorErrorBlocks[key] = error;
+            _editorErrorOutlines[key] = errorOutline;
             layout.Children.Add(error);
             return layout;
+        }
+
+        internal static Border CreateValidationOutline(string key, FrameworkElement editor)
+        {
+            var outline = new Border
+            {
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(4),
+                IsHitTestVisible = false,
+                Margin = editor == null ? new Thickness(0) : editor.Margin,
+                SnapsToDevicePixels = true,
+                Tag = "ValidationOutline:" + (key ?? string.Empty),
+                Visibility = Visibility.Collapsed
+            };
+            outline.SetResourceReference(
+                Border.BorderBrushProperty,
+                FlowDesignerTheme.ErrorBrushKey);
+            return outline;
         }
 
         private void SetEditorError(string key, string error, Control editor)
@@ -908,6 +937,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 block.Text = error;
                 block.Visibility = Visibility.Visible;
+            }
+            Border outline;
+            if (_editorErrorOutlines.TryGetValue(key, out outline))
+            {
+                outline.Visibility = Visibility.Visible;
             }
 
             if (editor == null)
@@ -932,6 +966,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 block.Text = string.Empty;
                 block.Visibility = Visibility.Collapsed;
+            }
+            Border outline;
+            if (_editorErrorOutlines.TryGetValue(key, out outline))
+            {
+                outline.Visibility = Visibility.Collapsed;
             }
 
             if (editor == null)
