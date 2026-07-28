@@ -21,9 +21,9 @@ using Vision.Flow.Core.Domain.Flows;
 
 namespace Vision.Flow.Designer.Wpf.ViewModels
 {
-    // 璁捐鍣?ViewModel 鏄緵璁捐鍣ㄦ帶浠跺叡浜殑杞婚噺鐘舵€佽浇浣撱€?
+    // 设计器 ViewModel 是供设计器控件共享的轻量状态载体。
     /// <summary>
-    /// 璁捐鍣ㄦ牴瑙嗗浘妯″瀷锛屾壙杞藉綋鍓嶈璁℃€佹祦绋嬫枃妗ｃ€?
+    /// 设计器根视图模型，承载当前设计态流程文档。
     /// </summary>
     public sealed class FlowDesignerViewModel
     {

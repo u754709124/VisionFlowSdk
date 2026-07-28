@@ -23,7 +23,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 娴佺▼杩愯鍣ㄦ祴璇曡鐩栬皟搴︺€佽矾鐢便€佸彇娑堝拰杩愯浜嬩欢琛屼负銆?
+    // 流程运行器测试覆盖调度、路由、取消和运行事件行为。
     internal static partial class FlowRunnerTests
     {
         public static async Task LinearOrderAndVariables()

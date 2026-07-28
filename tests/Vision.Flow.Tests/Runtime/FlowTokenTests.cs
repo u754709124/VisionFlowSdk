@@ -23,7 +23,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 杩愯鏃朵护鐗屾祴璇曡仛鐒︽祦绋嬫墽琛屽叡浜殑鍙橀噺瀛樺彇琛屼负銆?
+    // 运行时令牌测试聚焦流程执行共享的变量存取行为。
     internal static class FlowTokenTests
     {
         public static async Task SetGetTryGet()

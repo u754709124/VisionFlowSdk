@@ -22,7 +22,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // 涓荤獥浣撶姸鎬佸拰鏋勯€犵暀鍦ㄦ牴鏂囦欢锛屽叿浣撳伐浣滄祦缁嗚妭鏀惧湪 partial 鏂囦欢涓€?
+    // 主窗体状态和构造留在根文件，具体工作流细节放在 partial 文件中。
     public sealed partial class MainForm : Form
     {
         private readonly UiFlowEventSink _eventSink;

@@ -22,7 +22,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Demo.WinForms
 {
-    // 浜嬩欢杈呭姪鏂规硶闆嗕腑澶勭悊杩愯浜嬩欢鏄剧ず銆乀oken 鎽樿鍜岃緭鍑洪瑙堛€?
+    // 事件辅助方法集中处理运行事件显示、Token 摘要和输出预览。
     public sealed partial class MainForm
     {
         private void AddEvent(string source, string eventName, string detail)
@@ -97,7 +97,7 @@ namespace Vision.Flow.Demo.WinForms
         {
             for (var row = 0; row < _eventGrid.Rows.Count; row++)
             {
-                // 浜嬩欢琛ㄦ牸闈㈠悜浜哄伐鏌ョ湅锛岃繍琛岃緭鍑哄€肩洿鎺ヤ粠浜嬩欢璐熻浇閲囬泦鏇村彲闈犮€?
+                // 事件表格面向人工查看，运行输出值直接从事件负载采集更可靠。
             }
 
             return _eventSink.TryGetOutput(variableName);

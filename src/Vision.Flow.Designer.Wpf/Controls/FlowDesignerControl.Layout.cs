@@ -31,7 +31,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 甯冨眬杈呭姪鏂规硶鏋勫缓闈欐€佸澹炽€佸伐鍏锋爮銆佺敾甯冨涓诲拰閫氱敤鐣岄潰妗嗘灦銆?
+    // 布局辅助方法构建静态外壳、工具栏、画布宿主和通用界面框架。
     public sealed partial class FlowDesignerControl
     {
         private UIElement CreateShell()

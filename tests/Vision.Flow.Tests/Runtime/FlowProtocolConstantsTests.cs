@@ -6,7 +6,7 @@ using Vision.Flow.Core.Services.Validation;
 
 namespace Vision.Flow.Tests
 {
-    // 鍗忚甯搁噺娴嬭瘯淇濇姢鑺傜偣銆佺鍙ｃ€佷簨浠跺拰鏂囦欢鎵╁睍鍚嶇瓑 wire value锛岄伩鍏嶉噸鏋勭洰褰曟椂璇敼鐢熶骇鏂囦欢鍗忚銆?
+    // 协议常量测试保护节点、端口、事件和文件扩展名等 wire value，避免重构目录时误改生产文件协议。
     internal static class FlowProtocolConstantsTests
     {
         public static Task ConstantsKeepExistingWireValues()

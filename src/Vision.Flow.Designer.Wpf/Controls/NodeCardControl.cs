@@ -30,7 +30,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 鑺傜偣鍗＄墖鍜岀鍙ｆ帶浠舵覆鏌撶敾甯冭妭鐐瑰強杩炵嚎鎵嬫焺銆?
+    // 节点卡片和端口控件渲染画布节点及连线手柄。
     public sealed class NodeCardControl : Border
     {
         private readonly TextBlock _title;

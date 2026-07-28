@@ -29,7 +29,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Designer 鎺т欢娴嬭瘯鍦?STA 绾跨▼杩愯锛岃鐩栬皟璇曞彧璇绘ā寮忓拰鑺傜偣杩愯鐘舵€佹憳瑕併€?
+    // Designer 控件测试在 STA 线程运行，覆盖调试只读模式和节点运行状态摘要。
     internal static class DesignerInteractionTests
     {
         public static Task PropertyPanelReadOnlyDisablesEditors()

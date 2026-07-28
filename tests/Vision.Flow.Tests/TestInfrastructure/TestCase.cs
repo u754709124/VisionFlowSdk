@@ -23,7 +23,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 灏忓瀷娴嬭瘯鐢ㄤ緥鍖呰鍣紝渚涙帶鍒跺彴娴嬭瘯妗嗘灦澶嶇敤銆?
+    // 小型测试用例包装器，供控制台测试框架复用。
     internal sealed class TestCase
     {
         private readonly Func<Task> _runAsync;

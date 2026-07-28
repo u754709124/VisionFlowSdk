@@ -9,6 +9,14 @@ namespace Vision.Flow.Tests
 {
     internal static class SourceTextEncodingTests
     {
+        private static readonly string[] MojibakeMarkers =
+        {
+            "\u9286",
+            "\u951B",
+            "\u9225",
+            "\u9227"
+        };
+
         public static Task TextFilesDoNotContainCorruptedChineseMarkers()
         {
             var root = FindRepositoryRoot();
@@ -32,6 +40,15 @@ namespace Vision.Flow.Tests
                 if (text.Contains(replacement))
                 {
                     invalidFiles.Add(RelativePath(root, path) + " contains U+FFFD");
+                }
+
+                var marker = MojibakeMarkers.FirstOrDefault(text.Contains);
+                if (marker != null)
+                {
+                    invalidFiles.Add(
+                        RelativePath(root, path) +
+                        " contains mojibake marker U+" +
+                        ((int)marker[0]).ToString("X4"));
                 }
             }
 

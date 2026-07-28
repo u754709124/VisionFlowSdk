@@ -23,7 +23,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 娴嬭瘯妗嗘灦鍏ュ彛浠呬繚鐣欐敞鍐屽拰鎵ц缂栨帓銆?
+    // 测试框架入口仅保留注册和执行编排。
     internal static class Program
     {
         private static int Main()

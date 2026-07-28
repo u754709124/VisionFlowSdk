@@ -18,7 +18,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // Core 璁惧濂戠害娴嬭瘯鍙娇鐢ㄦ湰鍦版渶灏忔々锛岄伩鍏?SDK 娴嬭瘯渚濊禆 Fake Adapter 椤圭洰銆?
+    // Core 设备契约测试只使用本地最小桩，避免 SDK 测试依赖 Fake Adapter 项目。
     internal static class CoreDeviceContractTests
     {
         public static Task VisionImageReferenceLifecycle()

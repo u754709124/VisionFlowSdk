@@ -23,7 +23,7 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Tests
 {
-    // 璁板綍鑺傜偣涓?FlowRunner 娴嬭瘯鎻愪緵纭畾鎬х殑杩愯鎺㈤拡銆?
+    // 记录节点为 FlowRunner 测试提供确定性的运行探针。
     internal sealed class RecordingNode : IFlowNode
     {
         private readonly NodeDefinition _definition;
