@@ -11,7 +11,7 @@ namespace Vision.Flow.Designer.Wpf.Theming
     /// </summary>
     public static class FlowDesignerIcons
     {
-        public static FrameworkElement Create(string name, Brush stroke, double size)
+        public static Path Create(string name, Brush stroke, double size)
         {
             var geometry = Geometry.Parse(GetGeometry(name));
             var path = new Path

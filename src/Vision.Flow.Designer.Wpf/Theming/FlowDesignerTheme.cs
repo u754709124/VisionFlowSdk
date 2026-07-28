@@ -25,6 +25,9 @@ namespace Vision.Flow.Designer.Wpf.Theming
         public const string ToolbarButtonStyleKey = "FlowToolbarButtonStyle";
         public const string PrimaryButtonStyleKey = "FlowPrimaryButtonStyle";
         public const string SecondaryButtonStyleKey = "FlowSecondaryButtonStyle";
+        public const string SegmentButtonStyleKey = "FlowSegmentButtonStyle";
+        public const string CardBorderStyleKey = "FlowCardBorderStyle";
+        public const string ErrorTextStyleKey = "FlowErrorTextStyle";
         public const string ExpanderStyleKey = "FlowExpanderStyle";
         public const string SwitchCheckBoxStyleKey = "FlowSwitchCheckBoxStyle";
 
@@ -146,12 +149,93 @@ namespace Vision.Flow.Designer.Wpf.Theming
         <Setter Property=""BorderBrush"" Value=""{StaticResource FlowAccent}"" />
         <Setter Property=""Foreground"" Value=""White"" />
         <Setter Property=""FontWeight"" Value=""SemiBold"" />
+        <Setter Property=""Template"">
+            <Setter.Value>
+                <ControlTemplate TargetType=""{x:Type Button}"">
+                    <Border x:Name=""Chrome""
+                            Padding=""{TemplateBinding Padding}""
+                            Background=""{TemplateBinding Background}""
+                            BorderBrush=""{TemplateBinding BorderBrush}""
+                            BorderThickness=""{TemplateBinding BorderThickness}""
+                            CornerRadius=""5""
+                            SnapsToDevicePixels=""True"">
+                        <ContentPresenter HorizontalAlignment=""Center""
+                                          VerticalAlignment=""Center"" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property=""IsMouseOver"" Value=""True"">
+                            <Setter TargetName=""Chrome"" Property=""Background"" Value=""{StaticResource FlowAccentHover}"" />
+                            <Setter TargetName=""Chrome"" Property=""BorderBrush"" Value=""{StaticResource FlowAccentHover}"" />
+                        </Trigger>
+                        <Trigger Property=""IsPressed"" Value=""True"">
+                            <Setter TargetName=""Chrome"" Property=""Background"" Value=""#087554"" />
+                            <Setter TargetName=""Chrome"" Property=""BorderBrush"" Value=""#087554"" />
+                        </Trigger>
+                        <Trigger Property=""IsEnabled"" Value=""False"">
+                            <Setter TargetName=""Chrome"" Property=""Opacity"" Value=""0.42"" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key=""FlowSecondaryButtonStyle"" TargetType=""{x:Type Button}""
            BasedOn=""{StaticResource FlowToolbarButtonStyle}"">
         <Setter Property=""Background"" Value=""White"" />
         <Setter Property=""BorderBrush"" Value=""{StaticResource FlowPanelBorder}"" />
+    </Style>
+
+    <Style x:Key=""FlowSegmentButtonStyle"" TargetType=""{x:Type Button}"">
+        <Setter Property=""Height"" Value=""36"" />
+        <Setter Property=""Padding"" Value=""5,0"" />
+        <Setter Property=""Margin"" Value=""0"" />
+        <Setter Property=""Background"" Value=""White"" />
+        <Setter Property=""Foreground"" Value=""{StaticResource FlowMutedText}"" />
+        <Setter Property=""BorderBrush"" Value=""{StaticResource FlowPanelBorder}"" />
+        <Setter Property=""BorderThickness"" Value=""1"" />
+        <Setter Property=""FontFamily"" Value=""{StaticResource FlowFontFamily}"" />
+        <Setter Property=""FontSize"" Value=""11.5"" />
+        <Setter Property=""Cursor"" Value=""Hand"" />
+        <Setter Property=""Template"">
+            <Setter.Value>
+                <ControlTemplate TargetType=""{x:Type Button}"">
+                    <Border x:Name=""Chrome""
+                            Padding=""{TemplateBinding Padding}""
+                            Background=""{TemplateBinding Background}""
+                            BorderBrush=""{TemplateBinding BorderBrush}""
+                            BorderThickness=""{TemplateBinding BorderThickness}""
+                            CornerRadius=""4"">
+                        <ContentPresenter HorizontalAlignment=""Center""
+                                          VerticalAlignment=""Center"" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property=""IsMouseOver"" Value=""True"">
+                            <Setter TargetName=""Chrome"" Property=""Opacity"" Value=""0.82"" />
+                        </Trigger>
+                        <Trigger Property=""IsEnabled"" Value=""False"">
+                            <Setter TargetName=""Chrome"" Property=""Opacity"" Value=""0.48"" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key=""FlowCardBorderStyle"" TargetType=""{x:Type Border}"">
+        <Setter Property=""Background"" Value=""{StaticResource FlowPanelBackground}"" />
+        <Setter Property=""BorderBrush"" Value=""{StaticResource FlowPanelBorder}"" />
+        <Setter Property=""BorderThickness"" Value=""1"" />
+        <Setter Property=""CornerRadius"" Value=""7"" />
+        <Setter Property=""Padding"" Value=""12"" />
+    </Style>
+
+    <Style x:Key=""FlowErrorTextStyle"" TargetType=""{x:Type TextBlock}"">
+        <Setter Property=""Foreground"" Value=""{StaticResource FlowError}"" />
+        <Setter Property=""FontFamily"" Value=""{StaticResource FlowFontFamily}"" />
+        <Setter Property=""FontSize"" Value=""11"" />
+        <Setter Property=""Margin"" Value=""1,3,0,3"" />
+        <Setter Property=""TextWrapping"" Value=""Wrap"" />
     </Style>
 
     <Style x:Key=""FlowExpanderStyle"" TargetType=""{x:Type Expander}"">
@@ -263,6 +347,98 @@ namespace Vision.Flow.Designer.Wpf.Theming
         <Setter Property=""Foreground"" Value=""White"" />
         <Setter Property=""Padding"" Value=""8,5"" />
         <Setter Property=""FontFamily"" Value=""{StaticResource FlowFontFamily}"" />
+    </Style>
+
+    <Style x:Key=""FlowScrollBarPageButton"" TargetType=""{x:Type RepeatButton}"">
+        <Setter Property=""Focusable"" Value=""False"" />
+        <Setter Property=""OverridesDefaultStyle"" Value=""True"" />
+        <Setter Property=""Template"">
+            <Setter.Value>
+                <ControlTemplate TargetType=""{x:Type RepeatButton}"">
+                    <Border Background=""Transparent"" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key=""FlowScrollBarThumb"" TargetType=""{x:Type Thumb}"">
+        <Setter Property=""Focusable"" Value=""False"" />
+        <Setter Property=""Background"" Value=""#94A3B8"" />
+        <Setter Property=""Template"">
+            <Setter.Value>
+                <ControlTemplate TargetType=""{x:Type Thumb}"">
+                    <Border Margin=""2""
+                            Background=""{TemplateBinding Background}""
+                            CornerRadius=""4"" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property=""IsMouseOver"" Value=""True"">
+                <Setter Property=""Background"" Value=""#64748B"" />
+            </Trigger>
+            <Trigger Property=""IsDragging"" Value=""True"">
+                <Setter Property=""Background"" Value=""#0D8B61"" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <ControlTemplate x:Key=""FlowVerticalScrollBarTemplate"" TargetType=""{x:Type ScrollBar}"">
+        <Border Width=""10""
+                Background=""{TemplateBinding Background}""
+                CornerRadius=""5""
+                SnapsToDevicePixels=""True"">
+            <Track x:Name=""PART_Track"" IsDirectionReversed=""True"">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Command=""ScrollBar.PageUpCommand""
+                                  Style=""{StaticResource FlowScrollBarPageButton}"" />
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb MinHeight=""28"" Style=""{StaticResource FlowScrollBarThumb}"" />
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Command=""ScrollBar.PageDownCommand""
+                                  Style=""{StaticResource FlowScrollBarPageButton}"" />
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Border>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key=""FlowHorizontalScrollBarTemplate"" TargetType=""{x:Type ScrollBar}"">
+        <Border Height=""10""
+                Background=""{TemplateBinding Background}""
+                CornerRadius=""5""
+                SnapsToDevicePixels=""True"">
+            <Track x:Name=""PART_Track"" IsDirectionReversed=""False"">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Command=""ScrollBar.PageLeftCommand""
+                                  Style=""{StaticResource FlowScrollBarPageButton}"" />
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb MinWidth=""28"" Style=""{StaticResource FlowScrollBarThumb}"" />
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Command=""ScrollBar.PageRightCommand""
+                                  Style=""{StaticResource FlowScrollBarPageButton}"" />
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Border>
+    </ControlTemplate>
+
+    <Style TargetType=""{x:Type ScrollBar}"">
+        <Setter Property=""Background"" Value=""#E2E8F0"" />
+        <Setter Property=""Width"" Value=""10"" />
+        <Setter Property=""MinWidth"" Value=""10"" />
+        <Setter Property=""Template"" Value=""{StaticResource FlowVerticalScrollBarTemplate}"" />
+        <Style.Triggers>
+            <Trigger Property=""Orientation"" Value=""Horizontal"">
+                <Setter Property=""Width"" Value=""Auto"" />
+                <Setter Property=""MinWidth"" Value=""32"" />
+                <Setter Property=""Height"" Value=""10"" />
+                <Setter Property=""MinHeight"" Value=""10"" />
+                <Setter Property=""Template"" Value=""{StaticResource FlowHorizontalScrollBarTemplate}"" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 </ResourceDictionary>");
         }

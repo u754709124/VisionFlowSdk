@@ -66,7 +66,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             _searchBox.TextChanged += delegate
             {
-                _searchPlaceholder.Visibility = string.IsNullOrEmpty(_searchBox.Text)
+                _searchPlaceholder.Visibility = string.IsNullOrWhiteSpace(_searchBox.Text)
                     ? Visibility.Visible
                     : Visibility.Collapsed;
                 RenderDescriptors();

@@ -259,21 +259,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private PendingPropertyChangesDecision ShowPendingPropertyChangesDialog()
         {
             var decision = PendingPropertyChangesDecision.Cancel;
-            var dialog = new Window
-            {
-                Title = "未应用的节点属性",
-                Width = 440,
-                Height = 210,
-                MinWidth = 420,
-                ResizeMode = ResizeMode.NoResize,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = Window.GetWindow(this),
-                Background = Brushes.White,
-                ShowInTaskbar = false
-            };
-            FlowDesignerTheme.ApplyTo(dialog);
+            var dialog = new FlowDesignerDialogWindow(
+                "未应用的节点属性",
+                464,
+                264,
+                Window.GetWindow(this));
 
-            var root = new Grid { Margin = new Thickness(24, 20, 24, 18) };
+            var root = new Grid { Margin = new Thickness(24, 18, 24, 18) };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -322,7 +314,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             buttons.Children.Add(apply);
             Grid.SetRow(buttons, 2);
             root.Children.Add(buttons);
-            dialog.Content = root;
+            dialog.DialogContent = root;
             dialog.ShowDialog();
             return decision;
         }

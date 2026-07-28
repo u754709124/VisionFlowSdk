@@ -202,14 +202,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private static ShapesPath CreateArrow(Point end, Brush fill, double size)
         {
+            // 连线层位于节点卡片下方，箭头尖端向左偏移，避免被圆形输入端口遮挡。
+            var tip = new Point(end.X - 6, end.Y);
             var figure = new PathFigure
             {
-                StartPoint = end,
+                StartPoint = tip,
                 IsClosed = true,
                 IsFilled = true
             };
-            figure.Segments.Add(new LineSegment(new Point(end.X - size, end.Y - size * 0.58), true));
-            figure.Segments.Add(new LineSegment(new Point(end.X - size, end.Y + size * 0.58), true));
+            figure.Segments.Add(new LineSegment(new Point(tip.X - size, tip.Y - size * 0.58), true));
+            figure.Segments.Add(new LineSegment(new Point(tip.X - size, tip.Y + size * 0.58), true));
             var geometry = new PathGeometry();
             geometry.Figures.Add(figure);
             return new ShapesPath

@@ -92,6 +92,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Focusable = true,
                 Tag = "PropertyValidationSummary"
             };
+            _validationSummary.SetResourceReference(
+                FrameworkElement.StyleProperty,
+                FlowDesignerTheme.ErrorTextStyleKey);
             actionLayout.Children.Add(_validationSummary);
 
             var actionRow = new DockPanel();
@@ -487,6 +490,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 {
                     comboBox.Items.Add(item);
                 }
+                if (usesHostOptions &&
+                    !string.IsNullOrWhiteSpace(initialText) &&
+                    !selectorItems.Contains(initialText, StringComparer.OrdinalIgnoreCase))
+                {
+                    SetEditorError(editorKey, setting.DisplayName + " 的当前候选项已失效。", comboBox);
+                }
 
                 Action applyComboValue = delegate
                 {
@@ -757,7 +766,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                                 .Distinct(StringComparer.OrdinalIgnoreCase)
                                 .ToList();
                             var text = Convert.ToString(value.ConstantValue, CultureInfo.InvariantCulture);
-                            if (!candidates.Contains(text, StringComparer.OrdinalIgnoreCase))
+                            if (!string.IsNullOrWhiteSpace(text) &&
+                                !candidates.Contains(text, StringComparer.OrdinalIgnoreCase))
                             {
                                 error = setting.DisplayName + " 的当前候选项已失效。";
                                 SetEditorError("Setting:" + setting.Name, error, null);
@@ -855,6 +865,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 TextWrapping = TextWrapping.Wrap,
                 Visibility = Visibility.Collapsed
             };
+            error.SetResourceReference(
+                FrameworkElement.StyleProperty,
+                FlowDesignerTheme.ErrorTextStyleKey);
             string existing;
             if (_editorErrors.TryGetValue(key, out existing) && !string.IsNullOrWhiteSpace(existing))
             {
@@ -943,6 +956,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 FontSize = 11.5,
                 Cursor = System.Windows.Input.Cursors.Hand
             };
+            button.SetResourceReference(
+                FrameworkElement.StyleProperty,
+                FlowDesignerTheme.SegmentButtonStyleKey);
             ApplyModeButtonVisual(button, isSelected, string.Equals(text, "固定值", StringComparison.Ordinal));
             return button;
         }
@@ -973,6 +989,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Padding = new Thickness(12),
                 Margin = new Thickness(0, 0, 0, 10)
             };
+            border.SetResourceReference(
+                FrameworkElement.StyleProperty,
+                FlowDesignerTheme.CardBorderStyleKey);
             var row = new Grid();
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1024,6 +1043,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Padding = new Thickness(12, 4, 12, 12),
                 Child = content
             };
+            contentBorder.SetResourceReference(
+                FrameworkElement.StyleProperty,
+                FlowDesignerTheme.CardBorderStyleKey);
             var expander = new Expander
             {
                 Header = new TextBlock

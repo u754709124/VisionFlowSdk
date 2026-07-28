@@ -37,6 +37,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
         DebugRun = 1
     }
 
+    internal enum DebugDrawerPreference
+    {
+        Auto = 0,
+        Open = 1,
+        Closed = 2
+    }
+
     /// <summary>
     /// 指定设计器命令栏由控件内部承载，还是交由业务宿主承载。
     /// </summary>
@@ -125,7 +132,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private TextBlock _zoomText;
         private Rectangle _gridLayer;
         private RowDefinition _debugRowDefinition;
-        private bool _debugDrawerPinned;
+        private DebugDrawerPreference _debugDrawerPreference;
 
         private DesignerInteractionMode _interactionMode;
         private FlowDesignDocument _document;

@@ -906,20 +906,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 }
             }
 
-            var dialog = new Window
-            {
-                Title = "重命名节点",
-                Width = 380,
-                Height = 170,
-                ResizeMode = ResizeMode.NoResize,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = Window.GetWindow(this),
-                Background = Brushes.White,
-                ShowInTaskbar = false
-            };
-            FlowDesignerTheme.ApplyTo(dialog);
+            var dialog = new FlowDesignerDialogWindow(
+                "重命名节点",
+                404,
+                226,
+                Window.GetWindow(this));
 
-            var layout = new StackPanel { Margin = new Thickness(16) };
+            var layout = new StackPanel { Margin = new Thickness(20, 18, 20, 16) };
             var textBox = new TextBox
             {
                 Text = _propertyDraftNode == null ? node.Name : _propertyDraftNode.Name
@@ -942,7 +935,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             buttons.Children.Add(ok);
             buttons.Children.Add(cancel);
             layout.Children.Add(buttons);
-            dialog.Content = layout;
+            dialog.DialogContent = layout;
 
             if (dialog.ShowDialog() == true)
             {

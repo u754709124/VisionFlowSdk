@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
+using System.Windows.Data;
 using System.Windows.Shapes;
 using Microsoft.Win32;
 using Vision.Flow.Nodes;
@@ -127,19 +128,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             dock.Children.Add(buttons);
 
-            _editModeButton = CreateToolbarButton("编辑", "edit", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
+            _editModeButton = CreateToolbarButton("编辑模式", "edit", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
             _debugModeButton = CreateToolbarButton("调试运行", "debug", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
             buttons.Children.Add(_editModeButton);
             buttons.Children.Add(_debugModeButton);
-            buttons.Children.Add(CreateToolbarSpacer());
+            buttons.Children.Add(CreateToolbarSpacer(_options.ToolbarPlacement == FlowDesignerToolbarPlacement.External));
 
             _newButton = CreateToolbarButton("New", "new", delegate { CreateNewDesign(); });
             _sampleButton = CreateToolbarButton("Sample", "sample", delegate { LoadCoreBasicTemplate(); });
             _openButton = CreateToolbarButton("Open", "open", delegate { OpenDesign(); });
             _saveButton = CreateToolbarButton("Save", "save", delegate { SaveDesign(); });
             _publishButton = CreateToolbarButton("Publish", "publish", delegate { ShowPublishRuntimeDialog(); });
-            _debugRunButton = CreateToolbarButton("Debug Run", "run", async delegate { await RunDebugAsync(); });
-            _stopButton = CreateToolbarButton("Stop", "stop", async delegate { await StopDebugAsync(); });
+            _debugRunButton = CreateToolbarButton("运行", "run", async delegate { await RunDebugAsync(); });
+            _stopButton = CreateToolbarButton("停止", "stop", async delegate { await StopDebugAsync(); });
 
             if (_options.ShowStandaloneDocumentCommands)
             {
@@ -297,53 +298,28 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private static UIElement CreateZoomIcon(string text)
         {
-            var canvas = new Canvas
+            var geometry = new GeometryGroup();
+            geometry.Children.Add(new EllipseGeometry(new Point(6, 6), 4, 4));
+            geometry.Children.Add(new LineGeometry(new Point(9, 9), new Point(14, 14)));
+            geometry.Children.Add(new LineGeometry(new Point(4, 6), new Point(8, 6)));
+            if (string.Equals(text, "+", StringComparison.Ordinal))
+            {
+                geometry.Children.Add(new LineGeometry(new Point(6, 4), new Point(6, 8)));
+            }
+            var stroke = BrushFromRgb(71, 85, 105);
+            return new ShapesPath
             {
                 Width = 16,
                 Height = 16,
-                IsHitTestVisible = false
-            };
-
-            var stroke = BrushFromRgb(71, 85, 105);
-            var circle = new Ellipse
-            {
-                Width = 8,
-                Height = 8,
-                Stroke = stroke,
-                StrokeThickness = 1.3
-            };
-            Canvas.SetLeft(circle, 2);
-            Canvas.SetTop(circle, 2);
-            canvas.Children.Add(circle);
-
-            var mark = new TextBlock
-            {
-                Text = text,
-                Width = 8,
-                Height = 8,
-                FontSize = 8,
-                FontWeight = FontWeights.Bold,
-                Foreground = stroke,
-                TextAlignment = TextAlignment.Center
-            };
-            Canvas.SetLeft(mark, 2);
-            Canvas.SetTop(mark, 1);
-            canvas.Children.Add(mark);
-
-            var handle = new Line
-            {
-                X1 = 9,
-                Y1 = 9,
-                X2 = 13,
-                Y2 = 13,
+                Data = geometry,
                 Stroke = stroke,
                 StrokeThickness = 1.3,
                 StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round
+                StrokeEndLineCap = PenLineCap.Round,
+                StrokeLineJoin = PenLineJoin.Round,
+                Fill = Brushes.Transparent,
+                IsHitTestVisible = false
             };
-            canvas.Children.Add(handle);
-
-            return canvas;
         }
 
         private Rectangle CreateGridLayer()
@@ -389,45 +365,69 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
         }
 
-        private static Button CreateToolbarButton(string text, string iconName, RoutedEventHandler handler)
+        private Button CreateToolbarButton(string text, string iconName, RoutedEventHandler handler)
         {
             var button = new Button
             {
-                Content = CreateToolbarButtonContent(text, iconName),
                 Tag = text,
-                MinWidth = text.Length > 7 ? 96 : 72,
-                Height = 34
+                MinWidth = _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External
+                    ? (text.Length > 3 ? 76 : 52)
+                    : (text.Length > 7 ? 96 : 72),
+                Height = 34,
+                Margin = _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External
+                    ? new Thickness(0, 0, 3, 0)
+                    : new Thickness(0, 0, 6, 0),
+                Padding = _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External
+                    ? new Thickness(6, 0, 6, 0)
+                    : new Thickness(12, 0, 12, 0)
             };
+            button.Content = CreateToolbarButtonContent(
+                text,
+                iconName,
+                button,
+                _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External);
             System.Windows.Automation.AutomationProperties.SetName(button, text);
             button.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.ToolbarButtonStyleKey);
             button.Click += handler;
             return button;
         }
 
-        private static UIElement CreateToolbarButtonContent(string text, string iconName)
+        private static UIElement CreateToolbarButtonContent(
+            string text,
+            string iconName,
+            Button owner,
+            bool isCompact)
         {
             var panel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            panel.Children.Add(FlowDesignerIcons.Create(iconName, BrushFromRgb(75, 91, 112), 15));
+            var icon = FlowDesignerIcons.Create(iconName, BrushFromRgb(75, 91, 112), isCompact ? 13 : 15);
+            icon.SetBinding(Shape.StrokeProperty, new Binding("Foreground") { Source = owner });
+            if (string.Equals(iconName, "stop", StringComparison.OrdinalIgnoreCase))
+            {
+                icon.SetBinding(Shape.FillProperty, new Binding("Foreground") { Source = owner });
+            }
+            panel.Children.Add(icon);
             panel.Children.Add(new TextBlock
             {
                 Text = text,
-                Margin = new Thickness(6, 0, 0, 0),
+                Margin = new Thickness(isCompact ? 4 : 6, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center
             });
             return panel;
         }
 
-        private static UIElement CreateToolbarSpacer()
+        private static UIElement CreateToolbarSpacer(bool isCompact)
         {
             return new Border
             {
                 Width = 1,
                 Height = 24,
-                Margin = new Thickness(2, 4, 10, 4),
+                Margin = isCompact
+                    ? new Thickness(2, 4, 5, 4)
+                    : new Thickness(2, 4, 10, 4),
                 Background = BrushFromRgb(221, 229, 239)
             };
         }

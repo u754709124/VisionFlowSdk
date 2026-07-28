@@ -337,13 +337,17 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private void UpdateInteractionModeUi()
         {
             var isEdit = CanEditDocument;
-            if (IsDebugRunMode)
+            if (_debugDrawerPreference == DebugDrawerPreference.Open)
             {
                 SetDebugDrawerExpanded(true);
             }
-            else if (!_debugDrawerPinned)
+            else if (_debugDrawerPreference == DebugDrawerPreference.Closed)
             {
                 SetDebugDrawerExpanded(false);
+            }
+            else
+            {
+                SetDebugDrawerExpanded(IsDebugRunMode);
             }
 
             RefreshEntryTriggerPanel();
@@ -430,7 +434,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void OnDebugDrawerExpansionChanged(bool isExpanded)
         {
-            _debugDrawerPinned = isExpanded;
+            _debugDrawerPreference = isExpanded
+                ? DebugDrawerPreference.Open
+                : DebugDrawerPreference.Closed;
             SetDebugDrawerExpanded(isExpanded);
         }
 

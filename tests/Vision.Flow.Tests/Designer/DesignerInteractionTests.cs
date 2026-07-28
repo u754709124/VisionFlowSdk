@@ -652,7 +652,7 @@ namespace Vision.Flow.Tests
                     .ToList();
                 AssertEx.False(new[] { "New", "Sample", "Open", "Save", "Publish" }.Any(embeddedLabels.Contains),
                     "Embedded designer toolbar should hide standalone document commands.");
-                AssertEx.True(new[] { "编辑", "调试运行", "Debug Run", "Stop" }.All(embeddedLabels.Contains),
+                AssertEx.True(new[] { "编辑模式", "调试运行", "运行", "停止" }.All(embeddedLabels.Contains),
                     "Embedded designer toolbar should keep mode, run and stop commands with readable labels.");
             });
             return Task.FromResult(0);
@@ -669,6 +669,20 @@ namespace Vision.Flow.Tests
                     "Modern theme should expose the 40 px field editor style.");
                 AssertEx.True(theme[FlowDesignerTheme.ExpanderStyleKey] is Style,
                     "Modern theme should expose a vector-chevron expander style.");
+                AssertEx.True(theme[FlowDesignerTheme.SegmentButtonStyleKey] is Style,
+                    "Modern theme should expose the shared fixed/variable segment style.");
+                AssertEx.True(theme[FlowDesignerTheme.CardBorderStyleKey] is Style,
+                    "Modern theme should expose the shared card border style.");
+                var cardStyle = (Style)theme[FlowDesignerTheme.CardBorderStyleKey];
+                AssertEx.False(cardStyle.Setters.OfType<Setter>().Any(x => x.Property == FrameworkElement.MarginProperty),
+                    "Shared card styling should not impose outer spacing on its consumers.");
+                AssertEx.True(theme[FlowDesignerTheme.ErrorTextStyleKey] is Style,
+                    "Modern theme should expose the shared inline error style.");
+                AssertEx.True(theme[typeof(System.Windows.Controls.Primitives.ScrollBar)] is Style,
+                    "Modern theme should include the shared compact scrollbar style.");
+                var primaryStyle = (Style)theme[FlowDesignerTheme.PrimaryButtonStyleKey];
+                AssertEx.True(primaryStyle.Setters.OfType<Setter>().Any(x => x.Property == Control.TemplateProperty),
+                    "Primary buttons should own a green hover/pressed template instead of inheriting gray toolbar hover visuals.");
 
                 var defaultOptions = new FlowDesignerOptions();
                 AssertEx.Equal(FlowDesignerToolbarPlacement.Internal, defaultOptions.ToolbarPlacement,
@@ -685,7 +699,7 @@ namespace Vision.Flow.Tests
                     .Select(GetButtonLabel)
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .ToList();
-                AssertEx.False(new[] { "编辑", "调试运行", "Debug Run", "Stop" }.Any(shellLabels.Contains),
+                AssertEx.False(new[] { "编辑模式", "调试运行", "运行", "停止" }.Any(shellLabels.Contains),
                     "External command bar must not remain parented inside the designer shell.");
                 AssertEx.NotNull(external.ToolbarView.TryFindResource(FlowDesignerTheme.ToolbarButtonStyleKey),
                     "External command bar should resolve its own theme without parent-resource inheritance.");
@@ -694,12 +708,197 @@ namespace Vision.Flow.Tests
                     .Select(GetButtonLabel)
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .ToList();
-                AssertEx.True(new[] { "编辑", "调试运行", "Debug Run", "Stop" }.All(labels.Contains),
+                AssertEx.True(new[] { "编辑模式", "调试运行", "运行", "停止" }.All(labels.Contains),
                     "External command bar should preserve all SDK mode and runtime commands.");
 
-                external.ToolbarView.Measure(new Size(380, 50));
-                AssertEx.True(external.ToolbarView.DesiredSize.Width <= 380,
-                    "External SDK commands should fit the narrow host allocation without a status block.");
+                external.ToolbarView.Measure(new Size(300, 50));
+                external.ToolbarView.Arrange(new Rect(0, 0, 300, 50));
+                external.ToolbarView.UpdateLayout();
+                AssertEx.True(external.ToolbarView.DesiredSize.Width <= 300,
+                    "External SDK commands should fit a strict 300 px host allocation without a status block.");
+                AssertEx.True(LogicalTreeHelper.GetParent(external.ToolbarView) == null,
+                    "External toolbar placement should leave ToolbarView available for exactly one host parent.");
+                foreach (var button in FindChildren<Button>(external.ToolbarView).Where(x => x.Visibility == Visibility.Visible))
+                {
+                    var right = button.TranslatePoint(new Point(button.ActualWidth, 0), external.ToolbarView).X;
+                    AssertEx.True(right <= 300.01,
+                        "External command exceeded 300 px: " + GetButtonLabel(button) + " at " +
+                        right.ToString(CultureInfo.InvariantCulture) + ".");
+                    var icon = FindChildren<System.Windows.Shapes.Path>(button).FirstOrDefault();
+                    if (icon != null)
+                    {
+                        AssertEx.NotNull(
+                            System.Windows.Data.BindingOperations.GetBinding(icon, System.Windows.Shapes.Shape.StrokeProperty),
+                            "Toolbar vector icon color should follow the owning button Foreground.");
+                    }
+                }
+
+                var internalControl = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    ToolbarPlacement = FlowDesignerToolbarPlacement.Internal
+                });
+                AssertEx.NotNull(LogicalTreeHelper.GetParent(internalControl.ToolbarView),
+                    "Internal toolbar placement should parent ToolbarView inside the designer shell.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PaletteSearchesAllDescriptorFieldsAndRestoresExpansion()
+        {
+            RunOnSta(delegate
+            {
+                var camera = CreateSearchDescriptor("device.camera", "工业相机", "采集灰度图像", "设备");
+                var delay = CreateSearchDescriptor("flow.delay", "等待节点", "暂停后继续", "流程控制");
+                var log = CreateSearchDescriptor("log.write", "记录消息", "写入运行日志", "诊断");
+                var palette = new NodePaletteControl();
+                palette.SetDescriptors(new[] { camera, delay, log });
+
+                var deviceGroup = FindChildren<Expander>(palette)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodePaletteCategory:设备", StringComparison.Ordinal));
+                deviceGroup.IsExpanded = false;
+
+                AssertPaletteSearchResult(palette, "工业相机", camera.NodeType, "DisplayName");
+                AssertPaletteSearchResult(palette, "灰度图像", camera.NodeType, "Description");
+                AssertPaletteSearchResult(palette, "flow.delay", delay.NodeType, "NodeType");
+                AssertPaletteSearchResult(palette, "诊断", log.NodeType, "Category");
+                AssertEx.True(FindChildren<Expander>(palette).All(x => x.IsExpanded),
+                    "Searching should automatically expand every matching category.");
+
+                palette.SearchText = string.Empty;
+                deviceGroup = FindChildren<Expander>(palette)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodePaletteCategory:设备", StringComparison.Ordinal));
+                AssertEx.False(deviceGroup.IsExpanded,
+                    "Clearing search should restore the category's pre-search collapsed state.");
+
+                palette.SearchText = "   ";
+                var placeholder = FindChildren<TextBlock>(palette)
+                    .First(x => string.Equals(x.Text, "搜索节点", StringComparison.Ordinal));
+                AssertEx.Equal(Visibility.Visible, placeholder.Visibility,
+                    "Whitespace-only search should behave like an empty query and keep the placeholder visible.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PortsAndEdgesUseCircularAnchorsAndVisibleArrows()
+        {
+            RunOnSta(delegate
+            {
+                var host = new Grid { Width = 120, Height = 80 };
+                var port = new PortControl(new PortViewModel(new NodePortDescriptor
+                {
+                    Name = FlowPortNames.In,
+                    Direction = FlowPortDirection.Input,
+                    DataType = FlowDataType.Control
+                }))
+                {
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(20, 12, 0, 0)
+                };
+                host.Children.Add(port);
+                host.Measure(new Size(120, 80));
+                host.Arrange(new Rect(0, 0, 120, 80));
+                host.UpdateLayout();
+
+                var handle = FindChildren<Border>(port)
+                    .First(x => Math.Abs(x.Width - 10) < 0.01 && Math.Abs(x.Height - 10) < 0.01);
+                AssertEx.Equal(5.0, handle.CornerRadius.TopLeft,
+                    "Port handles should be rendered as circles.");
+                var expectedAnchor = handle.TranslatePoint(new Point(5, 5), host);
+                var actualAnchor = port.GetAnchorPoint(host);
+                AssertEx.Equal(expectedAnchor.X, actualAnchor.X,
+                    "Port anchor X should be the circular handle center.");
+                AssertEx.Equal(expectedAnchor.Y, actualAnchor.Y,
+                    "Port anchor Y should be the circular handle center.");
+
+                var document = CreateTwoDelayDocument();
+                document.Runtime.Edges.Clear();
+                document.Runtime.Edges.Add(new EdgeDefinition
+                {
+                    FromNodeId = "delay_1",
+                    FromPort = FlowPortNames.Next,
+                    ToNodeId = "delay_2",
+                    ToPort = FlowPortNames.In
+                });
+                var edgeLayer = new EdgeLayerControl();
+                var end = new Point(480, 180);
+                edgeLayer.Render(document, null, new Dictionary<string, Point>
+                {
+                    { "delay_1|Output|Next", new Point(250, 180) },
+                    { "delay_2|Input|In", end }
+                });
+                var arrow = FindChildren<System.Windows.Shapes.Path>(edgeLayer)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "FlowEdgeArrow", StringComparison.Ordinal));
+                var geometry = (PathGeometry)arrow.Data;
+                AssertEx.Equal(end.X - 6, geometry.Figures[0].StartPoint.X,
+                    "Arrow tip should stop before the input-port center so the node layer cannot cover it.");
+                AssertEx.Equal(end.Y, geometry.Figures[0].StartPoint.Y,
+                    "Arrow tip should stay vertically aligned with the input-port anchor.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task DebugDrawerHonorsAutoOpenAndUserPreference()
+        {
+            RunOnSta(delegate
+            {
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false
+                });
+                var row = GetPrivateField<RowDefinition>(control, "_debugRowDefinition");
+                var drawer = GetPrivateField<RuntimeDebugPanelControl>(control, "_debug");
+                AssertEx.Equal(36.0, row.Height.Value,
+                    "Edit mode should start with the debug drawer collapsed.");
+                AssertEx.False(drawer.IsExpanded,
+                    "The debug drawer content should start hidden in automatic edit mode.");
+
+                SetDesignerMode(control, "DebugRun");
+                InvokePrivate(control, "UpdateInteractionModeUi");
+                AssertEx.Equal(190.0, row.Height.Value,
+                    "Automatic preference should open the drawer in debug mode.");
+                SetDesignerMode(control, "Edit");
+                InvokePrivate(control, "UpdateInteractionModeUi");
+                AssertEx.Equal(36.0, row.Height.Value,
+                    "Automatic preference should collapse the drawer after returning to edit mode.");
+
+                InvokePrivate(control, "OnDebugDrawerExpansionChanged", true);
+                SetDesignerMode(control, "DebugRun");
+                InvokePrivate(control, "UpdateInteractionModeUi");
+                SetDesignerMode(control, "Edit");
+                InvokePrivate(control, "UpdateInteractionModeUi");
+                AssertEx.Equal(190.0, row.Height.Value,
+                    "A user-pinned open drawer should remain open across mode changes.");
+
+                InvokePrivate(control, "OnDebugDrawerExpansionChanged", false);
+                SetDesignerMode(control, "DebugRun");
+                InvokePrivate(control, "UpdateInteractionModeUi");
+                AssertEx.Equal(36.0, row.Height.Value,
+                    "A user-closed drawer should not be reopened by routine mode refreshes.");
+
+                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.NodeFailed,
+                    NodeId = "missing",
+                    Message = "failure"
+                });
+                AssertEx.Equal(190.0, row.Height.Value,
+                    "A failure event should force the debug drawer open for immediate diagnosis.");
+                InvokePrivate(control, "UpdateInteractionModeUi");
+                AssertEx.Equal(36.0, row.Height.Value,
+                    "After the forced failure reveal, the user's closed preference should remain intact.");
+
+                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.NodeTimeout,
+                    NodeId = "missing",
+                    Message = "timeout"
+                });
+                AssertEx.True(drawer.IsExpanded,
+                    "A timeout event should also reveal the debug drawer.");
             });
             return Task.FromResult(0);
         }
@@ -758,6 +957,76 @@ namespace Vision.Flow.Tests
                     "A successful apply should establish a new clean baseline.");
                 AssertEx.Equal("一次提交名称", source.Runtime.Nodes[0].Name,
                     "Apply should write the draft to the source node once.");
+
+                var delayEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:" + FlowSettingNames.DelayMs,
+                        StringComparison.Ordinal));
+                delayEditor.Text = "45";
+                var timeoutEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.TimeoutMs", StringComparison.Ordinal));
+                timeoutEditor.Text = "500";
+                var concurrencyEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.MaxConcurrentExecutions", StringComparison.Ordinal));
+                concurrencyEditor.Text = "2";
+                var retryToggle = FindChildren<CheckBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.RetryPolicy.Enabled", StringComparison.Ordinal));
+                retryToggle.IsChecked = true;
+                var maxRetriesEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.RetryPolicy.MaxRetries", StringComparison.Ordinal));
+                maxRetriesEditor.Text = "4";
+                var retryIntervalEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.RetryPolicy.RetryIntervalMs", StringComparison.Ordinal));
+                retryIntervalEditor.Text = "750";
+                var failureSelector = FindChildren<ComboBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "ExecutionPolicy.FailureStrategy", StringComparison.Ordinal));
+                failureSelector.SelectedIndex = 2;
+                var fallbackEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.DefaultOutputs." + FlowSettingNames.DelayMs,
+                        StringComparison.Ordinal));
+                fallbackEditor.Text = "99";
+
+                AssertEx.Equal(25, source.Runtime.Nodes[0].Settings[FlowSettingNames.DelayMs].ConstantValue,
+                    "Valid setting edits should remain isolated in the draft until Apply.");
+                AssertEx.Equal(0, source.Runtime.Nodes[0].ExecutionPolicy.TimeoutMs,
+                    "Valid execution-policy edits should remain isolated in the draft until Apply.");
+                string applyError;
+                AssertEx.True(control.TryApplyPendingPropertyChanges(out applyError),
+                    "One Apply should commit settings, retry policy and default outputs together.");
+                AssertEx.Equal(45, source.Runtime.Nodes[0].Settings[FlowSettingNames.DelayMs].ConstantValue,
+                    "Apply should commit a valid typed setting.");
+                AssertEx.Equal(500, source.Runtime.Nodes[0].ExecutionPolicy.TimeoutMs,
+                    "Apply should commit TimeoutMs.");
+                AssertEx.Equal(2, source.Runtime.Nodes[0].ExecutionPolicy.MaxConcurrentExecutions,
+                    "Apply should commit MaxConcurrentExecutions.");
+                AssertEx.True(source.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.Enabled,
+                    "Apply should commit retry enabled state.");
+                AssertEx.Equal(4, source.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.MaxRetries,
+                    "Apply should commit MaxRetries.");
+                AssertEx.Equal(750, source.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy.RetryIntervalMs,
+                    "Apply should commit RetryIntervalMs.");
+                AssertEx.Equal(FailureStrategy.DefaultOutputs, source.Runtime.Nodes[0].ExecutionPolicy.FailureStrategy,
+                    "Apply should commit the failure strategy.");
+                AssertEx.Equal(99, source.Runtime.Nodes[0].ExecutionPolicy.DefaultOutputs[FlowSettingNames.DelayMs],
+                    "Apply should commit typed default outputs.");
+
+                nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodeName", StringComparison.Ordinal));
+                nameEditor.Text = "等待重置";
+                var resetButton = FindChildren<Button>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "PropertyReset", StringComparison.Ordinal));
+                resetButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, resetButton));
+                nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodeName", StringComparison.Ordinal));
+                AssertEx.Equal("一次提交名称", nameEditor.Text,
+                    "Reset should restore the most recently applied baseline in the editor.");
+                AssertEx.Equal("一次提交名称", source.Runtime.Nodes[0].Name,
+                    "Reset should not alter the most recently applied source state.");
+                AssertEx.False(control.HasPendingPropertyChanges,
+                    "Reset should return the property panel to a clean state.");
 
                 AssertEx.True(control.TryResolvePendingPropertyChanges(),
                     "A clean property panel should resolve without prompting.");
@@ -874,6 +1143,129 @@ namespace Vision.Flow.Tests
                     .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "PropertyApply", StringComparison.Ordinal));
                 AssertEx.Equal(Visibility.Collapsed, applyButton.Visibility,
                     "Debug read-only mode should replace property actions with the read-only state.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PropertyDraftPreservesInvalidDynamicCandidates()
+        {
+            RunOnSta(delegate
+            {
+                var candidates = new List<string> { "30", "45" };
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    SettingConstantOptionsProvider = delegate(NodeSettingDescriptor setting)
+                    {
+                        return string.Equals(setting.Name, FlowSettingNames.DelayMs, StringComparison.Ordinal)
+                            ? candidates.ToArray()
+                            : null;
+                    }
+                });
+                control.LoadDocumentAsync(CreateDelayDocument("dynamic-flow", "动态候选", 30))
+                    .GetAwaiter().GetResult();
+                var source = GetPrivateField<FlowDesignDocument>(control, "_document");
+
+                candidates.Clear();
+                candidates.Add("45");
+                control.RefreshSelectedNodeProperties();
+
+                var editor = FindChildren<ComboBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:" + FlowSettingNames.DelayMs,
+                        StringComparison.Ordinal));
+                AssertEx.Equal("30", editor.Text,
+                    "Refreshing candidates should preserve the applied value even when it is no longer available.");
+                AssertEx.NotNull(editor.ToolTip,
+                    "An unavailable dynamic candidate should show an inline error immediately.");
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "A candidate that becomes invalid should block destructive navigation until resolved.");
+
+                string error;
+                AssertEx.False(control.TryApplyPendingPropertyChanges(out error),
+                    "Apply should reject a fixed value removed from the dynamic candidate list.");
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "A failed candidate validation should keep the draft and error intact.");
+                AssertEx.Equal(30, source.Runtime.Nodes[0].Settings[FlowSettingNames.DelayMs].ConstantValue,
+                    "Failed dynamic-candidate validation must not clear or overwrite the source value.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PropertyDraftValidatesVariablesAndNodeSwitchDecisions()
+        {
+            RunOnSta(delegate
+            {
+                var decision = PendingPropertyChangesDecision.Cancel;
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    PendingPropertyChangesPrompt = delegate { return decision; }
+                });
+                control.LoadDocumentAsync(CreateTwoDelayDocument())
+                    .GetAwaiter().GetResult();
+                var source = GetPrivateField<FlowDesignDocument>(control, "_document");
+                var first = source.Runtime.Nodes[0];
+                var second = source.Runtime.Nodes[1];
+                var nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodeName", StringComparison.Ordinal));
+                nameEditor.Text = "第一个草稿";
+
+                InvokePrivate(control, "SelectNode", second);
+                AssertEx.Equal(first, GetPrivateField<NodeDefinition>(control, "_selectedNode"),
+                    "Cancel should block switching away from a dirty node.");
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "Canceling node selection should preserve the current draft.");
+
+                decision = PendingPropertyChangesDecision.Discard;
+                InvokePrivate(control, "SelectNode", second);
+                AssertEx.Equal(second, GetPrivateField<NodeDefinition>(control, "_selectedNode"),
+                    "Discard should allow switching to the requested node.");
+                AssertEx.Equal("第一个节点", first.Name,
+                    "Discard during node switching should preserve the applied source state.");
+
+                InvokePrivate(control, "SelectNode", first);
+                nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodeName", StringComparison.Ordinal));
+                nameEditor.Text = "切换前应用";
+                decision = PendingPropertyChangesDecision.Apply;
+                InvokePrivate(control, "SelectNode", second);
+                AssertEx.Equal(second, GetPrivateField<NodeDefinition>(control, "_selectedNode"),
+                    "Apply should commit the previous node and complete selection.");
+                AssertEx.Equal("切换前应用", first.Name,
+                    "Apply during node switching should commit the complete previous draft.");
+
+                InvokePrivate(control, "SelectNode", first);
+                var modeSelector = FindChildren<ComboBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        FlowSettingNames.DelayMs + ":Mode",
+                        StringComparison.Ordinal));
+                modeSelector.SelectedIndex = 1;
+                string error;
+                AssertEx.False(control.TryApplyPendingPropertyChanges(out error),
+                    "A variable setting without a source should block Apply.");
+                AssertEx.True(error.IndexOf("变量", StringComparison.Ordinal) >= 0,
+                    "Missing variable validation should return a variable-specific message.");
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "Missing-variable validation should retain the dirty draft.");
+
+                var draft = GetPrivateField<NodeDefinition>(control, "_propertyDraftNode");
+                draft.Settings[FlowSettingNames.DelayMs] = NodeSettingValue.ForVariable(
+                    VariableSelector.ForNodeOutput("condition_1", FlowOutputNames.Result),
+                    10);
+                InvokePrivate(control, "RenderProperties");
+                AssertEx.False(control.TryApplyPendingPropertyChanges(out error),
+                    "A variable source with an incompatible output type should block Apply.");
+                AssertEx.True(error.IndexOf("类型", StringComparison.Ordinal) >= 0,
+                    "Incompatible variable validation should identify the type mismatch.");
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "An incompatible selector should remain in the draft after failed Apply.");
+                AssertEx.Equal(NodeSettingValueMode.Constant, first.Settings[FlowSettingNames.DelayMs].Mode,
+                    "Failed variable validation must not mutate the source setting mode.");
             });
             return Task.FromResult(0);
         }
@@ -1380,6 +1772,47 @@ namespace Vision.Flow.Tests
             return document;
         }
 
+        private static FlowDesignDocument CreateTwoDelayDocument()
+        {
+            var document = CreateDelayDocument("two-delay-flow", "第一个节点", 10);
+            document.Runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "delay_2",
+                Type = DelayNodeFactory.TypeName,
+                Name = "第二个节点",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { FlowSettingNames.DelayMs, NodeSettingValue.ForConstant(20) }
+                }
+            });
+            document.Runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "condition_1",
+                Type = ConditionNodeFactory.TypeName,
+                Name = "布尔来源",
+                Version = "1.0.0",
+                Settings =
+                {
+                    { FlowSettingNames.LeftBinding, NodeSettingValue.ForConstant("x") },
+                    { FlowSettingNames.Operator, NodeSettingValue.ForConstant("Equal") },
+                    { FlowSettingNames.RightValue, NodeSettingValue.ForConstant("x") }
+                }
+            });
+            document.Runtime.Entries[0].TargetNodeId = "condition_1";
+            document.Runtime.Edges.Add(new EdgeDefinition
+            {
+                FromNodeId = "condition_1",
+                FromPort = FlowPortNames.True,
+                ToNodeId = "delay_1",
+                ToPort = FlowPortNames.In
+            });
+            document.View.Nodes["delay_2"] = new NodeViewState { X = 560, Y = 224 };
+            document.View.Nodes["condition_1"] = new NodeViewState { X = 80, Y = 96 };
+            document.View.Nodes["delay_1"] = new NodeViewState { X = 320, Y = 96 };
+            return document;
+        }
+
         private static NodeDefinition CreateNode()
         {
             return new NodeDefinition
@@ -1436,6 +1869,40 @@ namespace Vision.Flow.Tests
                 DataType = FlowDataType.Control
             });
             return descriptor;
+        }
+
+        private static NodeDescriptor CreateSearchDescriptor(
+            string nodeType,
+            string displayName,
+            string description,
+            string category)
+        {
+            return new NodeDescriptor
+            {
+                NodeType = nodeType,
+                DisplayName = displayName,
+                Description = description,
+                Category = category,
+                Version = "1.0.0"
+            };
+        }
+
+        private static void AssertPaletteSearchResult(
+            NodePaletteControl palette,
+            string search,
+            string expectedNodeType,
+            string fieldName)
+        {
+            palette.SearchText = search;
+            var matches = FindChildren<Button>(palette)
+                .Select(x => x.Tag as NodeDescriptor)
+                .Where(x => x != null)
+                .Select(x => x.NodeType)
+                .ToList();
+            AssertEx.Equal(1, matches.Count,
+                "Palette search should filter to one descriptor by " + fieldName + ".");
+            AssertEx.Equal(expectedNodeType, matches[0],
+                "Palette search should match descriptor " + fieldName + ".");
         }
 
         private static IEnumerable<T> FindChildren<T>(DependencyObject root)

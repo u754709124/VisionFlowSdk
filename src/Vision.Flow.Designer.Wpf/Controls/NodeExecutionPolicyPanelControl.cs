@@ -632,7 +632,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private static TextBlock CreateInlineError()
         {
-            return new TextBlock
+            var error = new TextBlock
             {
                 Foreground = FlowDesignerControl.BrushFromRgb(209, 67, 67),
                 FontSize = 11,
@@ -640,6 +640,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 TextWrapping = TextWrapping.Wrap,
                 Visibility = Visibility.Collapsed
             };
+            error.SetResourceReference(
+                FrameworkElement.StyleProperty,
+                FlowDesignerTheme.ErrorTextStyleKey);
+            return error;
         }
 
         private void SetFieldError(string tag, string error, Control editor, TextBlock errorText)
