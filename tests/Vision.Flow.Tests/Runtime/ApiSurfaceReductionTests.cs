@@ -13,16 +13,15 @@ namespace Vision.Flow.Tests
     // 公共面收缩测试通过反射保护运行契约，避免重新引入非相机设备、保存和队列 API。
     internal static class ApiSurfaceReductionTests
     {
-        public static Task NonCameraContractsAreNotExposed()
+        public static Task DeviceContractSurfaceIsConstrained()
         {
             AssertTypeMissing(DeviceType("I", "Light", "Adapter"));
-            AssertTypeMissing(DeviceType("I", "Motion", "Adapter"));
             AssertTypeMissing(DeviceType("I", "Recipe", "Adapter"));
             AssertTypeMissing(DeviceType("I", "ImageSave", "Adapter"));
             AssertTypeMissing(DeviceType("I", "Database", "Adapter"));
             AssertTypeMissing(DeviceType("Light", "ChannelSetting"));
             AssertTypeMissing(DeviceType("Motion", "Message"));
-            AssertTypeMissing(DeviceType("Motion", "EventArgs"));
+            AssertEx.True(typeof(IMotionAdapter).IsInterface, "Core should expose the protocol-neutral motion adapter.");
             AssertTypeMissing(DeviceType("Recipe", "RunRequest"));
             AssertTypeMissing(DeviceType("Recipe", "RunResult"));
             AssertTypeMissing(DeviceType("ImageSave", "Request"));
@@ -36,9 +35,9 @@ namespace Vision.Flow.Tests
                 .ToArray();
 
             AssertEx.SequenceEqual(
-                new[] { "GetCamera", "TryGetCamera" },
+                new[] { "GetCamera", "GetMotion", "TryGetCamera", "TryGetMotion" },
                 methods,
-                "IDeviceRegistry should only expose camera lookup methods.");
+                "IDeviceRegistry should expose camera and motion lookup methods.");
             return Task.FromResult(0);
         }
 

@@ -151,7 +151,7 @@ join.and
 condition.if
 ```
 
-相机软触发、硬触发和参数设置等设备节点应放在项目专属节点库中，并只通过 Core Adapter 契约访问设备，不引用具体相机 SDK。
+相机和运控等设备节点应放在项目专属节点库中，并只通过 Core Adapter 契约访问设备，不引用具体设备 SDK。运控项目 Adapter 负责将 Core 逻辑命令映射为项目协议。
 
 ## Runtime 服务
 

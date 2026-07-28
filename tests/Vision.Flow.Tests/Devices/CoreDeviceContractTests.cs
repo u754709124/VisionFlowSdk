@@ -40,6 +40,39 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task MotionAdapterModelsUseReadOnlySnapshots()
+        {
+            var parameters = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "Position", 12.5 }
+            };
+            var request = new MotionAdapterCommandRequest(
+                "MoveAbsolute",
+                parameters,
+                TimeSpan.FromSeconds(2));
+            parameters["Position"] = 99.0;
+
+            AssertEx.Equal(12.5, Convert.ToDouble(request.Parameters["Position"]), "Request should copy parameters.");
+            AssertEx.Equal(TimeSpan.FromSeconds(2), request.ResponseTimeout.Value, "Request should keep response timeout.");
+
+            var result = new MotionAdapterCommandResult(
+                request.CommandName,
+                "sent",
+                "received",
+                new Dictionary<string, object> { { "Accepted", true } });
+            var received = new MotionAdapterCommandReceivedEventArgs(
+                "Motion-A",
+                "PositionChanged",
+                "P01",
+                "P01,12.5",
+                new Dictionary<string, object> { { "Position", 12.5 } });
+
+            AssertEx.Equal("MoveAbsolute", result.CommandName, "Result should keep logical command name.");
+            AssertEx.Equal("PositionChanged", received.CommandName, "Event should keep logical command name.");
+            AssertEx.Equal("P01", received.WireCode, "Event should keep wire command code as diagnostic data.");
+            return Task.FromResult(0);
+        }
+
         private sealed class TestCameraAdapter : ICameraAdapter
         {
             private readonly Dictionary<string, object> _parameters = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);

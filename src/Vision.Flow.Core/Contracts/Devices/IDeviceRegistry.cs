@@ -8,5 +8,9 @@ namespace Vision.Flow.Core.Contracts.Devices
         bool TryGetCamera(string cameraId, out ICameraAdapter camera);
 
         ICameraAdapter GetCamera(string cameraId);
+
+        bool TryGetMotion(string motionId, out IMotionAdapter motion);
+
+        IMotionAdapter GetMotion(string motionId);
     }
 }

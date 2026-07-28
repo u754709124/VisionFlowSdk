@@ -82,6 +82,6 @@ Upper-machine app
 
 ## Runtime 服务
 
-Core 保留 `IDeviceRegistry`、`ICameraAdapter`、`CameraFrameData` 和 `IVisionImage` 等相机/图像基础契约。项目专属相机节点应通过这些 Adapter 契约调用 `GrabOneAsync`、订阅 `FrameArrived` 或写入可写参数，不直接引用具体相机 SDK。
+Core 保留 `IDeviceRegistry`、`ICameraAdapter`、`IMotionAdapter`、`CameraFrameData` 和 `IVisionImage` 等设备基础契约。项目专属节点应通过这些 Adapter 契约访问设备，不直接引用具体 SDK；Core 的运控命令仅使用逻辑字符串和通用字典。
 
-光源、运控、Recipe、保存、数据库、队列和扫描/融合分组能力由项目专属节点库自行定义和注册。
+具体运控命令枚举与线缆协议、光源、Recipe、保存、数据库、队列和扫描/融合分组能力由项目专属节点库自行定义和注册。
