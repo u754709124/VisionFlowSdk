@@ -61,7 +61,7 @@ namespace Vision.Flow.Designer.Wpf.Theming
 
     <Style x:Key=""FlowFieldTextBoxStyle"" TargetType=""{x:Type TextBox}"">
         <Setter Property=""MinHeight"" Value=""40"" />
-        <Setter Property=""Padding"" Value=""11,8"" />
+        <Setter Property=""Padding"" Value=""11,0"" />
         <Setter Property=""VerticalContentAlignment"" Value=""Center"" />
         <Setter Property=""Background"" Value=""{StaticResource FlowFieldBackground}"" />
         <Setter Property=""Foreground"" Value=""{StaticResource FlowText}"" />

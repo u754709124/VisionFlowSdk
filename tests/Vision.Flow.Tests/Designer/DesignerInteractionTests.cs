@@ -672,6 +672,20 @@ namespace Vision.Flow.Tests
                     "Ordinary fixed values should not accept line breaks.");
                 AssertEx.True(Math.Abs(ordinaryEditor.ActualHeight - 40) < 0.01,
                     "A long ordinary value must keep the shared 40 px editor height.");
+                AssertEx.True(
+                    Math.Abs(ordinaryEditor.Padding.Top) < 0.01 &&
+                    Math.Abs(ordinaryEditor.Padding.Bottom) < 0.01,
+                    "A fixed-height single-line editor must not reduce its text viewport with vertical padding.");
+                AssertEx.Equal(VerticalAlignment.Center, ordinaryEditor.VerticalContentAlignment,
+                    "A single-line editor should vertically center its full text viewport.");
+                ordinaryEditor.ApplyTemplate();
+                var ordinaryContentHost = ordinaryEditor.Template.FindName("PART_ContentHost", ordinaryEditor)
+                    as ScrollViewer;
+                AssertEx.NotNull(ordinaryContentHost,
+                    "The modern text editor template should expose its content host.");
+                AssertEx.True(
+                    ordinaryContentHost.ActualHeight >= ordinaryEditor.FontSize * 2,
+                    "The single-line text viewport should remain tall enough to render complete glyphs.");
                 AssertPositionUnchanged(
                     editorBefore,
                     GetBoundsRelativeTo(ordinaryEditor, panel),
@@ -731,6 +745,12 @@ namespace Vision.Flow.Tests
                     "Explicit mappings fields should continue accepting line breaks.");
                 AssertEx.True(multilineEditor.MinHeight >= 76,
                     "Explicit mappings fields should retain their multiline minimum height.");
+                AssertEx.True(
+                    multilineEditor.Padding.Top >= 8 &&
+                    multilineEditor.Padding.Bottom >= 8,
+                    "Explicit multiline fields should retain comfortable vertical padding.");
+                AssertEx.Equal(VerticalAlignment.Top, multilineEditor.VerticalContentAlignment,
+                    "Explicit multiline fields should start text at the top.");
                 AssertEx.Equal(ScrollBarVisibility.Auto, multilineEditor.VerticalScrollBarVisibility,
                     "Explicit mappings fields should retain an automatic vertical scrollbar.");
             });

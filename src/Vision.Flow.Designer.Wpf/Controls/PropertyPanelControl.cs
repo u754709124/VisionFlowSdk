@@ -637,11 +637,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (acceptsMultiline)
             {
                 textBox.MinHeight = 76;
+                textBox.Padding = new Thickness(11, 8, 11, 8);
+                textBox.VerticalContentAlignment = VerticalAlignment.Top;
                 textBox.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
             }
             else
             {
                 textBox.Height = 40;
+                textBox.VerticalContentAlignment = VerticalAlignment.Center;
                 textBox.HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden;
             }
 
