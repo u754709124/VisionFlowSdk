@@ -457,6 +457,7 @@ namespace Vision.Flow.Tests
                 var descriptor = CreateDescriptor();
                 descriptor.Settings[0].Name = "CameraId";
                 descriptor.Settings[0].DisplayName = "相机";
+                descriptor.Settings[0].BindingMode = NodeSettingBindingMode.ConstantOnly;
                 var node = CreateNode();
                 node.Settings.Clear();
                 node.Settings["CameraId"] = NodeSettingValue.ForConstant("Camera-B");
@@ -468,9 +469,9 @@ namespace Vision.Flow.Tests
                 panel.ShowNode(node, descriptor, delegate { });
 
                 var valueSelector = FindChildren<ComboBox>(panel)
-                    .FirstOrDefault(x => !string.Equals(
+                    .FirstOrDefault(x => string.Equals(
                         Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
-                        "CameraId:Mode",
+                        "Setting:CameraId",
                         StringComparison.Ordinal));
                 AssertEx.NotNull(valueSelector, "Host-provided camera ids should render a fixed-value selector.");
                 AssertEx.False(valueSelector.IsEditable,
@@ -484,8 +485,252 @@ namespace Vision.Flow.Tests
 
                 var emptyPanel = new PropertyPanelControl(setting => new string[0]);
                 emptyPanel.ShowNode(node, descriptor, delegate { });
-                AssertEx.True(FindChildren<ComboBox>(emptyPanel).Any(x => !x.IsEditable),
+                var emptySelector = FindChildren<ComboBox>(emptyPanel)
+                    .FirstOrDefault(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:CameraId",
+                        StringComparison.Ordinal));
+                AssertEx.NotNull(emptySelector,
                     "An empty host data source should remain an empty selector instead of falling back to free text.");
+                AssertEx.False(emptySelector.IsEditable,
+                    "An empty host-backed selector must not allow free text.");
+                AssertEx.Equal(0, emptySelector.Items.Count,
+                    "An empty host-backed selector should keep an empty candidate list.");
+                AssertEx.False(FindChildren<Button>(emptyPanel).Any(x =>
+                        string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "固定值", StringComparison.Ordinal) ||
+                        string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "变量", StringComparison.Ordinal)),
+                    "A constant-only device reference with no candidates must not expose a mode selector.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PropertyPanelUsesModernEditorTypesAndSeparatedSegments()
+        {
+            RunOnSta(delegate
+            {
+                var descriptor = CreateDescriptor();
+                var node = CreateNode();
+                var option = new VariableSelectionOption(
+                    VariableSelector.ForNodeOutput("source", "Image"),
+                    "Source [source]",
+                    "Source",
+                    "source",
+                    "Image",
+                    FlowDataType.String);
+                PropertyPanelControl panel = null;
+                panel = new PropertyPanelControl();
+                panel.ShowNode(node, descriptor, new[] { option }, delegate
+                {
+                    panel.SetPendingState(true, false);
+                }, false);
+                ArrangeAtPropertyPanelMinimum(panel);
+
+                var messageEditor = FindChildren<TextBox>(panel)
+                    .FirstOrDefault(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:Message",
+                        StringComparison.Ordinal));
+                AssertEx.NotNull(messageEditor,
+                    "An ordinary fixed string value should use a manually editable TextBox.");
+                AssertEx.False(FindChildren<ComboBox>(panel).Any(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:Message",
+                        StringComparison.Ordinal)),
+                    "An ordinary fixed value must not become a ComboBox without an explicit option provider.");
+
+                var constantSegment = FindChildren<Button>(panel)
+                    .First(x => string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "固定值", StringComparison.Ordinal));
+                var variableSegment = FindChildren<Button>(panel)
+                    .First(x => string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "变量", StringComparison.Ordinal));
+                AssertHorizontalSeparation(panel, constantSegment, variableSegment, 5,
+                    "Fixed and variable segment buttons must keep a visible gap instead of sharing or overlapping borders.");
+
+                var modeSelector = FindChildren<ComboBox>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Message:Mode",
+                        StringComparison.Ordinal));
+                modeSelector.SelectedIndex = 1;
+                ArrangeAtPropertyPanelMinimum(panel);
+                var applyButton = GetPrivateField<Button>(panel, "_applyButton");
+                AssertEx.False(applyButton.IsEnabled,
+                    "Switching to variable mode without a selector should immediately disable Apply.");
+                var variableSelector = FindChildren<VariableSelectorControl>(panel).FirstOrDefault();
+                AssertEx.NotNull(variableSelector,
+                    "Variable mode should render the dedicated variable selector.");
+                var variableSelectorStyle = variableSelector.FindResource(
+                    FlowDesignerTheme.VariableSelectorButtonStyleKey) as Style;
+                AssertEx.True(variableSelectorStyle != null &&
+                    object.ReferenceEquals(variableSelectorStyle, variableSelector.Style),
+                    "The variable selector should resolve an explicit modern button style.");
+                AssertEx.True(variableSelector.Template != null,
+                    "The variable selector style should own a custom control template.");
+                AssertEx.True(Math.Abs(variableSelector.ActualHeight - 40) < 0.01,
+                    "The variable selector should align to the shared 40 px field height.");
+                AssertEx.True(FindChildren<System.Windows.Shapes.Path>(variableSelector).Any(),
+                    "The variable selector should render its dropdown affordance as a vector path.");
+                variableSelector.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, variableSelector));
+                var variableGroup = variableSelector.ContextMenu.Items
+                    .OfType<MenuItem>()
+                    .First(x => x.Items.Count > 0);
+                var variableItem = variableGroup.Items.OfType<MenuItem>().First();
+                variableItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, variableItem));
+                AssertEx.True(applyButton.IsEnabled,
+                    "Selecting a compatible variable should immediately clear the error and re-enable Apply.");
+
+                descriptor.Settings[0].Name = "CameraId";
+                descriptor.Settings[0].DisplayName = "相机";
+                descriptor.Settings[0].BindingMode = NodeSettingBindingMode.ConstantOnly;
+                node.Settings.Clear();
+                node.Settings["CameraId"] = NodeSettingValue.ForConstant("Camera-B");
+                var cameraPanel = new PropertyPanelControl(setting =>
+                    string.Equals(setting.Name, "CameraId", StringComparison.OrdinalIgnoreCase)
+                        ? new[] { "Camera-A", "Camera-B" }
+                        : null);
+                cameraPanel.ShowNode(node, descriptor, delegate { });
+                ArrangeAtPropertyPanelMinimum(cameraPanel);
+                var cameraSelector = FindChildren<ComboBox>(cameraPanel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:CameraId",
+                        StringComparison.Ordinal));
+                cameraSelector.ApplyTemplate();
+                AssertEx.True(cameraSelector.Template != null,
+                    "A host-backed fixed value should use the modern ComboBox template.");
+                AssertEx.NotNull(cameraSelector.Template.FindName("PART_Popup", cameraSelector),
+                    "The modern ComboBox template should provide its own popup.");
+                AssertEx.True(FindChildren<System.Windows.Shapes.Path>(cameraSelector).Any(),
+                    "The modern ComboBox should draw its arrow as a vector path.");
+                AssertEx.True(cameraSelector.ItemContainerStyle != null &&
+                    cameraSelector.ItemContainerStyle.Setters.OfType<Setter>()
+                        .Any(x => x.Property == Control.TemplateProperty),
+                    "The modern ComboBox should style its dropdown candidates instead of using native rows.");
+                AssertEx.False(FindChildren<Button>(cameraPanel).Any(x =>
+                        string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "固定值", StringComparison.Ordinal) ||
+                        string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "变量", StringComparison.Ordinal)),
+                    "A constant-only device reference should not expose fixed/variable mode controls.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PropertyValidationSlotsKeepEditorPositionsStable()
+        {
+            RunOnSta(delegate
+            {
+                var descriptor = CreateDescriptor();
+                descriptor.Settings[0].IsRequired = true;
+                var node = CreateNode();
+                var option = new VariableSelectionOption(
+                    VariableSelector.ForNodeOutput("source", "Image"),
+                    "Source [source]",
+                    "Source",
+                    "source",
+                    "Image",
+                    FlowDataType.String);
+                var panel = new PropertyPanelControl();
+                panel.ShowNode(node, descriptor, new[] { option }, delegate { }, false);
+                ArrangeAtPropertyPanelMinimum(panel);
+
+                var scrollViewer = GetPrivateField<ScrollViewer>(panel, "_scrollViewer");
+                var applyButton = GetPrivateField<Button>(panel, "_applyButton");
+                var footer = FindAncestor<Border>(applyButton);
+                var scrollBeforeSummary = GetBoundsRelativeTo(scrollViewer, panel);
+                var footerBeforeSummary = GetBoundsRelativeTo(footer, panel);
+                var applyBeforeSummary = GetBoundsRelativeTo(applyButton, panel);
+                panel.ShowValidationError("属性校验失败，请检查当前输入。");
+                ArrangeAtPropertyPanelMinimum(panel);
+                AssertPositionUnchanged(
+                    scrollBeforeSummary,
+                    GetBoundsRelativeTo(scrollViewer, panel),
+                    "Showing the validation summary must not move or resize the form viewport.");
+                AssertSizeUnchanged(
+                    scrollBeforeSummary,
+                    GetBoundsRelativeTo(scrollViewer, panel),
+                    "Showing the validation summary must not resize the form viewport.");
+                AssertPositionUnchanged(
+                    footerBeforeSummary,
+                    GetBoundsRelativeTo(footer, panel),
+                    "Showing the validation summary must not move the footer.");
+                AssertSizeUnchanged(
+                    footerBeforeSummary,
+                    GetBoundsRelativeTo(footer, panel),
+                    "Showing the validation summary must not resize the footer.");
+                AssertPositionUnchanged(
+                    applyBeforeSummary,
+                    GetBoundsRelativeTo(applyButton, panel),
+                    "Showing the validation summary must not move footer actions.");
+
+                var messageEditor = FindChildren<TextBox>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:Message",
+                        StringComparison.Ordinal));
+                var followingLabel = FindChildren<TextBlock>(panel)
+                    .First(x => string.Equals(x.Text, "Enabled (Enabled)", StringComparison.Ordinal));
+                var editorBeforeError = GetBoundsRelativeTo(messageEditor, panel);
+                var followingBeforeError = GetBoundsRelativeTo(followingLabel, panel);
+
+                messageEditor.Text = string.Empty;
+                ArrangeAtPropertyPanelMinimum(panel);
+                AssertPositionUnchanged(
+                    editorBeforeError,
+                    GetBoundsRelativeTo(messageEditor, panel),
+                    "Showing a property validation message must not move its editor.");
+                AssertPositionUnchanged(
+                    followingBeforeError,
+                    GetBoundsRelativeTo(followingLabel, panel),
+                    "Showing a property validation message must not move following fields.");
+
+                var modeSelector = FindChildren<ComboBox>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Message:Mode",
+                        StringComparison.Ordinal));
+                modeSelector.SelectedIndex = 1;
+                ArrangeAtPropertyPanelMinimum(panel);
+                followingLabel = FindChildren<TextBlock>(panel)
+                    .First(x => string.Equals(x.Text, "Enabled (Enabled)", StringComparison.Ordinal));
+                var followingBeforeVariableSelection = GetBoundsRelativeTo(followingLabel, panel);
+                var variableSelector = FindChildren<VariableSelectorControl>(panel).First();
+                variableSelector.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, variableSelector));
+                var sourceGroup = variableSelector.ContextMenu.Items
+                    .OfType<MenuItem>()
+                    .First(x => x.Items.Count > 0);
+                var sourceItem = sourceGroup.Items.OfType<MenuItem>().First();
+                sourceItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, sourceItem));
+                ArrangeAtPropertyPanelMinimum(panel);
+                AssertPositionUnchanged(
+                    followingBeforeVariableSelection,
+                    GetBoundsRelativeTo(followingLabel, panel),
+                    "Clearing the variable validation status must not move following fields.");
+
+                var policyPanel = new NodeExecutionPolicyPanelControl();
+                policyPanel.ShowPolicy(node, descriptor, delegate { }, false);
+                policyPanel.Measure(new Size(332, 1000));
+                policyPanel.Arrange(new Rect(0, 0, 332, policyPanel.DesiredSize.Height));
+                policyPanel.UpdateLayout();
+                var timeoutEditor = FindChildren<TextBox>(policyPanel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.TimeoutMs",
+                        StringComparison.Ordinal));
+                var concurrencyLabel = FindChildren<TextBlock>(policyPanel)
+                    .First(x => (x.Text ?? string.Empty).IndexOf("最大并发执行数", StringComparison.Ordinal) >= 0);
+                var timeoutBeforeError = GetBoundsRelativeTo(timeoutEditor, policyPanel);
+                var concurrencyBeforeError = GetBoundsRelativeTo(concurrencyLabel, policyPanel);
+
+                timeoutEditor.Text = "invalid";
+                policyPanel.Measure(new Size(332, 1000));
+                policyPanel.Arrange(new Rect(0, 0, 332, policyPanel.DesiredSize.Height));
+                policyPanel.UpdateLayout();
+                AssertPositionUnchanged(
+                    timeoutBeforeError,
+                    GetBoundsRelativeTo(timeoutEditor, policyPanel),
+                    "Showing an execution-policy error must not move its editor.");
+                AssertPositionUnchanged(
+                    concurrencyBeforeError,
+                    GetBoundsRelativeTo(concurrencyLabel, policyPanel),
+                    "Showing an execution-policy error must not move the following policy field.");
             });
             return Task.FromResult(0);
         }
@@ -1296,7 +1541,7 @@ namespace Vision.Flow.Tests
                 var actionRow = FindAncestor<DockPanel>(applyButton);
 
                 AssertElementFullyInsideViewport(panel, inlineError, scrollViewer,
-                    "The required-field error must remain fully visible after Apply expands the global summary.");
+                    "The required-field error must remain fully visible after Apply shows the global summary.");
                 AssertRenderedAtDesiredHeight(inlineError,
                     "The required-field error must not be vertically clipped.");
                 AssertElementFullyInsideViewport(panel, summary, footer,
@@ -1306,7 +1551,7 @@ namespace Vision.Flow.Tests
                 AssertVerticalSeparation(panel, summary, actionRow, 6,
                     "The global validation summary must remain separated from the footer actions.");
                 AssertVerticalSeparation(panel, scrollViewer, footer, 0,
-                    "The expanded validation footer must not cover the scroll viewport.");
+                    "The fixed validation footer must not cover the scroll viewport.");
 
                 var errorBrush = (SolidColorBrush)panel.FindResource(FlowDesignerTheme.ErrorBrushKey);
                 var editorBrush = parameterEditor.BorderBrush as SolidColorBrush;
@@ -2662,6 +2907,22 @@ namespace Vision.Flow.Tests
             AssertEx.True(
                 leftBounds.Right + minimumGap <= rightBounds.Left + 0.01,
                 message + " Left=" + leftBounds + ", Right=" + rightBounds + ".");
+        }
+
+        private static void AssertPositionUnchanged(Rect expected, Rect actual, string message)
+        {
+            AssertEx.True(
+                Math.Abs(expected.X - actual.X) < 0.01 &&
+                Math.Abs(expected.Y - actual.Y) < 0.01,
+                message + " Expected=" + expected + ", Actual=" + actual + ".");
+        }
+
+        private static void AssertSizeUnchanged(Rect expected, Rect actual, string message)
+        {
+            AssertEx.True(
+                Math.Abs(expected.Width - actual.Width) < 0.01 &&
+                Math.Abs(expected.Height - actual.Height) < 0.01,
+                message + " Expected=" + expected + ", Actual=" + actual + ".");
         }
 
         private static void AssertElementIntersectsViewport(

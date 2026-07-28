@@ -18,7 +18,7 @@ WPF Designer 提供流程编辑、调试和发布体验，但不承担生产运�
 
 ## 默认现代主题
 
-`FlowDesignerTheme.CreateModern()` 提供可复用的 SDK 默认资源字典，包含字体、语义色、40 px 文本框与下拉框、主次按钮、固定值/变量分段按钮、绿色开关、卡片边框、行内错误、折叠器、菜单、Tooltip 和紧凑滚动条。设计器图标全部由 WPF `Path` 绘制，不依赖字体图标或第三方 UI 库。
+`FlowDesignerTheme.CreateModern()` 提供可复用的 SDK 默认资源字典，包含字体、语义色、40 px 文本框与下拉框、主次按钮、固定值/变量分段按钮、专用变量选择器、绿色开关、卡片边框、行内错误、折叠器、菜单、Tooltip 和紧凑滚动条。文本框、下拉框、下拉候选行和变量选择器均使用 SDK 自绘圆角模板及 WPF 矢量箭头，不回退到系统原生灰色控件；设计器其它图标也全部由 WPF `Path` 绘制，不依赖字体图标或第三方 UI 库。
 
 设计器自身、外置命令栏、属性面板和 SDK 弹窗都会合并一份独立主题字典，保证脱离原控件视觉树后仍能解析资源。宿主需要让自有外壳保持同一风格时，可以把 `FlowDesignerTheme.CreateModern()` 合并到宿主资源；这些资源是 SDK 的固定默认语义，不承诺通过祖先同名资源覆盖设计器内部主题。
 
@@ -82,6 +82,7 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 选中节点后，属性面板编辑的是节点名称、`Settings` 和 `ExecutionPolicy` 的深拷贝草稿，而不是源文档：
 
 - “应用”先完成必填、数字转换、动态候选、变量来源/类型和执行策略校验，再一次性写回源节点；校验失败会保留原始文本和草稿，并聚焦首个错误控件。
+- 每个可校验编辑器都预留固定高度的错误槽，错误出现、消失或变量状态变为有效时，当前输入控件和后续表单项的坐标保持不变，不会发生上下跳动。
 - “重置”恢复到最近一次成功应用的基线；没有变化时两个按钮禁用。
 - `HasPendingPropertyChanges` 报告有效修改和非法原始文本；`TryApplyPendingPropertyChanges(out string error)`、`DiscardPendingPropertyChanges()` 和 `TryResolvePendingPropertyChanges()` 供宿主协调保存、导航和关闭。
 - `FlowDesignerOptions.PendingPropertyChangesPrompt` 可以返回 `Apply`、`Discard` 或 `Cancel`。为空时使用 SDK 自绘三按钮确认框；测试宿主可注入确定性返回值。
@@ -90,7 +91,7 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 
 配置项声明为 `ConstantOrVariable` 后，会在同一行提供“固定值 / 变量”切换：
 
-- 固定值模式继续使用文本、数字、复选框或枚举编辑器。
+- 普通固定值使用手工输入的现代文本框完成字符串、数字和日期转换，Boolean 使用绿色开关；设计器不会根据配置键名称猜测下拉选项。
 - 变量模式用结构化 `VariableSelector` 替换整个配置值；切换期间保留原 `ConstantValue`，切回固定值时恢复。
 - 节点输出候选只来自当前节点沿控制入边反向遍历得到的全部直接、间接前置节点，不显示自身、下游或无关节点。
 - 候选项显示节点名称、节点 ID、输出名称和 `FlowDataType`，并按目标配置类型过滤；`Object` 到具体类型的转换会显示风险提示。
@@ -101,9 +102,9 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 
 具体项目可以通过传入自己的节点注册表、节点 Descriptor 和调试设备来扩展属性面板的实际体验。
 
-嵌入式宿主还可以通过 `FlowDesignerOptions.SettingConstantOptionsProvider` 为固定值编辑器提供动态候选项。例如项目相机节点的 `CameraId` 可以直接读取宿主当前绑定的设备配置；候选项发生变化后调用 `RefreshSelectedNodeProperties()` 即可刷新当前属性面板。刷新同一节点会保留设置和执行策略的草稿、非法原始文本及行内错误；当前值从候选中失效时继续显示原值并禁止应用，不会清空用户输入。宿主返回非空枚举对象时，编辑器使用不可自由输入的下拉框；即使枚举为空也保持空下拉框。设计器不再为相机标识提供硬编码默认值。
+嵌入式宿主还可以通过 `FlowDesignerOptions.SettingConstantOptionsProvider` 为固定值编辑器提供明确的动态候选项。例如项目相机节点的 `CameraId` 可以直接读取宿主当前绑定的设备配置，并在 Descriptor 中声明为 `ConstantOnly`，从而只显示设备数据源下拉框，不显示固定值/变量切换。候选项发生变化后调用 `RefreshSelectedNodeProperties()` 即可刷新当前属性面板。刷新同一节点会保留设置和执行策略的草稿、非法原始文本及行内错误；当前值从候选中失效时继续显示原值并禁止应用，不会清空用户输入。只有宿主为该 Descriptor 返回非 `null` 枚举对象时，编辑器才使用不可自由输入的现代下拉框；即使枚举为空也保持空下拉框。返回 `null` 时继续使用手工输入文本框。设计器不再为相机标识提供硬编码默认值。
 
-对于支持“固定值 / 变量”切换的配置项，模式下拉框与右侧固定值编辑器或变量选择器保持在同一行，状态或校验提示仍显示在右侧编辑区域内。
+对于支持“固定值 / 变量”切换的配置项，两个圆角分段按钮之间保留明确间距，并与右侧固定值编辑器或变量选择器保持在同一行。状态或校验提示显示在右侧固定错误槽内，不改变输入控件及相邻表单项的布局。
 
 ### 实例级动态 Descriptor
 
@@ -154,6 +155,6 @@ Designer 调试运行会把当前 `.flowdesign` 发布为运行态定义，再�
 
 ## 枚举编辑体验
 
-Designer 根据 `FlowDataType` 选择属性编辑控件：`Boolean` 使用复选框，`Int32` / `Double` 使用数字文本转换，其它类型使用文本或下拉框。
+Designer 根据 `FlowDataType` 选择属性编辑控件：`Boolean` 使用绿色开关，`Int32` / `Double` 使用手工输入及数字文本转换，其它普通类型使用手工输入文本框。只有宿主通过 `SettingConstantOptionsProvider` 为具体 Descriptor 提供明确选项数据源时才使用下拉框。
 
-端口连线规则使用 `FlowPortDirection` 判断输入/输出方向。条件操作符、AND Join 重复策略和日志等级的下拉项由 `FlowEnumConverter.GetWireValues<TEnum>()` 生成，并写回字符串协议值，保证保存后的 `.flowdesign` / `.flowruntime` 仍然可读。
+端口连线规则使用 `FlowPortDirection` 判断输入/输出方向。条件操作符、AND Join 重复策略和日志等级仍写回既有字符串协议值，并由既有校验器检查；若宿主希望把这些值限制为下拉候选，应通过 `SettingConstantOptionsProvider` 返回对应 wire values，不修改 `.flowdesign` / `.flowruntime` 协议。

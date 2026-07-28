@@ -133,6 +133,8 @@ namespace Vision.Flow.Tests
                 new TestCase("ConditionNode accepts a strong operator", ControlFlowNodeTests.ConditionAcceptsStrongOperator),
                 new TestCase("Designer property panel read-only mode disables editors", DesignerInteractionTests.PropertyPanelReadOnlyDisablesEditors),
                 new TestCase("Designer property panel uses host provided constant options", DesignerInteractionTests.PropertyPanelUsesHostProvidedConstantOptions),
+                new TestCase("Designer property panel uses modern editor types and separated segments", DesignerInteractionTests.PropertyPanelUsesModernEditorTypesAndSeparatedSegments),
+                new TestCase("Designer property validation slots keep editor positions stable", DesignerInteractionTests.PropertyValidationSlotsKeepEditorPositionsStable),
                 new TestCase("Designer node palette read-only mode blocks node requests", DesignerInteractionTests.NodePaletteReadOnlyBlocksNodeRequests),
                 new TestCase("Designer node palette single click selects only", DesignerInteractionTests.NodePaletteSingleClickSelectsOnly),
                 new TestCase("Designer node palette double click requests node once", DesignerInteractionTests.NodePaletteDoubleClickRequestsNodeOnce),

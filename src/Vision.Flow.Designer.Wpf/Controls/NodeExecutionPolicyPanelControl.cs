@@ -17,6 +17,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
     public sealed class NodeExecutionPolicyPanelControl : StackPanel
     {
         private const string TagPrefix = "ExecutionPolicy.";
+        private const double EditorErrorTextHeight = 28;
         private NodeDescriptor _descriptor;
         private NodeExecutionPolicy _policy;
         private RetryPolicy _retryPolicy;
@@ -32,6 +33,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Border> _fieldErrorOutlines =
             new Dictionary<string, Border>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, TextBlock> _fieldErrorBlocks =
+            new Dictionary<string, TextBlock>(StringComparer.OrdinalIgnoreCase);
         private string _renderedNodeId;
 
         public bool HasValidationErrors
@@ -60,6 +63,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Children.Clear();
             _fieldEditors.Clear();
             _fieldErrorOutlines.Clear();
+            _fieldErrorBlocks.Clear();
             _descriptor = descriptor;
             _changed = changed;
             _isReadOnly = isReadOnly;
@@ -307,7 +311,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Tag = tag
             };
             textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
-            var errorText = CreateInlineError();
+            var errorText = CreateInlineError(tag);
+            _fieldErrorBlocks[tag] = errorText;
             _fieldEditors[tag] = textBox;
             var editorFrame = CreateValidationEditorFrame(tag, textBox);
             RestoreFieldError(tag, textBox, errorText);
@@ -389,7 +394,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Tag = tag
             };
             textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
-            var errorText = CreateInlineError();
+            var errorText = CreateInlineError(tag);
+            _fieldErrorBlocks[tag] = errorText;
             _fieldEditors[tag] = textBox;
             var editorFrame = CreateValidationEditorFrame(tag, textBox);
             RestoreFieldError(tag, textBox, errorText);
@@ -635,6 +641,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _rawEditorTexts.Clear();
             _fieldEditors.Clear();
             _fieldErrorOutlines.Clear();
+            _fieldErrorBlocks.Clear();
             _renderedNodeId = null;
             NotifyValidationStateChanged();
         }
@@ -654,6 +661,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 removed |= _rawEditorTexts.Remove(tag);
                 _fieldEditors.Remove(tag);
                 _fieldErrorOutlines.Remove(tag);
+                _fieldErrorBlocks.Remove(tag);
             }
 
             if (removed)
@@ -662,15 +670,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
         }
 
-        private static TextBlock CreateInlineError()
+        private static TextBlock CreateInlineError(string tag)
         {
             var error = new TextBlock
             {
                 Foreground = FlowDesignerControl.BrushFromRgb(209, 67, 67),
                 FontSize = 11,
-                Margin = new Thickness(1, 3, 0, 2),
+                Height = EditorErrorTextHeight,
+                LineHeight = 14,
+                Margin = new Thickness(1, 3, 0, 3),
                 TextWrapping = TextWrapping.Wrap,
-                Visibility = Visibility.Collapsed
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Tag = "EditorError:" + (tag ?? string.Empty),
+                Visibility = Visibility.Hidden
             };
             error.SetResourceReference(
                 FrameworkElement.StyleProperty,
@@ -684,6 +696,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             editor.BorderBrush = FlowDesignerControl.BrushFromRgb(209, 67, 67);
             editor.ToolTip = error;
             errorText.Text = error;
+            errorText.ToolTip = error;
             errorText.Visibility = Visibility.Visible;
             SetValidationOutlineVisibility(tag, Visibility.Visible);
             NotifyValidationStateChanged();
@@ -695,7 +708,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             editor.ClearValue(Control.BorderBrushProperty);
             editor.ToolTip = null;
             errorText.Text = string.Empty;
-            errorText.Visibility = Visibility.Collapsed;
+            errorText.ToolTip = null;
+            errorText.Visibility = Visibility.Hidden;
             SetValidationOutlineVisibility(tag, Visibility.Collapsed);
             NotifyValidationStateChanged();
         }
@@ -742,6 +756,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 editor.BorderBrush = FlowDesignerControl.BrushFromRgb(209, 67, 67);
                 editor.ToolTip = error;
                 errorText.Text = error;
+                errorText.ToolTip = error;
                 errorText.Visibility = Visibility.Visible;
                 SetValidationOutlineVisibility(tag, Visibility.Visible);
             }
@@ -771,6 +786,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 editor.ToolTip = error;
                 editor.BringIntoView();
                 editor.Focus();
+            }
+
+            TextBlock errorText;
+            if (_fieldErrorBlocks.TryGetValue(tag, out errorText))
+            {
+                errorText.Text = error;
+                errorText.ToolTip = error;
+                errorText.Visibility = Visibility.Visible;
             }
 
             SetValidationOutlineVisibility(tag, Visibility.Visible);

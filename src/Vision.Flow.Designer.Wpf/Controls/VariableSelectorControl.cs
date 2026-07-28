@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
@@ -37,7 +38,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     .ToList();
             Content = "选择变量";
             MinWidth = 96;
-            Height = 28;
+            FlowDesignerTheme.ApplyTo(this);
+            SetResourceReference(
+                FrameworkElement.StyleProperty,
+                FlowDesignerTheme.VariableSelectorButtonStyleKey);
             ToolTip = "选择一个可用的前置节点输出或 Token 字段。";
             Click += OnClick;
         }
