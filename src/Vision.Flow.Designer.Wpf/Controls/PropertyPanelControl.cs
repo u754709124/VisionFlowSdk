@@ -349,8 +349,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             var segments = new Grid
             {
-                Height = 36,
-                Margin = new Thickness(0, 2, 0, 0)
+                Height = 40,
+                Margin = new Thickness(0),
+                VerticalAlignment = VerticalAlignment.Top
             };
             segments.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             segments.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(6) });
@@ -368,7 +369,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Grid.SetColumn(segments, 0);
             container.Children.Add(segments);
 
-            var editorHost = new ContentControl { Margin = new Thickness(8, 0, 0, 0) };
+            var editorHost = new ContentControl
+            {
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Top,
+                VerticalContentAlignment = VerticalAlignment.Top
+            };
             Grid.SetColumn(editorHost, 1);
             container.Children.Add(editorHost);
 
@@ -618,20 +624,25 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             var formattedValue = ToEditorText(setting, value);
+            var acceptsMultiline = IsMultilineSetting(setting);
             var textBox = new TextBox
             {
                 Text = GetRawEditorText(editorKey, formattedValue),
                 IsReadOnly = _isReadOnly,
-                TextWrapping = TextWrapping.Wrap,
-                AcceptsReturn = setting.Name.IndexOf("Mappings", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    setting.Name.IndexOf("Channels", StringComparison.OrdinalIgnoreCase) >= 0,
+                TextWrapping = acceptsMultiline ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                AcceptsReturn = acceptsMultiline,
                 Tag = editorKey
             };
             textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
-            if (textBox.AcceptsReturn)
+            if (acceptsMultiline)
             {
                 textBox.MinHeight = 76;
                 textBox.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            }
+            else
+            {
+                textBox.Height = 40;
+                textBox.HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden;
             }
 
             textBox.TextChanged += delegate
@@ -665,6 +676,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 ClearEditorError(editorKey, textBox);
             }
             return WrapEditorWithError(editorKey, textBox);
+        }
+
+        private static bool IsMultilineSetting(NodeSettingDescriptor setting)
+        {
+            return setting != null &&
+                !string.IsNullOrWhiteSpace(setting.Name) &&
+                (setting.Name.IndexOf("Mappings", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 setting.Name.IndexOf("Channels", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         private static UIElement CreateVariableStatus(
@@ -1140,7 +1159,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var button = new Button
             {
                 Content = text,
-                Height = 36,
+                Height = 40,
                 Padding = new Thickness(5, 0, 5, 0),
                 BorderThickness = new Thickness(1),
                 FontSize = 11.5,

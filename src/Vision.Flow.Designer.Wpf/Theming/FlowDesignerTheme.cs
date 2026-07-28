@@ -366,7 +366,7 @@ namespace Vision.Flow.Designer.Wpf.Theming
     </Style>
 
     <Style x:Key=""FlowSegmentButtonStyle"" TargetType=""{x:Type Button}"">
-        <Setter Property=""Height"" Value=""36"" />
+        <Setter Property=""Height"" Value=""40"" />
         <Setter Property=""Padding"" Value=""5,0"" />
         <Setter Property=""Margin"" Value=""0"" />
         <Setter Property=""Background"" Value=""White"" />

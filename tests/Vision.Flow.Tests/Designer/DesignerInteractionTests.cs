@@ -544,6 +544,21 @@ namespace Vision.Flow.Tests
                     .First(x => string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "变量", StringComparison.Ordinal));
                 AssertHorizontalSeparation(panel, constantSegment, variableSegment, 5,
                     "Fixed and variable segment buttons must keep a visible gap instead of sharing or overlapping borders.");
+                AssertEx.True(
+                    Math.Abs(constantSegment.ActualHeight - 40) < 0.01 &&
+                    Math.Abs(variableSegment.ActualHeight - 40) < 0.01 &&
+                    Math.Abs(messageEditor.ActualHeight - 40) < 0.01,
+                    "Mode buttons and the fixed-value editor should share the 40 px field height.");
+                AssertTopAligned(
+                    panel,
+                    constantSegment,
+                    messageEditor,
+                    "The fixed-value mode button and its editor should start on the same row edge.");
+                AssertTopAligned(
+                    panel,
+                    variableSegment,
+                    messageEditor,
+                    "The variable mode button and the fixed-value editor should start on the same row edge.");
 
                 var modeSelector = FindChildren<ComboBox>(panel)
                     .First(x => string.Equals(
@@ -567,6 +582,11 @@ namespace Vision.Flow.Tests
                     "The variable selector style should own a custom control template.");
                 AssertEx.True(Math.Abs(variableSelector.ActualHeight - 40) < 0.01,
                     "The variable selector should align to the shared 40 px field height.");
+                AssertTopAligned(
+                    panel,
+                    constantSegment,
+                    variableSelector,
+                    "The mode buttons and variable selector should stay top-aligned after switching modes.");
                 AssertEx.True(FindChildren<System.Windows.Shapes.Path>(variableSelector).Any(),
                     "The variable selector should render its dropdown affordance as a vector path.");
                 variableSelector.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, variableSelector));
@@ -595,6 +615,8 @@ namespace Vision.Flow.Tests
                         "Setting:CameraId",
                         StringComparison.Ordinal));
                 cameraSelector.ApplyTemplate();
+                AssertEx.True(Math.Abs(cameraSelector.ActualHeight - 40) < 0.01,
+                    "A host-backed selector should share the 40 px field height.");
                 AssertEx.True(cameraSelector.Template != null,
                     "A host-backed fixed value should use the modern ComboBox template.");
                 AssertEx.NotNull(cameraSelector.Template.FindName("PART_Popup", cameraSelector),
@@ -609,6 +631,108 @@ namespace Vision.Flow.Tests
                         string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "固定值", StringComparison.Ordinal) ||
                         string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "变量", StringComparison.Ordinal)),
                     "A constant-only device reference should not expose fixed/variable mode controls.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PropertyTextEditorsKeepSingleAndMultilineLayoutRules()
+        {
+            RunOnSta(delegate
+            {
+                var descriptor = CreateDescriptor();
+                descriptor.Settings[0].IsRequired = true;
+                descriptor.Settings.Add(new NodeSettingDescriptor
+                {
+                    Name = "FieldMappings",
+                    DisplayName = "字段映射",
+                    DataType = FlowDataType.String
+                });
+                var node = CreateNode();
+                node.Settings["FieldMappings"] = NodeSettingValue.ForConstant("Result=Value");
+                var panel = new PropertyPanelControl();
+                panel.ShowNode(node, descriptor, delegate { });
+                ArrangeAtPropertyPanelMinimum(panel);
+
+                var ordinaryEditor = FindChildren<TextBox>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:Message",
+                        StringComparison.Ordinal));
+                var followingLabel = FindChildren<TextBlock>(panel)
+                    .First(x => string.Equals(x.Text, "Enabled (Enabled)", StringComparison.Ordinal));
+                var editorBefore = GetBoundsRelativeTo(ordinaryEditor, panel);
+                var followingBefore = GetBoundsRelativeTo(followingLabel, panel);
+
+                ordinaryEditor.Text = "ExposureTimeExposureTimeExposureTimeExposureTimeExposureTime";
+                ArrangeAtPropertyPanelMinimum(panel);
+
+                AssertEx.Equal(TextWrapping.NoWrap, ordinaryEditor.TextWrapping,
+                    "Ordinary fixed values should remain single-line editors.");
+                AssertEx.False(ordinaryEditor.AcceptsReturn,
+                    "Ordinary fixed values should not accept line breaks.");
+                AssertEx.True(Math.Abs(ordinaryEditor.ActualHeight - 40) < 0.01,
+                    "A long ordinary value must keep the shared 40 px editor height.");
+                AssertPositionUnchanged(
+                    editorBefore,
+                    GetBoundsRelativeTo(ordinaryEditor, panel),
+                    "A long ordinary value must not move its editor.");
+                AssertSizeUnchanged(
+                    editorBefore,
+                    GetBoundsRelativeTo(ordinaryEditor, panel),
+                    "A long ordinary value must not resize its editor.");
+                AssertPositionUnchanged(
+                    followingBefore,
+                    GetBoundsRelativeTo(followingLabel, panel),
+                    "A long ordinary value must not push following fields.");
+
+                ordinaryEditor.Text = string.Empty;
+                ArrangeAtPropertyPanelMinimum(panel);
+                var validationOutline = FindChildren<Border>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ValidationOutline:Setting:Message",
+                        StringComparison.Ordinal));
+                var inlineError = FindChildren<TextBlock>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "EditorError:Setting:Message",
+                        StringComparison.Ordinal));
+                AssertEx.Equal(Visibility.Visible, validationOutline.Visibility,
+                    "An invalid ordinary value should show its validation outline.");
+                AssertPositionUnchanged(
+                    GetBoundsRelativeTo(ordinaryEditor, panel),
+                    GetBoundsRelativeTo(validationOutline, panel),
+                    "The validation outline should cover only the 40 px editor.");
+                AssertSizeUnchanged(
+                    GetBoundsRelativeTo(ordinaryEditor, panel),
+                    GetBoundsRelativeTo(validationOutline, panel),
+                    "The validation outline must not include the reserved error slot.");
+                AssertVerticalSeparation(
+                    panel,
+                    ordinaryEditor,
+                    inlineError,
+                    2,
+                    "The fixed validation slot should remain below the 40 px editor.");
+                AssertTopAligned(
+                    panel,
+                    ordinaryEditor,
+                    FindChildren<Button>(panel)
+                        .First(x => string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "固定值", StringComparison.Ordinal)),
+                    "Validation must not disturb row alignment.");
+
+                var multilineEditor = FindChildren<TextBox>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:FieldMappings",
+                        StringComparison.Ordinal));
+                AssertEx.Equal(TextWrapping.Wrap, multilineEditor.TextWrapping,
+                    "Explicit mappings fields should retain wrapped multiline editing.");
+                AssertEx.True(multilineEditor.AcceptsReturn,
+                    "Explicit mappings fields should continue accepting line breaks.");
+                AssertEx.True(multilineEditor.MinHeight >= 76,
+                    "Explicit mappings fields should retain their multiline minimum height.");
+                AssertEx.Equal(ScrollBarVisibility.Auto, multilineEditor.VerticalScrollBarVisibility,
+                    "Explicit mappings fields should retain an automatic vertical scrollbar.");
             });
             return Task.FromResult(0);
         }
@@ -2915,6 +3039,19 @@ namespace Vision.Flow.Tests
                 Math.Abs(expected.X - actual.X) < 0.01 &&
                 Math.Abs(expected.Y - actual.Y) < 0.01,
                 message + " Expected=" + expected + ", Actual=" + actual + ".");
+        }
+
+        private static void AssertTopAligned(
+            Visual root,
+            FrameworkElement first,
+            FrameworkElement second,
+            string message)
+        {
+            var firstBounds = GetBoundsRelativeTo(first, root);
+            var secondBounds = GetBoundsRelativeTo(second, root);
+            AssertEx.True(
+                Math.Abs(firstBounds.Top - secondBounds.Top) < 0.01,
+                message + " First=" + firstBounds + ", Second=" + secondBounds + ".");
         }
 
         private static void AssertSizeUnchanged(Rect expected, Rect actual, string message)
