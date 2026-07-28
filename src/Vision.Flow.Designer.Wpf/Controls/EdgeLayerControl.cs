@@ -32,8 +32,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
     // 杩炵嚎灞傛帶浠舵覆鏌撹礉濉炲皵杩炵嚎鍜岃繛绾块瑙堛€?
     public sealed class EdgeLayerControl : Canvas
     {
-        private const double NodeCardWidth = 190;
-        private const double PortAnchorY = 75;
+        private const double NodeCardWidth = 220;
+        private const double PortAnchorY = 78;
 
         private bool _hasPreview;
         private Point _previewStart;
@@ -152,6 +152,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var visiblePath = CreatePath(geometry, stroke, isSelected ? 2.4 : 1.6, null);
             visiblePath.IsHitTestVisible = false;
             group.Children.Add(visiblePath);
+            group.Children.Add(CreateArrow(end, stroke, isSelected ? 8.5 : 7.5));
 
             group.MouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs e)
             {
@@ -195,7 +196,30 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             var path = CreatePath(geometry, stroke, 1.8, new DoubleCollection { 4, 4 });
             group.Children.Add(path);
+            group.Children.Add(CreateArrow(end, stroke, 7.5));
             return group;
+        }
+
+        private static ShapesPath CreateArrow(Point end, Brush fill, double size)
+        {
+            var figure = new PathFigure
+            {
+                StartPoint = end,
+                IsClosed = true,
+                IsFilled = true
+            };
+            figure.Segments.Add(new LineSegment(new Point(end.X - size, end.Y - size * 0.58), true));
+            figure.Segments.Add(new LineSegment(new Point(end.X - size, end.Y + size * 0.58), true));
+            var geometry = new PathGeometry();
+            geometry.Figures.Add(figure);
+            return new ShapesPath
+            {
+                Data = geometry,
+                Fill = fill,
+                Stroke = null,
+                IsHitTestVisible = false,
+                Tag = "FlowEdgeArrow"
+            };
         }
 
         private ContextMenu CreateEdgeContextMenu(EdgeDefinition edge)

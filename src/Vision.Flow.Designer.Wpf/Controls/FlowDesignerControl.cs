@@ -25,6 +25,7 @@ using Vision.Flow.Core.Runtime.Engine;
 using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
@@ -36,12 +37,22 @@ namespace Vision.Flow.Designer.Wpf.Controls
         DebugRun = 1
     }
 
+    /// <summary>
+    /// 指定设计器命令栏由控件内部承载，还是交由业务宿主承载。
+    /// </summary>
+    public enum FlowDesignerToolbarPlacement
+    {
+        Internal = 0,
+        External = 1
+    }
+
     public sealed class FlowDesignerOptions
     {
         public FlowDesignerOptions()
         {
             LoadSampleOnStartup = true;
             ShowStandaloneDocumentCommands = true;
+            ToolbarPlacement = FlowDesignerToolbarPlacement.Internal;
         }
 
         public bool LoadSampleOnStartup { get; set; }
@@ -51,6 +62,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
         /// 嵌入业务宿主并由宿主管理复合配置文件时可关闭这些命令。
         /// </summary>
         public bool ShowStandaloneDocumentCommands { get; set; }
+
+        /// <summary>
+        /// 命令栏承载位置。外置时可通过 FlowDesignerControl.ToolbarView 挂入宿主。
+        /// </summary>
+        public FlowDesignerToolbarPlacement ToolbarPlacement { get; set; }
 
         public IDeviceRegistry DebugDevices { get; set; }
 
@@ -81,6 +97,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private readonly FlowDesignerOptions _options;
         private readonly Canvas _nodeLayer;
         private readonly TextBlock _statusText;
+        private readonly FrameworkElement _toolbarView;
         private Button _editModeButton;
         private Button _debugModeButton;
         private Button _newButton;
@@ -92,6 +109,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private Button _stopButton;
         private TextBlock _zoomText;
         private Rectangle _gridLayer;
+        private RowDefinition _debugRowDefinition;
+        private bool _debugDrawerPinned;
 
         private DesignerInteractionMode _interactionMode;
         private FlowDesignDocument _document;
@@ -153,6 +172,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 UpdateInteractionModeUi();
             };
             _debug = new RuntimeDebugPanelControl();
+            _debug.ExpansionChanged += OnDebugDrawerExpansionChanged;
             _edges = new EdgeLayerControl();
             _edges.EdgeSelected += SelectEdge;
             _edges.EdgeDeleteRequested += DeleteEdge;
@@ -171,12 +191,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _nodeLayer.LayoutUpdated += OnNodeLayerLayoutUpdated;
             _statusText = new TextBlock
             {
-                Foreground = Brushes.White,
+                Foreground = BrushFromRgb(100, 116, 139),
                 VerticalAlignment = VerticalAlignment.Center
             };
 
             DebugDevices = debugDevices ?? _options.DebugDevices;
             InitializeResources();
+            _toolbarView = CreateToolbar();
             Content = CreateShell();
             _palette.SetDescriptors(_nodeRegistry.Descriptors.OrderBy(x => x.Category).ThenBy(x => x.DisplayName));
             _palette.NodeRequested += AddNodeFromPalette;
@@ -206,6 +227,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public FlowDesignerOptions Options
         {
             get { return _options; }
+        }
+
+        /// <summary>
+        /// 设计器命令栏视图。ToolbarPlacement 为 External 时，业务宿主可将该单例元素放入自己的命令区。
+        /// </summary>
+        public FrameworkElement ToolbarView
+        {
+            get { return _toolbarView; }
         }
 
         /// <summary>

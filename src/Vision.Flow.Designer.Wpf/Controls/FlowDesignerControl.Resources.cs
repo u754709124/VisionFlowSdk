@@ -25,6 +25,7 @@ using Vision.Flow.Core.Runtime.Engine;
 using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
@@ -41,12 +42,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void InitializeResources()
         {
-            Resources["FlowPageBackground"] = BrushFromRgb(246, 248, 252);
-            Resources["FlowPanelBackground"] = Brushes.White;
-            Resources["FlowPanelBorder"] = BrushFromRgb(222, 229, 238);
-            Resources["FlowAccent"] = BrushFromRgb(22, 101, 52);
-            Resources["FlowText"] = BrushFromRgb(17, 24, 39);
-            Resources["FlowMutedText"] = BrushFromRgb(100, 116, 139);
+            Resources.MergedDictionaries.Add(FlowDesignerTheme.CreateModern());
             InstallScrollBarResources();
         }
 

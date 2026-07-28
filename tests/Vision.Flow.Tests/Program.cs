@@ -136,6 +136,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer stop marks running cards stopped", DesignerInteractionTests.StopMarksRunningCardsStopped),
                 new TestCase("Designer debug buttons recover after stop", DesignerInteractionTests.DebugButtonsRecoverAfterStop),
                 new TestCase("Designer embedded toolbar hides standalone document commands", DesignerInteractionTests.EmbeddedToolbarHidesStandaloneDocumentCommands),
+                new TestCase("Designer modern theme and external toolbar are self-contained", DesignerInteractionTests.ModernThemeAndExternalToolbarAreSelfContained),
                 new TestCase("Designer host API loads and captures deep copies", DesignerInteractionTests.HostDocumentApiLoadsCapturesAndDeepCopies),
                 new TestCase("Designer host API resets to an empty document", DesignerInteractionTests.HostResetCreatesEmptyDocument),
                 new TestCase("Designer host API publishes runtime file", DesignerInteractionTests.HostApiPublishesRuntimeFile),
@@ -143,7 +144,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer canvas zoom keeps viewport anchor stable", DesignerInteractionTests.CanvasZoomKeepsViewportAnchorStable),
                 new TestCase("Designer node card uses sharp text rendering options", DesignerInteractionTests.NodeCardUsesSharpTextRenderingOptions),
                 new TestCase("Designer palette and node card show descriptor descriptions", DesignerInteractionTests.PaletteAndNodeCardShowDescriptorDescription),
-                new TestCase("Designer node card shows runtime summary above card", DesignerInteractionTests.NodeCardShowsRuntimeSummaryAboveCard)
+                new TestCase("Designer node card shows runtime summary inside card", DesignerInteractionTests.NodeCardShowsRuntimeSummaryAboveCard)
             };
 
             var failed = 0;

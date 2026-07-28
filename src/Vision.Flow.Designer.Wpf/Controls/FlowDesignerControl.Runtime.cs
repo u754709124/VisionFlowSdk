@@ -316,6 +316,15 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private void UpdateInteractionModeUi()
         {
             var isEdit = CanEditDocument;
+            if (IsDebugRunMode)
+            {
+                SetDebugDrawerExpanded(true);
+            }
+            else if (!_debugDrawerPinned)
+            {
+                SetDebugDrawerExpanded(false);
+            }
+
             RefreshEntryTriggerPanel();
             _palette.SetReadOnly(!isEdit);
             _edges.SetReadOnly(!isEdit);
@@ -387,13 +396,34 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             button.Background = isActive
-                ? BrushFromRgb(16, 185, 129)
-                : BrushFromRgb(30, 41, 59);
+                ? BrushFromRgb(234, 248, 242)
+                : Brushes.Transparent;
             button.BorderBrush = isActive
-                ? BrushFromRgb(52, 211, 153)
+                ? BrushFromRgb(16, 163, 114)
+                : Brushes.Transparent;
+            button.Foreground = isActive
+                ? BrushFromRgb(13, 139, 97)
                 : BrushFromRgb(51, 65, 85);
-            button.Foreground = Brushes.White;
             button.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
+        }
+
+        private void OnDebugDrawerExpansionChanged(bool isExpanded)
+        {
+            _debugDrawerPinned = isExpanded;
+            SetDebugDrawerExpanded(isExpanded);
+        }
+
+        private void SetDebugDrawerExpanded(bool isExpanded)
+        {
+            if (_debug != null)
+            {
+                _debug.SetExpanded(isExpanded);
+            }
+
+            if (_debugRowDefinition != null)
+            {
+                _debugRowDefinition.Height = new GridLength(isExpanded ? 190 : 36);
+            }
         }
 
         private FlowToken CreateDebugToken()
@@ -420,6 +450,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             _debug.AddEvent(runtimeEvent);
+            if (runtimeEvent.EventType == FlowRuntimeEventType.NodeFailed ||
+                runtimeEvent.EventType == FlowRuntimeEventType.NodeTimeout)
+            {
+                SetDebugDrawerExpanded(true);
+            }
+
             if (!IsDebugRunMode)
             {
                 return;

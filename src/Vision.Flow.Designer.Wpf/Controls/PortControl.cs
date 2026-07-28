@@ -24,8 +24,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _hoverFill = FlowDesignerControl.BrushFromRgb(37, 99, 235);
             _editCursor = isInput ? Cursors.Cross : Cursors.Hand;
 
-            Width = 14;
-            Height = 22;
+            Width = 18;
+            Height = 24;
             CornerRadius = new CornerRadius(0);
             Margin = new Thickness(0, 4, 0, 4);
             Padding = new Thickness(0);
@@ -38,10 +38,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var grid = new Grid();
             _tab = new Border
             {
-                Width = 5,
-                Height = 18,
-                Background = _normalFill,
-                CornerRadius = new CornerRadius(2.5),
+                Width = 10,
+                Height = 10,
+                Background = Brushes.White,
+                BorderBrush = _normalFill,
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(5),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -60,12 +62,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var height = _tab.ActualHeight > 0 ? _tab.ActualHeight : _tab.Height;
             if (double.IsNaN(width) || width <= 0)
             {
-                width = 5;
+                width = 10;
             }
 
             if (double.IsNaN(height) || height <= 0)
             {
-                height = 18;
+                height = 10;
             }
 
             return _tab.TranslatePoint(new Point(width / 2.0, height / 2.0), relativeTo);
@@ -80,8 +82,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void SetHover(bool isHover)
         {
-            _tab.Background = isHover ? _hoverFill : _normalFill;
-            _tab.Width = isHover ? 6 : 5;
+            _tab.BorderBrush = isHover ? _hoverFill : _normalFill;
+            _tab.Background = isHover ? _hoverFill : Brushes.White;
+            _tab.Width = isHover ? 12 : 10;
+            _tab.Height = isHover ? 12 : 10;
+            _tab.CornerRadius = new CornerRadius(isHover ? 6 : 5);
         }
     }
 }

@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -22,6 +23,7 @@ using Vision.Flow.Core.Runtime.Engine;
 using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
 using Vision.Flow.Nodes;
 
@@ -633,8 +635,8 @@ namespace Vision.Flow.Tests
 
                 var standalone = new FlowDesignerControl(null, null, defaultOptions);
                 var standaloneLabels = FindChildren<Button>(standalone)
-                    .Select(x => x.Content as string)
-                    .Where(x => x != null)
+                    .Select(GetButtonLabel)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
                     .ToList();
                 AssertEx.True(new[] { "New", "Sample", "Open", "Save", "Publish" }.All(standaloneLabels.Contains),
                     "Default designer toolbar should keep all standalone document commands.");
@@ -645,13 +647,59 @@ namespace Vision.Flow.Tests
                     ShowStandaloneDocumentCommands = false
                 });
                 var embeddedLabels = FindChildren<Button>(embedded)
-                    .Select(x => x.Content as string)
-                    .Where(x => x != null)
+                    .Select(GetButtonLabel)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
                     .ToList();
                 AssertEx.False(new[] { "New", "Sample", "Open", "Save", "Publish" }.Any(embeddedLabels.Contains),
                     "Embedded designer toolbar should hide standalone document commands.");
                 AssertEx.True(new[] { "编辑", "调试运行", "Debug Run", "Stop" }.All(embeddedLabels.Contains),
                     "Embedded designer toolbar should keep mode, run and stop commands with readable labels.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task ModernThemeAndExternalToolbarAreSelfContained()
+        {
+            RunOnSta(delegate
+            {
+                var theme = FlowDesignerTheme.CreateModern();
+                AssertEx.NotNull(theme[FlowDesignerTheme.PageBackgroundBrushKey],
+                    "Modern theme should expose the page background brush.");
+                AssertEx.True(theme[FlowDesignerTheme.FieldTextBoxStyleKey] is Style,
+                    "Modern theme should expose the 40 px field editor style.");
+                AssertEx.True(theme[FlowDesignerTheme.ExpanderStyleKey] is Style,
+                    "Modern theme should expose a vector-chevron expander style.");
+
+                var defaultOptions = new FlowDesignerOptions();
+                AssertEx.Equal(FlowDesignerToolbarPlacement.Internal, defaultOptions.ToolbarPlacement,
+                    "Internal toolbar placement should remain the compatibility default.");
+
+                var external = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    ToolbarPlacement = FlowDesignerToolbarPlacement.External
+                });
+                AssertEx.NotNull(external.ToolbarView, "External placement should expose the command bar view.");
+                var shellLabels = FindChildren<Button>(external)
+                    .Select(GetButtonLabel)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList();
+                AssertEx.False(new[] { "编辑", "调试运行", "Debug Run", "Stop" }.Any(shellLabels.Contains),
+                    "External command bar must not remain parented inside the designer shell.");
+                AssertEx.NotNull(external.ToolbarView.TryFindResource(FlowDesignerTheme.ToolbarButtonStyleKey),
+                    "External command bar should resolve its own theme without parent-resource inheritance.");
+
+                var labels = FindChildren<Button>(external.ToolbarView)
+                    .Select(GetButtonLabel)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList();
+                AssertEx.True(new[] { "编辑", "调试运行", "Debug Run", "Stop" }.All(labels.Contains),
+                    "External command bar should preserve all SDK mode and runtime commands.");
+
+                external.ToolbarView.Measure(new Size(380, 50));
+                AssertEx.True(external.ToolbarView.DesiredSize.Width <= 380,
+                    "External SDK commands should fit the narrow host allocation without a status block.");
             });
             return Task.FromResult(0);
         }
@@ -916,7 +964,7 @@ namespace Vision.Flow.Tests
                 AssertEx.True(texts.Any(x => x.IndexOf("成功", StringComparison.OrdinalIgnoreCase) >= 0 && x.IndexOf("12ms", StringComparison.OrdinalIgnoreCase) >= 0),
                     "Completed node card should show success and elapsed time in the runtime summary.");
                 var summaryText = FindChildren<TextBlock>(card).FirstOrDefault(x => (x.Text ?? string.Empty).IndexOf("成功", StringComparison.OrdinalIgnoreCase) >= 0);
-                AssertRuntimeSummaryIsTextOnly(summaryText);
+                AssertRuntimeSummaryIsInsideCard(summaryText, card);
                 AssertEx.True((summaryText.Text ?? string.Empty).IndexOf(" · ", StringComparison.Ordinal) >= 0,
                     "Runtime summary should use a readable middle-dot separator.");
                 AssertEx.False((summaryText.Text ?? string.Empty).IndexOf(" 路 ", StringComparison.Ordinal) >= 0,
@@ -1055,21 +1103,39 @@ namespace Vision.Flow.Tests
             return (T)method.Invoke(null, args);
         }
 
-        private static void AssertRuntimeSummaryIsTextOnly(TextBlock summaryText)
+        private static void AssertRuntimeSummaryIsInsideCard(TextBlock summaryText, NodeCardControl card)
         {
             AssertEx.NotNull(summaryText, "Runtime summary text should be rendered.");
-            var parentBorder = FindAncestor<Border>(summaryText);
-            if (parentBorder == null)
+            var current = summaryText as DependencyObject;
+            var foundCard = false;
+            while (current != null)
             {
-                return;
+                if (object.ReferenceEquals(current, card))
+                {
+                    foundCard = true;
+                    break;
+                }
+
+                current = LogicalTreeHelper.GetParent(current) ?? VisualTreeHelper.GetParent(current);
             }
 
-            var hasVisibleBackground = parentBorder.Background != null && parentBorder.Background != Brushes.Transparent;
-            var hasVisibleBorder = parentBorder.BorderThickness.Left > 0 ||
-                parentBorder.BorderThickness.Top > 0 ||
-                parentBorder.BorderThickness.Right > 0 ||
-                parentBorder.BorderThickness.Bottom > 0;
-            AssertEx.False(hasVisibleBackground || hasVisibleBorder, "Runtime summary should be plain text, not a visible mini-card.");
+            AssertEx.True(foundCard, "Runtime status should render inside the node card chrome.");
+        }
+
+        private static string GetButtonLabel(Button button)
+        {
+            if (button == null)
+            {
+                return null;
+            }
+
+            var automationName = AutomationProperties.GetName(button);
+            if (!string.IsNullOrWhiteSpace(automationName))
+            {
+                return automationName;
+            }
+
+            return button.Content as string;
         }
 
         private static FlowDesignDocument CreateHostDocument()

@@ -25,6 +25,7 @@ using Vision.Flow.Core.Runtime.Engine;
 using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
@@ -50,8 +51,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public NodeCardControl(NodeViewModel viewModel)
         {
             ViewModel = viewModel;
-            Width = 190;
-            MinHeight = 118;
+            Width = 220;
+            MinHeight = 122;
             Background = Brushes.Transparent;
             BorderBrush = Brushes.Transparent;
             BorderThickness = new Thickness(0);
@@ -73,7 +74,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _runtimeSummary = new TextBlock
             {
                 MinHeight = 18,
-                Margin = new Thickness(2, 0, 2, 8),
+                Margin = new Thickness(0, 7, 0, 0),
                 FontSize = 10.5,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105),
@@ -81,8 +82,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 VerticalAlignment = VerticalAlignment.Center,
                 Visibility = Visibility.Collapsed
             };
-            outer.Children.Add(_runtimeSummary);
-
             _cardShadow = new System.Windows.Media.Effects.DropShadowEffect
             {
                 BlurRadius = 8,
@@ -93,7 +92,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _cardBody = new Border
             {
                 Background = Brushes.White,
-                BorderBrush = FlowDesignerControl.BrushFromRgb(52, 211, 153),
+                BorderBrush = FlowDesignerControl.BrushFromRgb(221, 229, 239),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(9, 8, 9, 8),
@@ -107,7 +106,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var root = new DockPanel
             {
                 LastChildFill = true,
-                Margin = new Thickness(12, 0, 12, 0)
+                Margin = new Thickness(10, 0, 10, 0)
             };
             chrome.Children.Add(root);
 
@@ -127,16 +126,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Width = 22,
                 Height = 22,
                 CornerRadius = new CornerRadius(5),
-                Background = GetNodeAccentBrush(viewModel.Node.Type),
-                Child = new TextBlock
-                {
-                    Text = GetNodeGlyph(viewModel.Node.Type),
-                    FontSize = 10,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontWeight = FontWeights.Bold,
-                    Foreground = Brushes.White
-                }
+                Background = GetNodeAccentSoftBrush(viewModel.Node.Type),
+                Child = FlowDesignerIcons.CreateNode(
+                    viewModel.Node.Type,
+                    GetNodeAccentBrush(viewModel.Node.Type),
+                    14)
             };
             DockPanel.SetDock(icon, Dock.Left);
             header.Children.Add(icon);
@@ -188,6 +182,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 Margin = new Thickness(0, 0, 0, 1)
             };
+            DockPanel.SetDock(_runtimeSummary, Dock.Bottom);
+            root.Children.Add(_runtimeSummary);
             root.Children.Add(_summaryRows);
             UpdateSummary();
         }
@@ -530,7 +526,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void UpdateCardChrome()
         {
-            var border = FlowDesignerControl.BrushFromRgb(52, 211, 153);
+            var border = FlowDesignerControl.BrushFromRgb(221, 229, 239);
             var thickness = 1.0;
             var opacity = 1.0;
             var shadowOpacity = 0.08;
@@ -594,8 +590,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
             else if (_isSelected)
             {
-                border = FlowDesignerControl.BrushFromRgb(16, 185, 129);
-                thickness = 1.6;
+                border = FlowDesignerControl.BrushFromRgb(47, 128, 237);
+                thickness = 1.8;
+                shadowOpacity = 0.14;
             }
 
             _cardBody.BorderBrush = border;
@@ -711,7 +708,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private static Brush GetNodeAccentBrush(string nodeType)
         {
             var type = nodeType ?? string.Empty;
-            if (type.StartsWith(FlowNodeTypePrefixes.Camera, StringComparison.OrdinalIgnoreCase))
+            if (type.StartsWith(FlowNodeTypePrefixes.Camera, StringComparison.OrdinalIgnoreCase) ||
+                type.IndexOf(".camera.", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return FlowDesignerControl.BrushFromRgb(59, 130, 246);
             }
@@ -728,6 +726,24 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             return FlowDesignerControl.BrushFromRgb(99, 102, 241);
+        }
+
+        private static Brush GetNodeAccentSoftBrush(string nodeType)
+        {
+            var type = nodeType ?? string.Empty;
+            if (type.StartsWith(FlowNodeTypePrefixes.Camera, StringComparison.OrdinalIgnoreCase) ||
+                type.IndexOf(".camera.", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return FlowDesignerControl.BrushFromRgb(234, 243, 255);
+            }
+
+            if (type.IndexOf("condition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                type.IndexOf("branch", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return FlowDesignerControl.BrushFromRgb(231, 249, 252);
+            }
+
+            return FlowDesignerControl.BrushFromRgb(238, 238, 255);
         }
 
         private static string GetNodeGlyph(string nodeType)

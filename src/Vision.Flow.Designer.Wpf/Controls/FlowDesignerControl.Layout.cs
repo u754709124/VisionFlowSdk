@@ -25,6 +25,7 @@ using Vision.Flow.Core.Runtime.Engine;
 using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
@@ -38,22 +39,27 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 Background = (Brush)Resources["FlowPageBackground"]
             };
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(54) });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(170) });
+            var workspaceRow = 0;
+            if (_options.ToolbarPlacement == FlowDesignerToolbarPlacement.Internal)
+            {
+                root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(50) });
+                Grid.SetRow(_toolbarView, 0);
+                root.Children.Add(_toolbarView);
+                workspaceRow = 1;
+            }
 
-            var toolbar = CreateToolbar();
-            Grid.SetRow(toolbar, 0);
-            root.Children.Add(toolbar);
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            _debugRowDefinition = new RowDefinition { Height = new GridLength(36) };
+            root.RowDefinitions.Add(_debugRowDefinition);
 
             var workspace = new Grid
             {
-                Margin = new Thickness(12, 10, 12, 8)
+                Margin = new Thickness(0)
             };
-            workspace.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260) });
+            workspace.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(244) });
             workspace.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            workspace.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(330) });
-            Grid.SetRow(workspace, 1);
+            workspace.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(380) });
+            Grid.SetRow(workspace, workspaceRow);
 
             Grid.SetColumn(_palette, 0);
             workspace.Children.Add(_palette);
@@ -62,7 +68,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Grid.SetColumn(canvasPanel, 1);
             workspace.Children.Add(canvasPanel);
 
-            var rightPanel = new Grid();
+            var rightPanel = new Grid
+            {
+                Background = Brushes.White
+            };
             rightPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             rightPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             Grid.SetRow(_entryTriggerPanel, 0);
@@ -73,35 +82,44 @@ namespace Vision.Flow.Designer.Wpf.Controls
             workspace.Children.Add(rightPanel);
             root.Children.Add(workspace);
 
-            Grid.SetRow(_debug, 2);
+            Grid.SetRow(_debug, workspaceRow + 1);
             root.Children.Add(_debug);
 
             return root;
         }
 
-        private UIElement CreateToolbar()
+        private FrameworkElement CreateToolbar()
         {
             var root = new Border
             {
-                Background = BrushFromRgb(15, 23, 42),
-                BorderBrush = BrushFromRgb(15, 23, 42),
+                Background = Brushes.White,
+                BorderBrush = BrushFromRgb(221, 229, 239),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(12, 8, 12, 8)
+                Padding = _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External
+                    ? new Thickness(0)
+                    : new Thickness(12, 7, 12, 7)
             };
+            FlowDesignerTheme.ApplyTo(root);
 
             var dock = new DockPanel();
             root.Child = dock;
 
             var statusBorder = new Border
             {
-                Background = BrushFromRgb(30, 41, 59),
+                Background = BrushFromRgb(245, 247, 250),
+                BorderBrush = BrushFromRgb(221, 229, 239),
+                BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(4),
                 Padding = new Thickness(10, 0, 10, 0),
-                Height = 32,
+                Height = 34,
+                MaxWidth = 370,
                 Child = _statusText
             };
-            DockPanel.SetDock(statusBorder, Dock.Right);
-            dock.Children.Add(statusBorder);
+            if (_options.ToolbarPlacement == FlowDesignerToolbarPlacement.Internal)
+            {
+                DockPanel.SetDock(statusBorder, Dock.Right);
+                dock.Children.Add(statusBorder);
+            }
 
             var buttons = new StackPanel
             {
@@ -109,19 +127,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             dock.Children.Add(buttons);
 
-            _editModeButton = CreateToolbarButton("编辑", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
-            _debugModeButton = CreateToolbarButton("调试运行", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
+            _editModeButton = CreateToolbarButton("编辑", "edit", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
+            _debugModeButton = CreateToolbarButton("调试运行", "debug", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
             buttons.Children.Add(_editModeButton);
             buttons.Children.Add(_debugModeButton);
             buttons.Children.Add(CreateToolbarSpacer());
 
-            _newButton = CreateToolbarButton("New", delegate { CreateNewDesign(); });
-            _sampleButton = CreateToolbarButton("Sample", delegate { LoadCoreBasicTemplate(); });
-            _openButton = CreateToolbarButton("Open", delegate { OpenDesign(); });
-            _saveButton = CreateToolbarButton("Save", delegate { SaveDesign(); });
-            _publishButton = CreateToolbarButton("Publish", delegate { ShowPublishRuntimeDialog(); });
-            _debugRunButton = CreateToolbarButton("Debug Run", async delegate { await RunDebugAsync(); });
-            _stopButton = CreateToolbarButton("Stop", async delegate { await StopDebugAsync(); });
+            _newButton = CreateToolbarButton("New", "new", delegate { CreateNewDesign(); });
+            _sampleButton = CreateToolbarButton("Sample", "sample", delegate { LoadCoreBasicTemplate(); });
+            _openButton = CreateToolbarButton("Open", "open", delegate { OpenDesign(); });
+            _saveButton = CreateToolbarButton("Save", "save", delegate { SaveDesign(); });
+            _publishButton = CreateToolbarButton("Publish", "publish", delegate { ShowPublishRuntimeDialog(); });
+            _debugRunButton = CreateToolbarButton("Debug Run", "run", async delegate { await RunDebugAsync(); });
+            _stopButton = CreateToolbarButton("Stop", "stop", async delegate { await StopDebugAsync(); });
 
             if (_options.ShowStandaloneDocumentCommands)
             {
@@ -140,11 +158,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private UIElement CreateCanvasPanel()
         {
-            var border = CreatePanelBorder(new Thickness(10, 0, 10, 0));
+            var border = CreatePanelBorder(new Thickness(8, 8, 8, 8));
             border.Padding = new Thickness(0);
             border.Background = BrushFromRgb(248, 250, 252);
             border.BorderBrush = BrushFromRgb(232, 238, 246);
-            border.CornerRadius = new CornerRadius(8);
+            border.CornerRadius = new CornerRadius(6);
 
             _canvasScale = new ScaleTransform(1.0, 1.0);
             _surface = new Grid
@@ -371,21 +389,36 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
         }
 
-        private static Button CreateToolbarButton(string text, RoutedEventHandler handler)
+        private static Button CreateToolbarButton(string text, string iconName, RoutedEventHandler handler)
         {
             var button = new Button
             {
-                Content = text,
-                MinWidth = 74,
-                Height = 32,
-                Margin = new Thickness(0, 0, 8, 0),
-                Padding = new Thickness(10, 0, 10, 0),
-                Background = BrushFromRgb(30, 41, 59),
-                BorderBrush = BrushFromRgb(51, 65, 85),
-                Foreground = Brushes.White
+                Content = CreateToolbarButtonContent(text, iconName),
+                Tag = text,
+                MinWidth = text.Length > 7 ? 96 : 72,
+                Height = 34
             };
+            System.Windows.Automation.AutomationProperties.SetName(button, text);
+            button.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.ToolbarButtonStyleKey);
             button.Click += handler;
             return button;
+        }
+
+        private static UIElement CreateToolbarButtonContent(string text, string iconName)
+        {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            panel.Children.Add(FlowDesignerIcons.Create(iconName, BrushFromRgb(75, 91, 112), 15));
+            panel.Children.Add(new TextBlock
+            {
+                Text = text,
+                Margin = new Thickness(6, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            return panel;
         }
 
         private static UIElement CreateToolbarSpacer()
@@ -395,7 +428,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Width = 1,
                 Height = 24,
                 Margin = new Thickness(2, 4, 10, 4),
-                Background = BrushFromRgb(51, 65, 85)
+                Background = BrushFromRgb(221, 229, 239)
             };
         }
     }
