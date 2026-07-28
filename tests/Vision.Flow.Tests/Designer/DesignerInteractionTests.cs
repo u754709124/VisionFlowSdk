@@ -1425,6 +1425,192 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task DynamicDescriptorDraftRefreshesAndReconcilesFields()
+        {
+            RunOnSta(delegate
+            {
+                var registry = new NodeRegistry();
+                CommonNodeRegistration.RegisterAll(registry);
+                var dynamicFactory = new DesignerDynamicDescriptorFactory();
+                registry.Register(dynamicFactory);
+                var control = new FlowDesignerControl(registry, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    SettingConstantOptionsProvider = delegate(NodeSettingDescriptor setting)
+                    {
+                        return string.Equals(
+                            setting == null ? null : setting.Name,
+                            DesignerDynamicDescriptorFactory.CommandSetting,
+                            StringComparison.OrdinalIgnoreCase)
+                            ? new[] { "Alpha", "Beta", "Broken" }
+                            : null;
+                    }
+                });
+                var addNodeMethod = typeof(FlowDesignerControl).GetMethod(
+                    "AddNodeFromPalette",
+                    BindingFlags.Instance | BindingFlags.NonPublic,
+                    null,
+                    new[] { typeof(NodeDescriptor) },
+                    null);
+                AssertEx.NotNull(addNodeMethod, "The palette add method should exist.");
+                addNodeMethod.Invoke(control, new object[] { dynamicFactory.Descriptor });
+                var createdDocument = GetPrivateField<FlowDesignDocument>(control, "_document");
+                var createdNode = createdDocument.Runtime.Nodes.Single();
+                AssertEx.Equal(
+                    7,
+                    createdNode.Settings["AlphaInput"].ConstantValue,
+                    "A newly added dynamic node should receive its default instance settings.");
+                AssertEx.Equal(
+                    "common-default",
+                    createdNode.Settings["CommonInput"].ConstantValue,
+                    "A palette descriptor may omit non-shaping settings without creating an invalid node.");
+
+                control.LoadDocumentAsync(CreateDynamicDescriptorDocument())
+                    .GetAwaiter().GetResult();
+
+                var source = GetPrivateField<FlowDesignDocument>(control, "_document");
+                var alphaEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:AlphaInput",
+                        StringComparison.Ordinal));
+                alphaEditor.Text = "invalid-alpha";
+                var alphaDefaultOutputEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.DefaultOutputs.AlphaResult",
+                        StringComparison.Ordinal));
+                alphaDefaultOutputEditor.Text = "invalid-alpha-output";
+                var timeoutEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.TimeoutMs",
+                        StringComparison.Ordinal));
+                timeoutEditor.Text = "invalid-timeout";
+
+                var commandSelector = FindChildren<ComboBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:" + DesignerDynamicDescriptorFactory.CommandSetting,
+                        StringComparison.Ordinal));
+                commandSelector.SelectedIndex = 1;
+                commandSelector.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent, commandSelector));
+
+                var draft = GetPrivateField<NodeDefinition>(control, "_propertyDraftNode");
+                AssertEx.Equal("Beta", draft.Settings[DesignerDynamicDescriptorFactory.CommandSetting].ConstantValue,
+                    "Changing an AffectsDescriptor setting should update the property draft.");
+                AssertEx.False(draft.Settings.ContainsKey("AlphaInput"),
+                    "The old command-specific setting should be removed from the draft.");
+                AssertEx.Equal(9, draft.Settings["BetaInput"].ConstantValue,
+                    "The new command-specific setting should be initialized from its descriptor default.");
+                AssertEx.Equal(NodeSettingValueMode.Variable, draft.Settings["CommonInput"].Mode,
+                    "A setting with an unchanged contract should retain variable mode.");
+                AssertEx.Equal(VariableSelectorScope.TriggerInput, draft.Settings["CommonInput"].Selector.Scope,
+                    "A setting with an unchanged contract should retain selector scope.");
+                AssertEx.Equal(
+                    "SharedText",
+                    string.Join(".", draft.Settings["CommonInput"].Selector.Path),
+                    "A setting with an unchanged contract should retain selector path.");
+                AssertEx.Equal("preserved", draft.Settings["CommonInput"].ConstantValue,
+                    "A setting with an unchanged contract should retain its fallback constant.");
+                AssertEx.False(draft.ExecutionPolicy.DefaultOutputs.ContainsKey("AlphaResult"),
+                    "A removed output should be pruned from DefaultOutputs.");
+                AssertEx.Equal(0, draft.ExecutionPolicy.DefaultOutputs["BetaResult"],
+                    "A new output should receive a typed fallback value when DefaultOutputs is active.");
+                AssertEx.Equal("common-fallback", draft.ExecutionPolicy.DefaultOutputs["CommonResult"],
+                    "A fallback output with an unchanged contract should be preserved.");
+                AssertEx.False(FindChildren<FrameworkElement>(control).Any(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:AlphaInput",
+                        StringComparison.Ordinal)),
+                    "The removed setting editor should disappear immediately.");
+                AssertEx.True(FindChildren<TextBox>(control).Any(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:BetaInput",
+                        StringComparison.Ordinal)),
+                    "The new setting editor should appear immediately without applying the draft.");
+
+                timeoutEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.TimeoutMs",
+                        StringComparison.Ordinal));
+                AssertEx.Equal("invalid-timeout", timeoutEditor.Text,
+                    "Refreshing a dynamic descriptor should preserve unrelated raw editor text.");
+                var propertyPanel = GetPrivateField<PropertyPanelControl>(control, "_properties");
+                var editorErrors = GetPrivateField<Dictionary<string, string>>(propertyPanel, "_editorErrors");
+                AssertEx.False(editorErrors.ContainsKey("Setting:AlphaInput"),
+                    "Refreshing should clear validation state only for removed settings.");
+                AssertEx.True(propertyPanel.HasEditorErrors,
+                    "An unrelated execution-policy error should remain active after descriptor refresh.");
+
+                AssertEx.Equal(
+                    "Alpha",
+                    source.Runtime.Nodes[0].Settings[DesignerDynamicDescriptorFactory.CommandSetting].ConstantValue,
+                    "A dynamic descriptor refresh must not mutate the applied source node.");
+                AssertEx.Equal(
+                    "AlphaResult",
+                    source.Runtime.Nodes[1].Settings[FlowSettingNames.DelayMs].Selector.Path[1],
+                    "A downstream selector for a removed output should remain intact for validation.");
+
+                timeoutEditor.Text = "0";
+                string applyError;
+                AssertEx.True(control.TryApplyPendingPropertyChanges(out applyError),
+                    "The dynamic draft should apply after unrelated input errors are corrected. Error: " + applyError);
+                AssertEx.Equal(
+                    "Beta",
+                    source.Runtime.Nodes[0].Settings[DesignerDynamicDescriptorFactory.CommandSetting].ConstantValue,
+                    "Applying should commit the selected dynamic descriptor state.");
+                AssertEx.Equal(
+                    "AlphaResult",
+                    source.Runtime.Nodes[1].Settings[FlowSettingNames.DelayMs].Selector.Path[1],
+                    "Applying an upstream shape change must not silently rewrite downstream selectors.");
+
+                var cards = GetPrivateField<Dictionary<string, NodeCardControl>>(control, "_nodeCards");
+                AssertEx.True(cards["dynamic_1"].ViewModel.Descriptor.Outputs.Any(x => x.Name == "BetaResult"),
+                    "The node card should use the applied instance descriptor.");
+                AssertEx.False(cards["dynamic_1"].ViewModel.Descriptor.Outputs.Any(x => x.Name == "AlphaResult"),
+                    "The node card should stop showing outputs removed by the instance descriptor.");
+
+                var suggestions = InvokePrivateInstance<IList<VariableSelectionOption>>(
+                    control,
+                    "CreateVariableSuggestions",
+                    source.Runtime.Nodes[1]);
+                AssertEx.True(suggestions.Any(x =>
+                        x.Selector.Scope == VariableSelectorScope.NodeOutput &&
+                        x.Selector.Path.Count >= 2 &&
+                        string.Equals(x.Selector.Path[0], "dynamic_1", StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(x.Selector.Path[1], "BetaResult", StringComparison.OrdinalIgnoreCase)),
+                    "Variable suggestions should expose outputs from the source node's instance descriptor.");
+                AssertEx.False(suggestions.Any(x =>
+                        x.Selector.Scope == VariableSelectorScope.NodeOutput &&
+                        x.Selector.Path.Count >= 2 &&
+                        string.Equals(x.Selector.Path[0], "dynamic_1", StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(x.Selector.Path[1], "AlphaResult", StringComparison.OrdinalIgnoreCase)),
+                    "Variable suggestions should not expose outputs removed from the instance descriptor.");
+
+                commandSelector = FindChildren<ComboBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:" + DesignerDynamicDescriptorFactory.CommandSetting,
+                        StringComparison.Ordinal));
+                commandSelector.SelectedIndex = 2;
+                commandSelector.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent, commandSelector));
+                AssertEx.False(FindChildren<FrameworkElement>(control).Any(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:BetaInput",
+                        StringComparison.Ordinal)),
+                    "A descriptor-resolution error should immediately fall back to the static palette shape.");
+                draft = GetPrivateField<NodeDefinition>(control, "_propertyDraftNode");
+                AssertEx.Equal(
+                    "Broken",
+                    draft.Settings[DesignerDynamicDescriptorFactory.CommandSetting].ConstantValue,
+                    "Static fallback should retain the invalid shaping value for validator diagnostics.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyDraftValidatesVariablesAndNodeSwitchDecisions()
         {
             RunOnSta(delegate
@@ -1907,6 +2093,13 @@ namespace Vision.Flow.Tests
             return (T)method.Invoke(null, args);
         }
 
+        private static T InvokePrivateInstance<T>(object instance, string name, params object[] args)
+        {
+            var method = instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            AssertEx.NotNull(method, "Private method should exist: " + name);
+            return (T)method.Invoke(instance, args ?? new object[0]);
+        }
+
         private static void AssertRuntimeSummaryIsInsideCard(TextBlock summaryText, NodeCardControl card)
         {
             AssertEx.NotNull(summaryText, "Runtime summary text should be rendered.");
@@ -2044,6 +2237,91 @@ namespace Vision.Flow.Tests
             return document;
         }
 
+        private static FlowDesignDocument CreateDynamicDescriptorDocument()
+        {
+            var document = new FlowDesignDocument
+            {
+                FlowId = "designer-dynamic-descriptor",
+                FlowName = "Designer Dynamic Descriptor",
+                Runtime = new RuntimeFlowDefinition
+                {
+                    FlowId = "designer-dynamic-descriptor",
+                    FlowName = "Designer Dynamic Descriptor",
+                    Version = "1.0.0"
+                },
+                View = new FlowViewState()
+            };
+            document.Runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "dynamic_1",
+                Type = DesignerDynamicDescriptorFactory.TypeName,
+                Name = "动态命令",
+                Version = "1.0.0",
+                Settings =
+                {
+                    {
+                        DesignerDynamicDescriptorFactory.CommandSetting,
+                        NodeSettingValue.ForConstant("Alpha")
+                    },
+                    {
+                        "CommonInput",
+                        NodeSettingValue.ForVariable(
+                            VariableSelector.ForTriggerInput("SharedText"),
+                            "preserved")
+                    }
+                },
+                ExecutionPolicy = new NodeExecutionPolicy
+                {
+                    FailureStrategy = FailureStrategy.DefaultOutputs,
+                    DefaultOutputs =
+                    {
+                        { "CommonResult", "common-fallback" }
+                    }
+                }
+            });
+            document.Runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "delay_after_dynamic",
+                Type = DelayNodeFactory.TypeName,
+                Name = "下游节点",
+                Version = "1.0.0",
+                Settings =
+                {
+                    {
+                        FlowSettingNames.DelayMs,
+                        NodeSettingValue.ForVariable(
+                            VariableSelector.ForNodeOutput("dynamic_1", "AlphaResult"),
+                            0)
+                    }
+                }
+            });
+            document.Runtime.Edges.Add(new EdgeDefinition
+            {
+                FromNodeId = "dynamic_1",
+                FromPort = FlowPortNames.Next,
+                ToNodeId = "delay_after_dynamic",
+                ToPort = FlowPortNames.In
+            });
+            document.Runtime.Entries.Add(new FlowEntryDefinition
+            {
+                EntryName = "ManualStart",
+                TargetNodeId = "dynamic_1",
+                Inputs =
+                {
+                    new TriggerInputDescriptor
+                    {
+                        Name = "SharedText",
+                        DisplayName = "共享文本",
+                        DataType = FlowDataType.String,
+                        IsRequired = true
+                    }
+                }
+            });
+            document.View.Nodes["dynamic_1"] = new NodeViewState { X = 80, Y = 96 };
+            document.View.Nodes["delay_after_dynamic"] = new NodeViewState { X = 360, Y = 96 };
+            return document;
+        }
+
         private static NodeDefinition CreateNode()
         {
             return new NodeDefinition
@@ -2116,6 +2394,144 @@ namespace Vision.Flow.Tests
                 Category = category,
                 Version = "1.0.0"
             };
+        }
+
+        private sealed class DesignerDynamicDescriptorFactory : INodeFactory, IInstanceNodeDescriptorProvider
+        {
+            public const string TypeName = "test.designer-dynamic-descriptor";
+            public const string CommandSetting = "Command";
+
+            private readonly NodeDescriptor _descriptor = CreatePaletteDescriptor();
+
+            public string NodeType
+            {
+                get { return TypeName; }
+            }
+
+            public NodeDescriptor Descriptor
+            {
+                get { return _descriptor; }
+            }
+
+            public NodeDescriptor GetDescriptor(NodeDefinition definition)
+            {
+                NodeSettingValue value;
+                var command = definition != null &&
+                    definition.Settings != null &&
+                    definition.Settings.TryGetValue(CommandSetting, out value) &&
+                    value != null
+                    ? Convert.ToString(value.ConstantValue, CultureInfo.InvariantCulture)
+                    : "Alpha";
+                if (string.Equals(command, "Broken", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Broken dynamic descriptor requested.");
+                }
+
+                return CreateDescriptor(string.Equals(command, "Beta", StringComparison.OrdinalIgnoreCase)
+                    ? "Beta"
+                    : "Alpha");
+            }
+
+            public IFlowNode Create(NodeDefinition definition)
+            {
+                return new RecordingNode(definition, new List<string>());
+            }
+
+            private static NodeDescriptor CreateDescriptor(string command)
+            {
+                var isBeta = string.Equals(command, "Beta", StringComparison.OrdinalIgnoreCase);
+                var variant = isBeta ? "Beta" : "Alpha";
+                var descriptor = new NodeDescriptor
+                {
+                    NodeType = TypeName,
+                    DisplayName = "设计器动态描述符",
+                    Category = "测试",
+                    Version = "1.0.0",
+                    InputPorts =
+                    {
+                        new NodePortDescriptor
+                        {
+                            Name = FlowPortNames.In,
+                            DisplayName = FlowPortNames.In,
+                            Direction = FlowPortDirection.Input,
+                            DataType = FlowDataType.Control,
+                            IsRequired = true
+                        }
+                    },
+                    OutputPorts =
+                    {
+                        new NodePortDescriptor
+                        {
+                            Name = FlowPortNames.Next,
+                            DisplayName = FlowPortNames.Next,
+                            Direction = FlowPortDirection.Output,
+                            DataType = FlowDataType.Control
+                        }
+                    },
+                    Settings =
+                    {
+                        new NodeSettingDescriptor
+                        {
+                            Name = CommandSetting,
+                            DisplayName = "命令",
+                            DataType = FlowDataType.String,
+                            DefaultValue = "Alpha",
+                            IsRequired = true,
+                            BindingMode = NodeSettingBindingMode.ConstantOnly,
+                            EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                            AllowedVariableSources = VariableSelectorScopeFlags.None,
+                            AffectsDescriptor = true
+                        },
+                        new NodeSettingDescriptor
+                        {
+                            Name = "CommonInput",
+                            DisplayName = "公共输入",
+                            DataType = FlowDataType.String,
+                            DefaultValue = "common-default",
+                            BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                            EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                            AllowedVariableSources = VariableSelectorScopeFlags.All
+                        },
+                        new NodeSettingDescriptor
+                        {
+                            Name = variant + "Input",
+                            DisplayName = variant + " 输入",
+                            DataType = FlowDataType.Int32,
+                            DefaultValue = isBeta ? 9 : 7,
+                            IsRequired = true,
+                            BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                            EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                            AllowedVariableSources = VariableSelectorScopeFlags.All
+                        }
+                    },
+                    Outputs =
+                    {
+                        new NodeOutputDescriptor
+                        {
+                            Name = "CommonResult",
+                            DisplayName = "公共结果",
+                            DataType = FlowDataType.String
+                        },
+                        new NodeOutputDescriptor
+                        {
+                            Name = variant + "Result",
+                            DisplayName = variant + " 结果",
+                            DataType = FlowDataType.Int32
+                        }
+                    }
+                };
+                return descriptor;
+            }
+
+            private static NodeDescriptor CreatePaletteDescriptor()
+            {
+                var descriptor = CreateDescriptor("Alpha");
+                descriptor.Settings = descriptor.Settings
+                    .Where(x => string.Equals(x.Name, CommandSetting, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                descriptor.Outputs.Clear();
+                return descriptor;
+            }
         }
 
         private static void AssertPaletteSearchResult(

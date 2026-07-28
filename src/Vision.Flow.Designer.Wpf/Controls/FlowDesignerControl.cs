@@ -139,6 +139,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private NodeDefinition _selectedNode;
         private NodeDefinition _propertyDraftNode;
         private NodeDefinition _propertyBaselineNode;
+        private NodeDescriptor _propertyDraftDescriptor;
+        private string _propertyDraftDescriptorState;
+        private bool _isReconcilingPropertyDescriptor;
         private EdgeDefinition _selectedEdge;
         private IFlowRunner _runner;
         private Grid _surface;

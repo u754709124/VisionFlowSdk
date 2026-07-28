@@ -845,6 +845,38 @@ namespace Vision.Flow.Designer.Wpf.Controls
             RefreshActionButtonState();
         }
 
+        internal void RemoveDescriptorEditorState(
+            IEnumerable<string> settingNames,
+            IEnumerable<string> outputNames)
+        {
+            foreach (var settingName in settingNames ?? Enumerable.Empty<string>())
+            {
+                if (string.IsNullOrWhiteSpace(settingName))
+                {
+                    continue;
+                }
+
+                RemoveEditorState("Setting:" + settingName);
+                RemoveEditorState(settingName + ":Mode");
+            }
+
+            if (_executionPolicyPanel != null)
+            {
+                _executionPolicyPanel.RemoveDefaultOutputEditorState(outputNames);
+            }
+
+            RefreshActionButtonState();
+        }
+
+        private void RemoveEditorState(string key)
+        {
+            _editorErrors.Remove(key);
+            _rawEditorTexts.Remove(key);
+            _editorControls.Remove(key);
+            _editorErrorBlocks.Remove(key);
+            _editorErrorOutlines.Remove(key);
+        }
+
         public void UpdateNodeName(string name)
         {
             if (_currentNode == null || _isReadOnly)

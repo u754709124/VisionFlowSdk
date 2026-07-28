@@ -14,7 +14,7 @@ tests/Vision.Flow.Tests
 - Serialization / Publish：Schema v2 round-trip、明确拒绝 v1、入口类型/输入/执行策略 round-trip、节点 `ExecutionPolicy` 完整协议与缺失/null 默认值、结构化 Setting Selector、TriggerInput 可达性和类型冲突、入口绕过变量来源警告、发布后移除 view state、校验通过后写入 `.flowruntime`、无效发布不覆盖、样例流程校验。
 - Core 节点：注册、日志事件、延时、变量写入、AND Join、Condition 分支。
 - Core 契约：`VisionImageReference` 生命周期和精简公共面的守卫。
-- Designer：主题资源解析、内部/外置命令栏、入口触发配置、配置项固定值/变量切换与常量保留、祖先与入口变量候选范围、类型过滤、失效 Selector 保留、属性草稿应用/重置/校验/三种未保存决策、只读模式、节点库四字段搜索与折叠恢复、拖拽、圆形端口锚点、贝塞尔连线箭头、调试抽屉三态和失败/超时自动展开、停止调试、按钮状态恢复、节点卡片运行状态显示。
+- Designer：主题资源解析、内部/外置命令栏、入口触发配置、配置项固定值/变量切换与常量保留、实例级动态 Descriptor 刷新与字段调和、祖先与入口变量候选范围、类型过滤、失效 Selector 保留、属性草稿应用/重置/校验/三种未保存决策、只读模式、节点库四字段搜索与折叠恢复、拖拽、圆形端口锚点、贝塞尔连线箭头、调试抽屉三态和失败/超时自动展开、停止调试、按钮状态恢复、节点卡片运行状态显示。
 - Variable Settings：常量/变量切换、上游来源限制、类型兼容、TriggerInput、Token 与对象子路径解析、JSON 中不出现 `InputBindings`。
 - Demo：解决方案构建覆盖 WinForms Demo 和 Designer WPF Demo。
 
@@ -30,6 +30,8 @@ STA 交互测试至少覆盖：
 - 节点属性修改不直接写入源节点；一次应用同时提交名称、设置、重试和默认输出，重置恢复最近应用基线。
 - 非法数字、必填、动态候选失效、变量缺失/类型不兼容和执行策略范围错误禁止应用、保留 dirty 草稿，并定位到稳定 Tag 的首个错误控件。
 - `RefreshSelectedNodeProperties()` 保留设置与执行策略的非法原始文本和错误；动态候选失效不清空原值。
+- `AffectsDescriptor` 固定值切换后立即显示新实例 Setting/Output；旧专属 Setting 和回退输出被移除，新字段按类型补默认值，共同字段与无关非法原始文本保留。
+- 实例 Descriptor 变化后节点卡片和上游变量候选同步更新；引用已移除输出的下游 Selector 保留原协议值并由校验器报告。
 - 切换节点、加载文档和进入调试分别验证 Apply / Discard / Cancel；调试只读模式隐藏应用动作。
 
 WPF Demo 的解决方案构建还应验证无边框深色标题栏 XAML，包括拖动、双击最大化、最小化、最大化/还原、关闭、缩放边框和关闭前草稿处理事件。

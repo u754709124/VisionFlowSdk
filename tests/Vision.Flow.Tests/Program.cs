@@ -151,6 +151,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer required property errors fit above the footer", DesignerInteractionTests.PropertyPanelRequiredErrorFitsAboveFooterAtMinimumSize),
                 new TestCase("Designer property draft guards load and debug mode", DesignerInteractionTests.PropertyDraftGuardsLoadAndDebugMode),
                 new TestCase("Designer property draft preserves invalid dynamic candidates", DesignerInteractionTests.PropertyDraftPreservesInvalidDynamicCandidates),
+                new TestCase("Designer dynamic descriptor draft refreshes and reconciles fields", DesignerInteractionTests.DynamicDescriptorDraftRefreshesAndReconcilesFields),
                 new TestCase("Designer property draft validates variables and node switch decisions", DesignerInteractionTests.PropertyDraftValidatesVariablesAndNodeSwitchDecisions),
                 new TestCase("Designer host API loads and captures deep copies", DesignerInteractionTests.HostDocumentApiLoadsCapturesAndDeepCopies),
                 new TestCase("Designer host API resets to an empty document", DesignerInteractionTests.HostResetCreatesEmptyDocument),

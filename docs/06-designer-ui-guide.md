@@ -105,6 +105,20 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 
 对于支持“固定值 / 变量”切换的配置项，模式下拉框与右侧固定值编辑器或变量选择器保持在同一行，状态或校验提示仍显示在右侧编辑区域内。
 
+### 实例级动态 Descriptor
+
+节点工厂实现 `IInstanceNodeDescriptorProvider` 后，Designer 会通过 `NodeRegistry.ResolveDescriptor(NodeDefinition)` 为每个节点实例解析当前生效的端口、配置项和输出。节点库和新建节点默认值仍使用工厂的静态 `Descriptor`；画布节点卡片、属性草稿、执行策略回退输出和上游变量候选使用实例 Descriptor。
+
+用于切换 Descriptor 结构的配置项必须声明 `AffectsDescriptor = true`，并使用 `ConstantOnly`。该固定值在属性草稿中变化时，Designer 会立即刷新属性面板且不提前写回源文档：
+
+- 移除旧 Descriptor 独有的 Setting，并按新 Descriptor 的默认值补齐新增 Setting。
+- 同名且数据类型、绑定模式、求值阶段和变量来源契约一致的 Setting/Selector 保留原值。
+- `DefaultOutputs` 移除已不存在或类型已变化的输出；失败策略为 `DefaultOutputs` 时，为新增且可创建常量的输出补齐类型默认值。
+- 只清理已移除字段对应的原始文本和行内错误；无关字段的非法输入仍保留。
+- 下游节点引用已移除输出的 `VariableSelector` 不会被静默改写或删除，发布校验会报告失效来源。
+
+动态 Descriptor 解析异常时，Designer 临时回退静态 Descriptor 以保持文档可编辑；`FlowValidator` 使用 `NodeDescriptorResolutionFailed` 报告结构化错误并阻止发布。Descriptor 仍是派生信息，不进入 `.flowdesign` 或 `.flowruntime`。
+
 ### 节点执行策略
 
 所有节点都显示独立的“执行策略”静态编辑区。它属于引擎控制面，不是节点业务配置，因此不提供“固定值 / 变量”切换，也不会创建 `VariableSelector`：

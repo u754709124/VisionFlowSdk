@@ -588,6 +588,38 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return _nodeRegistry.TryGetFactory(nodeType, out factory) ? factory.Descriptor : null;
         }
 
+        private NodeDescriptor GetDescriptor(NodeDefinition node)
+        {
+            NodeDescriptor descriptor;
+            TryResolveDescriptor(node, out descriptor);
+            return descriptor;
+        }
+
+        private bool TryResolveDescriptor(NodeDefinition node, out NodeDescriptor descriptor)
+        {
+            descriptor = null;
+            if (node == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                descriptor = _nodeRegistry.ResolveDescriptor(node);
+                if (descriptor != null)
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // 动态描述符错误由校验器生成结构化问题；设计器退回静态描述符以保持界面可编辑。
+            }
+
+            descriptor = GetDescriptor(node.Type);
+            return false;
+        }
+
         private string CreateNodeId(string nodeType)
         {
             var prefix = string.IsNullOrWhiteSpace(nodeType) ? "node" : nodeType.Replace('.', '_').Replace('-', '_');

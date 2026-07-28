@@ -355,6 +355,30 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 node.Settings[setting.Name] = CreateDefaultSettingValue(setting);
             }
 
+            var previousDescriptor = descriptor;
+            for (var pass = 0; pass < 4; pass++)
+            {
+                NodeDescriptor instanceDescriptor;
+                if (!TryResolveDescriptor(node, out instanceDescriptor) || instanceDescriptor == null)
+                {
+                    break;
+                }
+
+                var previousState = CreateDescriptorStateSignature(node, previousDescriptor);
+                var instanceState = CreateDescriptorStateSignature(node, instanceDescriptor);
+                ReconcilePropertyDraftDefinition(
+                    node,
+                    previousDescriptor,
+                    instanceDescriptor,
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+                previousDescriptor = instanceDescriptor;
+                if (string.Equals(previousState, instanceState, StringComparison.Ordinal))
+                {
+                    break;
+                }
+            }
+
             _document.Runtime.Nodes.Add(node);
             _document.View.Nodes[node.Id] = CreatePaletteNodeViewState(canvasPosition);
 
@@ -559,7 +583,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     _document.View.Nodes[node.Id] = view;
                 }
 
-                var descriptor = GetDescriptor(node.Type);
+                var descriptor = GetDescriptor(node);
                 var card = new NodeCardControl(new NodeViewModel(node, descriptor));
                 card.SetSelected(StringEquals(node.Id, _selectedNode == null ? null : _selectedNode.Id));
                 card.SetDisabled(IsNodeDisabled(node));
@@ -592,9 +616,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 BeginPropertyDraft(_selectedNode);
             }
 
+            var descriptor = _propertyDraftNode == null ? null : GetDescriptor(_propertyDraftNode);
+            _propertyDraftDescriptor = descriptor;
+            _propertyDraftDescriptorState = CreateDescriptorStateSignature(
+                _propertyDraftNode,
+                descriptor);
             _properties.ShowNode(
                 _propertyDraftNode,
-                _selectedNode == null ? null : GetDescriptor(_selectedNode.Type),
+                descriptor,
                 CreateVariableSuggestions(_selectedNode),
                 CreateVariableSuggestionIssues(_selectedNode),
                 delegate
@@ -623,7 +652,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var ancestorIds = FindAncestorNodeIds(_document.Runtime, currentNode.Id);
             foreach (var node in _document.Runtime.Nodes.Where(x => x != null && ancestorIds.Contains(x.Id)))
             {
-                var descriptor = GetDescriptor(node.Type);
+                var descriptor = GetDescriptor(node);
                 if (descriptor == null || descriptor.Outputs == null)
                 {
                     continue;

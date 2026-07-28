@@ -639,6 +639,29 @@ namespace Vision.Flow.Designer.Wpf.Controls
             NotifyValidationStateChanged();
         }
 
+        internal void RemoveDefaultOutputEditorState(IEnumerable<string> outputNames)
+        {
+            var removed = false;
+            foreach (var outputName in outputNames ?? Enumerable.Empty<string>())
+            {
+                if (string.IsNullOrWhiteSpace(outputName))
+                {
+                    continue;
+                }
+
+                var tag = TagPrefix + "DefaultOutputs." + outputName;
+                removed |= _validationErrors.Remove(tag);
+                removed |= _rawEditorTexts.Remove(tag);
+                _fieldEditors.Remove(tag);
+                _fieldErrorOutlines.Remove(tag);
+            }
+
+            if (removed)
+            {
+                NotifyValidationStateChanged();
+            }
+        }
+
         private static TextBlock CreateInlineError()
         {
             var error = new TextBlock

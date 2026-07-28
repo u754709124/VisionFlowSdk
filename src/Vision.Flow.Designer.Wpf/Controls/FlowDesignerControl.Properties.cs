@@ -1,13 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Vision.Flow.Core.Domain.Flows;
+using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Designer.Wpf.Theming;
+using Vision.Flow.Designer.Wpf.ViewModels;
+using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
@@ -93,6 +97,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             CopyEditableNodeState(_propertyDraftNode, _selectedNode);
             _propertyBaselineNode = CloneNodeDefinition(_selectedNode);
             _propertyDraftNode = CloneNodeDefinition(_selectedNode);
+            UpdatePropertyDraftDescriptorState();
             _properties.ResetEditorState();
             RenderCanvas();
             RenderProperties();
@@ -121,6 +126,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             _propertyBaselineNode = CloneNodeDefinition(_selectedNode);
             _propertyDraftNode = CloneNodeDefinition(_selectedNode);
+            UpdatePropertyDraftDescriptorState();
             _properties.ResetEditorState();
             RenderProperties();
             _properties.ShowValidationError(null);
@@ -181,6 +187,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             _propertyBaselineNode = CloneNodeDefinition(node);
             _propertyDraftNode = CloneNodeDefinition(node);
+            UpdatePropertyDraftDescriptorState();
             _properties.ResetEditorState();
         }
 
@@ -188,6 +195,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         {
             _propertyBaselineNode = null;
             _propertyDraftNode = null;
+            _propertyDraftDescriptor = null;
+            _propertyDraftDescriptorState = null;
             _properties.ResetEditorState();
             _properties.SetPendingState(false, !CanEditDocument);
             _properties.ShowValidationError(null);
@@ -196,7 +205,393 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private void OnPropertyDraftChanged()
         {
             _properties.ShowValidationError(null);
+            ReconcilePropertyDraftDescriptor();
             _properties.SetPendingState(HasPendingPropertyChangesCore(), !CanEditDocument);
+        }
+
+        private void UpdatePropertyDraftDescriptorState()
+        {
+            if (_propertyDraftNode == null)
+            {
+                _propertyDraftDescriptor = null;
+                _propertyDraftDescriptorState = null;
+                return;
+            }
+
+            _propertyDraftDescriptor = GetDescriptor(_propertyDraftNode);
+            _propertyDraftDescriptorState = CreateDescriptorStateSignature(
+                _propertyDraftNode,
+                _propertyDraftDescriptor);
+        }
+
+        private void ReconcilePropertyDraftDescriptor()
+        {
+            if (_isReconcilingPropertyDescriptor || _propertyDraftNode == null)
+            {
+                return;
+            }
+
+            NodeDescriptor nextDescriptor;
+            TryResolveDescriptor(_propertyDraftNode, out nextDescriptor);
+            if (nextDescriptor == null)
+            {
+                return;
+            }
+
+            var nextState = CreateDescriptorStateSignature(_propertyDraftNode, nextDescriptor);
+            if (string.Equals(_propertyDraftDescriptorState, nextState, StringComparison.Ordinal))
+            {
+                _propertyDraftDescriptor = nextDescriptor;
+                return;
+            }
+
+            _isReconcilingPropertyDescriptor = true;
+            try
+            {
+                var changedSettings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var changedOutputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var previousDescriptor = _propertyDraftDescriptor;
+                var currentDescriptor = nextDescriptor;
+
+                for (var pass = 0; pass < 4; pass++)
+                {
+                    ReconcilePropertyDraftDefinition(
+                        _propertyDraftNode,
+                        previousDescriptor,
+                        currentDescriptor,
+                        changedSettings,
+                        changedOutputs);
+
+                    NodeDescriptor resolvedDescriptor;
+                    if (!TryResolveDescriptor(_propertyDraftNode, out resolvedDescriptor))
+                    {
+                        break;
+                    }
+
+                    var reconciledDescriptor = currentDescriptor;
+                    var currentState = CreateDescriptorStateSignature(_propertyDraftNode, reconciledDescriptor);
+                    var resolvedState = CreateDescriptorStateSignature(_propertyDraftNode, resolvedDescriptor);
+                    currentDescriptor = resolvedDescriptor;
+                    if (string.Equals(currentState, resolvedState, StringComparison.Ordinal))
+                    {
+                        break;
+                    }
+
+                    previousDescriptor = reconciledDescriptor;
+                }
+
+                _properties.RemoveDescriptorEditorState(changedSettings, changedOutputs);
+                _propertyDraftDescriptor = currentDescriptor;
+                _propertyDraftDescriptorState = CreateDescriptorStateSignature(
+                    _propertyDraftNode,
+                    currentDescriptor);
+                RenderProperties();
+            }
+            finally
+            {
+                _isReconcilingPropertyDescriptor = false;
+            }
+        }
+
+        private static void ReconcilePropertyDraftDefinition(
+            NodeDefinition node,
+            NodeDescriptor previousDescriptor,
+            NodeDescriptor nextDescriptor,
+            ISet<string> changedSettings,
+            ISet<string> changedOutputs)
+        {
+            var previousSettings = CreateSettingDescriptorMap(previousDescriptor);
+            var nextSettings = CreateSettingDescriptorMap(nextDescriptor);
+            foreach (var setting in previousSettings.Values)
+            {
+                NodeSettingDescriptor nextSetting;
+                if (!nextSettings.TryGetValue(setting.Name, out nextSetting) ||
+                    !AreSettingContractsEquivalent(setting, nextSetting))
+                {
+                    changedSettings.Add(setting.Name);
+                }
+            }
+
+            foreach (var name in node.Settings.Keys.ToList())
+            {
+                if (StringEquals(name, FlowSettingNames.Disabled))
+                {
+                    continue;
+                }
+
+                NodeSettingDescriptor previousSetting;
+                NodeSettingDescriptor nextSetting;
+                if (!previousSettings.TryGetValue(name, out previousSetting) ||
+                    !nextSettings.TryGetValue(name, out nextSetting) ||
+                    !AreSettingContractsEquivalent(previousSetting, nextSetting))
+                {
+                    node.Settings.Remove(name);
+                    changedSettings.Add(name);
+                }
+            }
+
+            foreach (var setting in nextSettings.Values)
+            {
+                NodeSettingValue value;
+                if (!node.Settings.TryGetValue(setting.Name, out value) || value == null)
+                {
+                    node.Settings[setting.Name] = NodeSettingValue.ForConstant(
+                        CloneSettingConstantValue(setting.DefaultValue));
+                    changedSettings.Add(setting.Name);
+                }
+            }
+
+            var policy = node.ExecutionPolicy ?? new NodeExecutionPolicy();
+            node.ExecutionPolicy = policy;
+            var defaults = policy.DefaultOutputs;
+            var previousOutputs = CreateOutputDescriptorMap(previousDescriptor);
+            var nextOutputs = CreateOutputDescriptorMap(nextDescriptor);
+            foreach (var output in previousOutputs.Values)
+            {
+                NodeOutputDescriptor nextOutput;
+                if (!nextOutputs.TryGetValue(output.Name, out nextOutput) ||
+                    output.DataType != nextOutput.DataType)
+                {
+                    changedOutputs.Add(output.Name);
+                }
+            }
+
+            if (defaults != null)
+            {
+                foreach (var name in defaults.Keys.ToList())
+                {
+                    NodeOutputDescriptor previousOutput;
+                    NodeOutputDescriptor nextOutput;
+                    if (!previousOutputs.TryGetValue(name, out previousOutput) ||
+                        !nextOutputs.TryGetValue(name, out nextOutput) ||
+                        previousOutput.DataType != nextOutput.DataType)
+                    {
+                        defaults.Remove(name);
+                        changedOutputs.Add(name);
+                    }
+                }
+            }
+
+            if (policy.FailureStrategy != FailureStrategy.DefaultOutputs)
+            {
+                return;
+            }
+
+            if (defaults == null)
+            {
+                defaults = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                policy.DefaultOutputs = defaults;
+            }
+
+            foreach (var output in nextOutputs.Values)
+            {
+                if (defaults.ContainsKey(output.Name))
+                {
+                    continue;
+                }
+
+                object defaultValue;
+                if (TryCreateDefaultOutputValue(output.DataType, out defaultValue))
+                {
+                    defaults[output.Name] = defaultValue;
+                    changedOutputs.Add(output.Name);
+                }
+            }
+        }
+
+        private static Dictionary<string, NodeSettingDescriptor> CreateSettingDescriptorMap(NodeDescriptor descriptor)
+        {
+            var result = new Dictionary<string, NodeSettingDescriptor>(StringComparer.OrdinalIgnoreCase);
+            if (descriptor == null || descriptor.Settings == null)
+            {
+                return result;
+            }
+
+            foreach (var setting in descriptor.Settings.Where(x => x != null && !string.IsNullOrWhiteSpace(x.Name)))
+            {
+                if (!result.ContainsKey(setting.Name))
+                {
+                    result[setting.Name] = setting;
+                }
+            }
+
+            return result;
+        }
+
+        private static Dictionary<string, NodeOutputDescriptor> CreateOutputDescriptorMap(NodeDescriptor descriptor)
+        {
+            var result = new Dictionary<string, NodeOutputDescriptor>(StringComparer.OrdinalIgnoreCase);
+            if (descriptor == null || descriptor.Outputs == null)
+            {
+                return result;
+            }
+
+            foreach (var output in descriptor.Outputs.Where(x => x != null && !string.IsNullOrWhiteSpace(x.Name)))
+            {
+                if (!result.ContainsKey(output.Name))
+                {
+                    result[output.Name] = output;
+                }
+            }
+
+            return result;
+        }
+
+        private static bool AreSettingContractsEquivalent(
+            NodeSettingDescriptor left,
+            NodeSettingDescriptor right)
+        {
+            return left != null &&
+                right != null &&
+                left.DataType == right.DataType &&
+                left.BindingMode == right.BindingMode &&
+                left.EvaluationPhase == right.EvaluationPhase &&
+                left.AllowedVariableSources == right.AllowedVariableSources &&
+                left.AffectsDescriptor == right.AffectsDescriptor;
+        }
+
+        private static bool TryCreateDefaultOutputValue(FlowDataType dataType, out object value)
+        {
+            switch (dataType)
+            {
+                case FlowDataType.String:
+                    value = string.Empty;
+                    return true;
+                case FlowDataType.Int32:
+                    value = 0;
+                    return true;
+                case FlowDataType.Int64:
+                    value = 0L;
+                    return true;
+                case FlowDataType.Boolean:
+                    value = false;
+                    return true;
+                case FlowDataType.Double:
+                    value = 0.0d;
+                    return true;
+                case FlowDataType.DateTime:
+                    value = DateTime.MinValue;
+                    return true;
+                case FlowDataType.Object:
+                    value = null;
+                    return true;
+                default:
+                    value = null;
+                    return false;
+            }
+        }
+
+        private static string CreateDescriptorStateSignature(
+            NodeDefinition node,
+            NodeDescriptor descriptor)
+        {
+            if (descriptor == null)
+            {
+                return null;
+            }
+
+            var result = new StringBuilder();
+            AppendDescriptorValue(result, descriptor.NodeType);
+            AppendDescriptorValue(result, descriptor.DisplayName);
+            AppendDescriptorValue(result, descriptor.Category);
+            AppendDescriptorValue(result, descriptor.Version);
+            AppendDescriptorValue(result, descriptor.Description);
+
+            foreach (var port in descriptor.InputPorts ?? new List<NodePortDescriptor>())
+            {
+                AppendPortSignature(result, "I", port);
+            }
+
+            foreach (var port in descriptor.OutputPorts ?? new List<NodePortDescriptor>())
+            {
+                AppendPortSignature(result, "O", port);
+            }
+
+            foreach (var setting in descriptor.Settings ?? new List<NodeSettingDescriptor>())
+            {
+                if (setting == null)
+                {
+                    AppendDescriptorValue(result, null);
+                    continue;
+                }
+
+                AppendDescriptorValue(result, setting.Name);
+                AppendDescriptorValue(result, setting.DisplayName);
+                AppendDescriptorValue(result, setting.DataType);
+                AppendDescriptorValue(result, setting.DefaultValue);
+                AppendDescriptorValue(result, setting.IsRequired);
+                AppendDescriptorValue(result, setting.Description);
+                AppendDescriptorValue(result, setting.BindingMode);
+                AppendDescriptorValue(result, setting.EvaluationPhase);
+                AppendDescriptorValue(result, setting.AllowedVariableSources);
+                AppendDescriptorValue(result, setting.AffectsDescriptor);
+                if (setting.AffectsDescriptor)
+                {
+                    NodeSettingValue value;
+                    if (node == null ||
+                        node.Settings == null ||
+                        !node.Settings.TryGetValue(setting.Name, out value) ||
+                        value == null)
+                    {
+                        value = NodeSettingValue.ForConstant(setting.DefaultValue);
+                    }
+
+                    AppendDescriptorValue(result, value.Mode);
+                    AppendDescriptorValue(result, value.ConstantValue);
+                    AppendDescriptorValue(
+                        result,
+                        value.Selector == null
+                            ? null
+                            : VariableSelectionOption.FormatSelector(value.Selector));
+                }
+            }
+
+            foreach (var output in descriptor.Outputs ?? new List<NodeOutputDescriptor>())
+            {
+                if (output == null)
+                {
+                    AppendDescriptorValue(result, null);
+                    continue;
+                }
+
+                AppendDescriptorValue(result, output.Name);
+                AppendDescriptorValue(result, output.DisplayName);
+                AppendDescriptorValue(result, output.DataType);
+                AppendDescriptorValue(result, output.Description);
+            }
+
+            return result.ToString();
+        }
+
+        private static void AppendPortSignature(
+            StringBuilder result,
+            string kind,
+            NodePortDescriptor port)
+        {
+            AppendDescriptorValue(result, kind);
+            if (port == null)
+            {
+                AppendDescriptorValue(result, null);
+                return;
+            }
+
+            AppendDescriptorValue(result, port.Name);
+            AppendDescriptorValue(result, port.DisplayName);
+            AppendDescriptorValue(result, port.Direction);
+            AppendDescriptorValue(result, port.DataType);
+            AppendDescriptorValue(result, port.IsRequired);
+            AppendDescriptorValue(result, port.Description);
+        }
+
+        private static void AppendDescriptorValue(StringBuilder result, object value)
+        {
+            var text = value == null
+                ? string.Empty
+                : Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture);
+            result.Append(text.Length);
+            result.Append(':');
+            result.Append(text);
+            result.Append('|');
         }
 
         private static NodeDefinition CloneNodeDefinition(NodeDefinition source)
