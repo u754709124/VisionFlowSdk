@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Domain.Nodes;
+using Vision.Flow.Designer.Wpf.Theming;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
@@ -23,6 +24,18 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private bool _isReadOnly;
         private ContentControl _retryDetailsHost;
         private ContentControl _failureDetailsHost;
+        private readonly Dictionary<string, string> _validationErrors =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> _rawEditorTexts =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Control> _fieldEditors =
+            new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
+        private string _renderedNodeId;
+
+        public bool HasValidationErrors
+        {
+            get { return _validationErrors.Count > 0; }
+        }
 
         /// <summary>
         /// 显示节点执行策略，并按只读状态启用或禁用全部编辑器。
@@ -33,7 +46,15 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Action changed,
             bool isReadOnly)
         {
+            var nodeId = node == null ? null : node.Id;
+            if (!string.Equals(_renderedNodeId, nodeId, StringComparison.OrdinalIgnoreCase))
+            {
+                ResetEditorState();
+                _renderedNodeId = nodeId;
+            }
+
             Children.Clear();
+            _fieldEditors.Clear();
             _descriptor = descriptor;
             _changed = changed;
             _isReadOnly = isReadOnly;
@@ -85,6 +106,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Tag = TagPrefix + "RetryPolicy.Enabled",
                 Margin = new Thickness(0, 2, 0, 4)
             };
+            retryToggle.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.SwitchCheckBoxStyleKey);
             retryToggle.Checked += delegate
             {
                 if (_isReadOnly)
@@ -117,10 +139,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var failureSelector = new ComboBox
             {
                 IsEnabled = !_isReadOnly,
-                MinHeight = 28,
-                Tag = TagPrefix + "FailureStrategy",
-                BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
+                Tag = TagPrefix + "FailureStrategy"
             };
+            failureSelector.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldComboBoxStyleKey);
             AddFailureStrategyItem(failureSelector, "停止流程", FailureStrategy.StopFlow);
             AddFailureStrategyItem(failureSelector, "转入异常分支", FailureStrategy.ErrorBranch);
             AddFailureStrategyItem(failureSelector, "使用默认输出", FailureStrategy.DefaultOutputs);
@@ -153,11 +174,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             _failureDetailsHost = new ContentControl();
             Children.Add(_failureDetailsHost);
-            if (_policy.FailureStrategy == FailureStrategy.DefaultOutputs && !_isReadOnly)
-            {
-                EnsureDefaultOutputs();
-            }
-
             RenderFailureDetails();
         }
 
@@ -170,6 +186,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (!_retryPolicy.Enabled)
             {
+                RemoveEditorState(TagPrefix + "RetryPolicy.");
                 _retryDetailsHost.Content = CreateMutedText("关闭后节点只执行一次。重试参数会保留，但运行时不会使用。");
                 return;
             }
@@ -202,6 +219,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             var layout = new StackPanel();
+            if (_policy.FailureStrategy != FailureStrategy.DefaultOutputs)
+            {
+                RemoveEditorState(TagPrefix + "DefaultOutputs.");
+            }
             switch (_policy.FailureStrategy)
             {
                 case FailureStrategy.ErrorBranch:
@@ -267,24 +288,51 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     Tag = tag,
                     Margin = new Thickness(0, 1, 0, 4)
                 };
+                editor.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.SwitchCheckBoxStyleKey);
                 editor.Checked += delegate { SetDefaultOutput(output.Name, true); };
                 editor.Unchecked += delegate { SetDefaultOutput(output.Name, false); };
                 return editor;
             }
 
-            var editorText = ToEditorText(output.DataType, value);
+            var editorText = GetRawEditorText(tag, ToEditorText(output.DataType, value));
             var textBox = new TextBox
             {
                 Text = editorText,
                 IsReadOnly = _isReadOnly,
-                MinHeight = 28,
-                Padding = new Thickness(7, 4, 7, 4),
-                Tag = tag,
-                BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
+                Tag = tag
             };
+            textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
+            var errorText = CreateInlineError();
+            _fieldEditors[tag] = textBox;
+            RestoreFieldError(tag, textBox, errorText);
+            var isNormalizing = false;
+            Action applyText = delegate
+            {
+                if (_isReadOnly || isNormalizing)
+                {
+                    return;
+                }
+
+                _rawEditorTexts[tag] = textBox.Text ?? string.Empty;
+                object converted;
+                if (!TryConvertEditorText(output.DataType, textBox.Text, out converted))
+                {
+                    SetFieldError(
+                        tag,
+                        "输入值不能转换为 " + FlowEnumConverter.ToWireValue(output.DataType) + "。",
+                        textBox,
+                        errorText);
+                    RaiseChanged();
+                    return;
+                }
+
+                ClearFieldError(tag, textBox, errorText);
+                SetDefaultOutput(output.Name, converted);
+            };
+            textBox.TextChanged += delegate { applyText(); };
             textBox.LostFocus += delegate
             {
-                if (_isReadOnly)
+                if (_isReadOnly || _validationErrors.ContainsKey(tag))
                 {
                     return;
                 }
@@ -292,17 +340,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 object converted;
                 if (!TryConvertEditorText(output.DataType, textBox.Text, out converted))
                 {
-                    textBox.Text = editorText;
-                    textBox.ToolTip = "输入值不能转换为 " + FlowEnumConverter.ToWireValue(output.DataType) + "。";
                     return;
                 }
 
                 editorText = ToEditorText(output.DataType, converted);
+                isNormalizing = true;
                 textBox.Text = editorText;
-                textBox.ToolTip = null;
-                SetDefaultOutput(output.Name, converted);
+                isNormalizing = false;
+                _rawEditorTexts[tag] = editorText;
             };
-            return textBox;
+            var layout = new StackPanel();
+            layout.Children.Add(textBox);
+            layout.Children.Add(errorText);
+            return layout;
         }
 
         private void AddIntegerField(
@@ -326,38 +376,63 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Action<int> setter)
         {
             layout.Children.Add(CreateLabel(label));
-            var originalValue = value;
             var textBox = new TextBox
             {
-                Text = value.ToString(CultureInfo.InvariantCulture),
+                Text = GetRawEditorText(tag, value.ToString(CultureInfo.InvariantCulture)),
                 IsReadOnly = _isReadOnly,
-                MinHeight = 28,
-                Padding = new Thickness(7, 4, 7, 4),
-                Tag = tag,
-                BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
+                Tag = tag
             };
+            textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
+            var errorText = CreateInlineError();
+            _fieldEditors[tag] = textBox;
+            RestoreFieldError(tag, textBox, errorText);
+            var isNormalizing = false;
+            Action applyText = delegate
+            {
+                if (_isReadOnly || isNormalizing)
+                {
+                    return;
+                }
+
+                _rawEditorTexts[tag] = textBox.Text ?? string.Empty;
+                int parsed;
+                if (!int.TryParse(textBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed) || parsed < minimum)
+                {
+                    SetFieldError(
+                        tag,
+                        "请输入不小于 " + minimum.ToString(CultureInfo.InvariantCulture) + " 的整数。",
+                        textBox,
+                        errorText);
+                    RaiseChanged();
+                    return;
+                }
+
+                ClearFieldError(tag, textBox, errorText);
+                setter(parsed);
+                RaiseChanged();
+            };
+            textBox.TextChanged += delegate { applyText(); };
             textBox.LostFocus += delegate
             {
-                if (_isReadOnly)
+                if (_isReadOnly || _validationErrors.ContainsKey(tag))
                 {
                     return;
                 }
 
                 int parsed;
-                if (!int.TryParse(textBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed) || parsed < minimum)
+                if (!int.TryParse(textBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
                 {
-                    textBox.Text = originalValue.ToString(CultureInfo.InvariantCulture);
-                    textBox.ToolTip = "请输入不小于 " + minimum.ToString(CultureInfo.InvariantCulture) + " 的整数。";
                     return;
                 }
 
-                originalValue = parsed;
-                textBox.Text = parsed.ToString(CultureInfo.InvariantCulture);
-                textBox.ToolTip = null;
-                setter(parsed);
-                RaiseChanged();
+                var normalized = parsed.ToString(CultureInfo.InvariantCulture);
+                isNormalizing = true;
+                textBox.Text = normalized;
+                isNormalizing = false;
+                _rawEditorTexts[tag] = normalized;
             };
             layout.Children.Add(textBox);
+            layout.Children.Add(errorText);
             layout.Children.Add(CreateMutedText(help));
         }
 
@@ -496,6 +571,158 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (_changed != null)
             {
                 _changed();
+            }
+        }
+
+        public bool TryValidate(out string error)
+        {
+            error = _validationErrors.Values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                FocusFirstValidationError();
+                return false;
+            }
+
+            if (_policy == null)
+            {
+                return true;
+            }
+
+            if (_policy.TimeoutMs < 0)
+            {
+                error = "单次超时不能小于 0。";
+                SetModelValidationError(TagPrefix + "TimeoutMs", error);
+                return false;
+            }
+
+            if (_policy.MaxConcurrentExecutions < 1)
+            {
+                error = "最大并发执行数不能小于 1。";
+                SetModelValidationError(TagPrefix + "MaxConcurrentExecutions", error);
+                return false;
+            }
+
+            if (_retryPolicy != null && _retryPolicy.Enabled)
+            {
+                if (_retryPolicy.MaxRetries < 0)
+                {
+                    error = "最大重试次数不能小于 0。";
+                    SetModelValidationError(TagPrefix + "RetryPolicy.MaxRetries", error);
+                    return false;
+                }
+
+                if (_retryPolicy.RetryIntervalMs < 0)
+                {
+                    error = "重试间隔不能小于 0。";
+                    SetModelValidationError(TagPrefix + "RetryPolicy.RetryIntervalMs", error);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public void ResetEditorState()
+        {
+            _validationErrors.Clear();
+            _rawEditorTexts.Clear();
+            _fieldEditors.Clear();
+            _renderedNodeId = null;
+        }
+
+        private static TextBlock CreateInlineError()
+        {
+            return new TextBlock
+            {
+                Foreground = FlowDesignerControl.BrushFromRgb(209, 67, 67),
+                FontSize = 11,
+                Margin = new Thickness(1, 3, 0, 2),
+                TextWrapping = TextWrapping.Wrap,
+                Visibility = Visibility.Collapsed
+            };
+        }
+
+        private void SetFieldError(string tag, string error, Control editor, TextBlock errorText)
+        {
+            _validationErrors[tag] = error;
+            editor.BorderBrush = FlowDesignerControl.BrushFromRgb(209, 67, 67);
+            editor.ToolTip = error;
+            errorText.Text = error;
+            errorText.Visibility = Visibility.Visible;
+        }
+
+        private void ClearFieldError(string tag, Control editor, TextBlock errorText)
+        {
+            _validationErrors.Remove(tag);
+            editor.ClearValue(Control.BorderBrushProperty);
+            editor.ToolTip = null;
+            errorText.Text = string.Empty;
+            errorText.Visibility = Visibility.Collapsed;
+        }
+
+        private void RemoveValidationErrors(string prefix)
+        {
+            foreach (var key in _validationErrors.Keys
+                .Where(x => x.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                .ToList())
+            {
+                _validationErrors.Remove(key);
+            }
+        }
+
+        private void RemoveEditorState(string prefix)
+        {
+            RemoveValidationErrors(prefix);
+            foreach (var key in _rawEditorTexts.Keys
+                .Where(x => x.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                .ToList())
+            {
+                _rawEditorTexts.Remove(key);
+            }
+        }
+
+        private string GetRawEditorText(string tag, string fallback)
+        {
+            string raw;
+            return _rawEditorTexts.TryGetValue(tag, out raw) ? raw : fallback;
+        }
+
+        private void RestoreFieldError(string tag, Control editor, TextBlock errorText)
+        {
+            string error;
+            if (_validationErrors.TryGetValue(tag, out error) && !string.IsNullOrWhiteSpace(error))
+            {
+                editor.BorderBrush = FlowDesignerControl.BrushFromRgb(209, 67, 67);
+                editor.ToolTip = error;
+                errorText.Text = error;
+                errorText.Visibility = Visibility.Visible;
+            }
+        }
+
+        private void FocusFirstValidationError()
+        {
+            foreach (var tag in _validationErrors.Keys)
+            {
+                Control editor;
+                if (_fieldEditors.TryGetValue(tag, out editor))
+                {
+                    editor.BringIntoView();
+                    editor.Focus();
+                    return;
+                }
+            }
+        }
+
+        private void SetModelValidationError(string tag, string error)
+        {
+            _validationErrors[tag] = error;
+            Control editor;
+            if (_fieldEditors.TryGetValue(tag, out editor))
+            {
+                editor.BorderBrush = FlowDesignerControl.BrushFromRgb(209, 67, 67);
+                editor.ToolTip = error;
+                editor.BringIntoView();
+                editor.Focus();
             }
         }
 

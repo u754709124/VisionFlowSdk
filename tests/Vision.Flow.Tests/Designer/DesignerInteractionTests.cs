@@ -704,6 +704,180 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task PropertyDraftAppliesResetsAndResolvesDecisions()
+        {
+            RunOnSta(delegate
+            {
+                var decision = PendingPropertyChangesDecision.Cancel;
+                var promptCount = 0;
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    PendingPropertyChangesPrompt = delegate
+                    {
+                        promptCount++;
+                        return decision;
+                    }
+                });
+                control.LoadDocumentAsync(CreateDelayDocument("draft-node", "已应用名称", 25))
+                    .GetAwaiter().GetResult();
+
+                var source = GetPrivateField<FlowDesignDocument>(control, "_document");
+                var nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodeName", StringComparison.Ordinal));
+                nameEditor.Text = "草稿名称";
+
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "Editing a property should create a pending draft.");
+                AssertEx.Equal("已应用名称", source.Runtime.Nodes[0].Name,
+                    "Typing in the property panel must not mutate the source node.");
+
+                AssertEx.False(control.TryResolvePendingPropertyChanges(),
+                    "Cancel should keep the current operation and draft in place.");
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "Cancel should preserve the pending draft.");
+                AssertEx.Equal("已应用名称", source.Runtime.Nodes[0].Name,
+                    "Cancel should preserve the last applied source state.");
+
+                decision = PendingPropertyChangesDecision.Discard;
+                AssertEx.True(control.TryResolvePendingPropertyChanges(),
+                    "Discard should resolve the pending decision.");
+                AssertEx.False(control.HasPendingPropertyChanges,
+                    "Discard should restore the latest applied state.");
+                AssertEx.Equal("已应用名称", source.Runtime.Nodes[0].Name,
+                    "Discard must not write the draft to the source node.");
+
+                nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodeName", StringComparison.Ordinal));
+                nameEditor.Text = "一次提交名称";
+                decision = PendingPropertyChangesDecision.Apply;
+                AssertEx.True(control.TryResolvePendingPropertyChanges(),
+                    "Apply should validate and commit the complete draft.");
+                AssertEx.False(control.HasPendingPropertyChanges,
+                    "A successful apply should establish a new clean baseline.");
+                AssertEx.Equal("一次提交名称", source.Runtime.Nodes[0].Name,
+                    "Apply should write the draft to the source node once.");
+
+                AssertEx.True(control.TryResolvePendingPropertyChanges(),
+                    "A clean property panel should resolve without prompting.");
+                AssertEx.Equal(3, promptCount,
+                    "Only the three dirty decisions should invoke the host prompt.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PropertyDraftRejectsInvalidTextAndSurvivesRefresh()
+        {
+            RunOnSta(delegate
+            {
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false
+                });
+                control.LoadDocumentAsync(CreateDelayDocument("invalid-node", "延时", 30))
+                    .GetAwaiter().GetResult();
+
+                var source = GetPrivateField<FlowDesignDocument>(control, "_document");
+                var delayEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:" + FlowSettingNames.DelayMs,
+                        StringComparison.Ordinal));
+                delayEditor.Text = "not-a-number";
+
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "An invalid raw value should still count as a pending change.");
+                AssertEx.Equal(30, source.Runtime.Nodes[0].Settings[FlowSettingNames.DelayMs].ConstantValue,
+                    "Invalid numeric text must not be silently converted or written to the source node.");
+
+                var policyEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.TimeoutMs",
+                        StringComparison.Ordinal));
+                policyEditor.Text = "invalid-timeout";
+
+                control.RefreshSelectedNodeProperties();
+                delayEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:" + FlowSettingNames.DelayMs,
+                        StringComparison.Ordinal));
+                policyEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "ExecutionPolicy.TimeoutMs",
+                        StringComparison.Ordinal));
+                AssertEx.Equal("not-a-number", delayEditor.Text,
+                    "Refreshing dynamic candidates should preserve invalid setting text.");
+                AssertEx.Equal("invalid-timeout", policyEditor.Text,
+                    "Refreshing the same node should preserve invalid execution-policy text.");
+                AssertEx.NotNull(delayEditor.ToolTip,
+                    "The refreshed setting editor should retain its inline validation error.");
+                AssertEx.NotNull(policyEditor.ToolTip,
+                    "The refreshed policy editor should retain its inline validation error.");
+
+                string error;
+                AssertEx.False(control.TryApplyPendingPropertyChanges(out error),
+                    "Apply should be blocked while any editor contains invalid raw text.");
+                AssertEx.True(!string.IsNullOrWhiteSpace(error),
+                    "A rejected apply should return an actionable validation message.");
+                AssertEx.Equal("Setting:" + FlowSettingNames.DelayMs, Convert.ToString(delayEditor.Tag, CultureInfo.InvariantCulture),
+                    "The first invalid editor should keep a stable tag for error navigation.");
+                AssertEx.Equal(30, source.Runtime.Nodes[0].Settings[FlowSettingNames.DelayMs].ConstantValue,
+                    "A failed apply must leave the source document unchanged.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task PropertyDraftGuardsLoadAndDebugMode()
+        {
+            RunOnSta(delegate
+            {
+                var decision = PendingPropertyChangesDecision.Cancel;
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    PendingPropertyChangesPrompt = delegate { return decision; }
+                });
+                control.LoadDocumentAsync(CreateDelayDocument("first-flow", "第一个节点", 10))
+                    .GetAwaiter().GetResult();
+                var nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodeName", StringComparison.Ordinal));
+                nameEditor.Text = "尚未应用";
+
+                control.LoadDocumentAsync(CreateDelayDocument("second-flow", "第二个节点", 20))
+                    .GetAwaiter().GetResult();
+                var source = GetPrivateField<FlowDesignDocument>(control, "_document");
+                AssertEx.Equal("first-flow", source.FlowId,
+                    "Canceling the pending decision should keep the current document loaded.");
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "Canceling load should preserve the current property draft.");
+
+                var modeType = typeof(FlowDesignerControl).Assembly.GetType(
+                    "Vision.Flow.Designer.Wpf.Controls.DesignerInteractionMode");
+                var debugMode = Enum.Parse(modeType, "DebugRun");
+                InvokePrivateTask(control, "SetInteractionModeAsync", debugMode).GetAwaiter().GetResult();
+                AssertEx.Equal("Edit", GetPrivateField<object>(control, "_interactionMode").ToString(),
+                    "Canceling pending changes should block entry into debug mode.");
+
+                decision = PendingPropertyChangesDecision.Apply;
+                InvokePrivateTask(control, "SetInteractionModeAsync", debugMode).GetAwaiter().GetResult();
+                AssertEx.Equal("DebugRun", GetPrivateField<object>(control, "_interactionMode").ToString(),
+                    "Applying the draft should allow entry into debug mode.");
+                AssertEx.Equal("尚未应用", source.Runtime.Nodes[0].Name,
+                    "Entering debug mode with Apply should commit the draft first.");
+                var applyButton = FindChildren<Button>(control)
+                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "PropertyApply", StringComparison.Ordinal));
+                AssertEx.Equal(Visibility.Collapsed, applyButton.Visibility,
+                    "Debug read-only mode should replace property actions with the read-only state.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task HostDocumentApiLoadsCapturesAndDeepCopies()
         {
             RunOnSta(delegate
@@ -1096,6 +1270,13 @@ namespace Vision.Flow.Tests
             method.Invoke(instance, args ?? new object[0]);
         }
 
+        private static Task InvokePrivateTask(object instance, string name, params object[] args)
+        {
+            var method = instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            AssertEx.NotNull(method, "Private async method should exist: " + name);
+            return (Task)method.Invoke(instance, args ?? new object[0]);
+        }
+
         private static T InvokePrivateStatic<T>(Type type, string name, params object[] args)
         {
             var method = type.GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic);
@@ -1162,6 +1343,40 @@ namespace Vision.Flow.Tests
             document.Runtime.Nodes.Add(node);
             document.Runtime.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = node.Id });
             document.View.Nodes[node.Id] = new NodeViewState { X = 80, Y = 96 };
+            return document;
+        }
+
+        private static FlowDesignDocument CreateDelayDocument(string flowId, string nodeName, int delayMs)
+        {
+            var document = new FlowDesignDocument
+            {
+                FlowId = flowId,
+                FlowName = flowId,
+                Runtime = new RuntimeFlowDefinition
+                {
+                    FlowId = flowId,
+                    FlowName = flowId,
+                    Version = "1.0.0"
+                },
+                View = new FlowViewState()
+            };
+            document.Runtime.Nodes.Add(new NodeDefinition
+            {
+                Id = "delay_1",
+                Type = DelayNodeFactory.TypeName,
+                Name = nodeName,
+                Version = "1.0.0",
+                Settings =
+                {
+                    { FlowSettingNames.DelayMs, NodeSettingValue.ForConstant(delayMs) }
+                }
+            });
+            document.Runtime.Entries.Add(new FlowEntryDefinition
+            {
+                EntryName = "ManualStart",
+                TargetNodeId = "delay_1"
+            });
+            document.View.Nodes["delay_1"] = new NodeViewState { X = 80, Y = 96 };
             return document;
         }
 

@@ -25,6 +25,7 @@ using Vision.Flow.Core.Runtime.Engine;
 using Vision.Flow.Core.Runtime.Execution;
 using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
+using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
@@ -46,6 +47,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (_document == null)
             {
                 throw new InvalidOperationException("The designer does not contain a document.");
+            }
+
+            if (!TryResolvePendingPropertyChanges())
+            {
+                throw new InvalidOperationException("Pending node property changes were not resolved.");
             }
 
             SaveRenderedNodeViewState();
@@ -118,6 +124,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private async Task LoadDocumentCoreAsync(FlowDesignDocument document)
         {
+            if (!TryResolvePendingPropertyChanges())
+            {
+                return;
+            }
+
             CancelConnectionPreview();
             await StopDebugAsync().ConfigureAwait(true);
 
@@ -125,6 +136,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _document = document;
             ResetEntryTriggerPanelState();
             _selectedNode = _document.Runtime.Nodes.FirstOrDefault();
+            BeginPropertyDraft(_selectedNode);
             _selectedEdge = null;
             _nodeStartTimes.Clear();
             RenderCanvas();
@@ -190,9 +202,15 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
+            if (!TryResolvePendingPropertyChanges())
+            {
+                return;
+            }
+
             _document = CreateDocument("designer-flow", "Designer Flow");
             ResetEntryTriggerPanelState();
             _selectedNode = null;
+            ClearPropertyDraft();
             _selectedEdge = null;
             RenderCanvas();
             ApplyCanvasViewState();
@@ -206,6 +224,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (!CanEditDocument)
             {
                 AddDebugMessage("Sample load skipped: switch to Edit mode first.");
+                return;
+            }
+
+            if (!TryResolvePendingPropertyChanges())
+            {
                 return;
             }
 
@@ -241,6 +264,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             AddEdge("condition_1", FlowPortNames.False, "log_ng", FlowPortNames.In);
 
             _selectedNode = flow.Nodes.FirstOrDefault();
+            BeginPropertyDraft(_selectedNode);
             _selectedEdge = null;
             RenderCanvas();
             ApplyCanvasViewState();
@@ -308,6 +332,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             if (descriptor == null)
+            {
+                return;
+            }
+
+            if (!TryResolvePendingPropertyChanges())
             {
                 return;
             }
@@ -446,9 +475,15 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
+            if (!TryResolvePendingPropertyChanges())
+            {
+                return;
+            }
+
             Focus();
             _selectedEdge = edge;
             _selectedNode = null;
+            ClearPropertyDraft();
             foreach (var item in _nodeCards)
             {
                 item.Value.SetSelected(false);
@@ -548,8 +583,17 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void RenderProperties()
         {
+            if (_selectedNode == null)
+            {
+                ClearPropertyDraft();
+            }
+            else if (_propertyDraftNode == null || !StringEquals(_propertyDraftNode.Id, _selectedNode.Id))
+            {
+                BeginPropertyDraft(_selectedNode);
+            }
+
             _properties.ShowNode(
-                _selectedNode,
+                _propertyDraftNode,
                 _selectedNode == null ? null : GetDescriptor(_selectedNode.Type),
                 CreateVariableSuggestions(_selectedNode),
                 CreateVariableSuggestionIssues(_selectedNode),
@@ -560,17 +604,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
                         return;
                     }
 
-                    var card = _selectedNode == null || !_nodeCards.ContainsKey(_selectedNode.Id)
-                        ? null
-                        : _nodeCards[_selectedNode.Id];
-                    if (card != null)
-                    {
-                        card.UpdateSummary();
-                    }
-
-                    RenderCanvas();
+                    OnPropertyDraftChanged();
                 },
                 !CanEditDocument);
+            _properties.SetPendingState(HasPendingPropertyChangesCore(), !CanEditDocument);
         }
 
         private IList<VariableSelectionOption> CreateVariableSuggestions(NodeDefinition currentNode)
@@ -778,7 +815,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void SelectNode(NodeDefinition node)
         {
+            var selectionChanged = !StringEquals(
+                _selectedNode == null ? null : _selectedNode.Id,
+                node == null ? null : node.Id);
+            if (selectionChanged && !TryResolvePendingPropertyChanges())
+            {
+                return;
+            }
+
             _selectedNode = node;
+            if (selectionChanged || _propertyDraftNode == null)
+            {
+                BeginPropertyDraft(node);
+            }
             _selectedEdge = null;
             foreach (var item in _nodeCards)
             {
@@ -848,23 +897,34 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
+            if (_selectedNode == null || !StringEquals(_selectedNode.Id, node.Id))
+            {
+                SelectNode(node);
+                if (_selectedNode == null || !StringEquals(_selectedNode.Id, node.Id))
+                {
+                    return;
+                }
+            }
+
             var dialog = new Window
             {
-                Title = "Rename Node",
-                Width = 360,
-                Height = 150,
+                Title = "重命名节点",
+                Width = 380,
+                Height = 170,
                 ResizeMode = ResizeMode.NoResize,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = Window.GetWindow(this)
+                Owner = Window.GetWindow(this),
+                Background = Brushes.White,
+                ShowInTaskbar = false
             };
+            FlowDesignerTheme.ApplyTo(dialog);
 
             var layout = new StackPanel { Margin = new Thickness(16) };
             var textBox = new TextBox
             {
-                Text = node.Name,
-                MinHeight = 28,
-                Padding = new Thickness(6, 4, 6, 4)
+                Text = _propertyDraftNode == null ? node.Name : _propertyDraftNode.Name
             };
+            textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
             layout.Children.Add(textBox);
 
             var buttons = new StackPanel
@@ -873,8 +933,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Margin = new Thickness(0, 14, 0, 0)
             };
-            var ok = new Button { Content = "OK", MinWidth = 70, Height = 28, Margin = new Thickness(0, 0, 8, 0) };
-            var cancel = new Button { Content = "Cancel", MinWidth = 70, Height = 28 };
+            var ok = new Button { Content = "确定", MinWidth = 76, Height = 36, Margin = new Thickness(0, 0, 8, 0) };
+            var cancel = new Button { Content = "取消", MinWidth = 76, Height = 36 };
+            ok.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.PrimaryButtonStyleKey);
+            cancel.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.SecondaryButtonStyleKey);
             ok.Click += delegate { dialog.DialogResult = true; };
             cancel.Click += delegate { dialog.DialogResult = false; };
             buttons.Children.Add(ok);
@@ -884,9 +946,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (dialog.ShowDialog() == true)
             {
-                node.Name = string.IsNullOrWhiteSpace(textBox.Text) ? node.Id : textBox.Text.Trim();
-                RenderCanvas();
-                SelectNode(node);
+                _properties.UpdateNodeName(textBox.Text);
+                RenderProperties();
             }
         }
 
@@ -903,19 +964,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
-            var clone = new NodeDefinition
+            if (!TryResolvePendingPropertyChanges())
             {
-                Id = CreateNodeId(node.Type),
-                Type = node.Type,
-                Name = (string.IsNullOrWhiteSpace(node.Name) ? node.Id : node.Name) + " Copy",
-                Version = node.Version,
-                ExecutionPolicy = CloneNodeExecutionPolicy(node.ExecutionPolicy)
-            };
-
-            foreach (var setting in node.Settings)
-            {
-                clone.Settings[setting.Key] = CloneSettingValue(setting.Value);
+                return;
             }
+
+            var clone = CloneNodeDefinition(node);
+            clone.Id = CreateNodeId(node.Type);
+            clone.Name = (string.IsNullOrWhiteSpace(node.Name) ? node.Id : node.Name) + " Copy";
 
             _document.Runtime.Nodes.Add(clone);
             NodeViewState view;
@@ -947,6 +1003,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
+            if (_selectedNode == node && !TryResolvePendingPropertyChanges())
+            {
+                return;
+            }
+
             _document.Runtime.Nodes.Remove(node);
             _document.Runtime.Edges.RemoveAll(x => StringEquals(x.FromNodeId, node.Id) || StringEquals(x.ToNodeId, node.Id));
             _selectedEdge = null;
@@ -958,6 +1019,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (_selectedNode == node)
             {
                 _selectedNode = _document.Runtime.Nodes.FirstOrDefault();
+                BeginPropertyDraft(_selectedNode);
             }
 
             RenderCanvas();
@@ -978,9 +1040,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
-            node.Settings[FlowSettingNames.Disabled] = NodeSettingValue.ForConstant(!IsNodeDisabled(node));
-            RenderCanvas();
-            SelectNode(node);
+            if (_selectedNode == null || !StringEquals(_selectedNode.Id, node.Id))
+            {
+                SelectNode(node);
+                if (_selectedNode == null || !StringEquals(_selectedNode.Id, node.Id))
+                {
+                    return;
+                }
+            }
+
+            _propertyDraftNode.Settings[FlowSettingNames.Disabled] =
+                NodeSettingValue.ForConstant(!IsNodeDisabled(_propertyDraftNode));
+            OnPropertyDraftChanged();
+            RenderProperties();
         }
 
         private static bool IsNodeDisabled(NodeDefinition node)

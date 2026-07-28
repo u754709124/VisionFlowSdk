@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Domain.Nodes;
+using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
 using Vision.Flow.Nodes;
 
@@ -19,9 +20,22 @@ namespace Vision.Flow.Designer.Wpf.Controls
     {
         private readonly StackPanel _rows;
         private readonly Func<NodeSettingDescriptor, IEnumerable<string>> _constantOptionProvider;
+        private readonly Button _applyButton;
+        private readonly Button _resetButton;
+        private readonly TextBlock _readOnlyHint;
+        private readonly TextBlock _validationSummary;
+        private readonly Dictionary<string, string> _editorErrors;
+        private readonly Dictionary<string, TextBlock> _editorErrorBlocks;
+        private readonly Dictionary<string, Control> _editorControls;
+        private readonly Dictionary<string, string> _rawEditorTexts;
+        private readonly ScrollViewer _scrollViewer;
         private Action _changed;
         private IList<VariableSelectionOption> _variableOptions;
         private bool _isReadOnly;
+        private string _renderedNodeId;
+        private NodeDefinition _currentNode;
+        private NodeDescriptor _currentDescriptor;
+        private NodeExecutionPolicyPanelControl _executionPolicyPanel;
 
         public PropertyPanelControl()
             : this(null)
@@ -34,16 +48,122 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Padding = new Thickness(12);
             Background = Brushes.White;
             BorderBrush = FlowDesignerControl.BrushFromRgb(222, 229, 238);
-            BorderThickness = new Thickness(1);
-            CornerRadius = new CornerRadius(6);
+            BorderThickness = new Thickness(1, 0, 0, 0);
+            CornerRadius = new CornerRadius(0);
+            FlowDesignerTheme.ApplyTo(this);
 
             _rows = new StackPanel();
             _variableOptions = new List<VariableSelectionOption>();
-            Child = new ScrollViewer
+            _editorErrors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _editorErrorBlocks = new Dictionary<string, TextBlock>(StringComparer.OrdinalIgnoreCase);
+            _editorControls = new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
+            _rawEditorTexts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            var shell = new Grid();
+            shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            shell.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _scrollViewer = new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 Content = _rows
             };
+            Grid.SetRow(_scrollViewer, 0);
+            shell.Children.Add(_scrollViewer);
+
+            var actionBar = new Border
+            {
+                Margin = new Thickness(-12, 12, -12, -12),
+                Padding = new Thickness(12, 10, 12, 10),
+                Background = FlowDesignerControl.BrushFromRgb(250, 251, 253),
+                BorderBrush = FlowDesignerControl.BrushFromRgb(226, 232, 240),
+                BorderThickness = new Thickness(0, 1, 0, 0)
+            };
+            var actionLayout = new Grid();
+            actionLayout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            actionLayout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            actionBar.Child = actionLayout;
+
+            _validationSummary = new TextBlock
+            {
+                Foreground = FlowDesignerControl.BrushFromRgb(209, 67, 67),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 7),
+                Visibility = Visibility.Collapsed,
+                Focusable = true,
+                Tag = "PropertyValidationSummary"
+            };
+            actionLayout.Children.Add(_validationSummary);
+
+            var actionRow = new DockPanel();
+            Grid.SetRow(actionRow, 1);
+            actionLayout.Children.Add(actionRow);
+            _readOnlyHint = new TextBlock
+            {
+                Text = "调试运行模式：属性只读",
+                Foreground = FlowDesignerControl.BrushFromRgb(122, 135, 154),
+                VerticalAlignment = VerticalAlignment.Center,
+                Visibility = Visibility.Collapsed
+            };
+            actionRow.Children.Add(_readOnlyHint);
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            DockPanel.SetDock(buttons, Dock.Right);
+            _resetButton = new Button
+            {
+                Content = "重置",
+                Tag = "PropertyReset",
+                MinWidth = 76,
+                Height = 36,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            _resetButton.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.SecondaryButtonStyleKey);
+            _resetButton.Click += delegate
+            {
+                var handler = ResetRequested;
+                if (handler != null)
+                {
+                    handler();
+                }
+            };
+            _applyButton = new Button
+            {
+                Content = "应用",
+                Tag = "PropertyApply",
+                MinWidth = 82,
+                Height = 36
+            };
+            _applyButton.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.PrimaryButtonStyleKey);
+            _applyButton.Click += delegate
+            {
+                var handler = ApplyRequested;
+                if (handler != null)
+                {
+                    handler();
+                }
+            };
+            buttons.Children.Add(_resetButton);
+            buttons.Children.Add(_applyButton);
+            actionRow.Children.Add(buttons);
+
+            Grid.SetRow(actionBar, 1);
+            shell.Children.Add(actionBar);
+            Child = shell;
+        }
+
+        public event Action ApplyRequested;
+
+        public event Action ResetRequested;
+
+        public bool HasEditorErrors
+        {
+            get
+            {
+                return _editorErrors.Count > 0 ||
+                    (_executionPolicyPanel != null && _executionPolicyPanel.HasValidationErrors);
+            }
         }
 
         public void ShowNode(NodeDefinition node, NodeDescriptor descriptor, Action changed)
@@ -78,30 +198,54 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Action changed,
             bool isReadOnly)
         {
+            var nodeId = node == null ? null : node.Id;
+            if (!string.Equals(_renderedNodeId, nodeId, StringComparison.OrdinalIgnoreCase))
+            {
+                ResetEditorState();
+                _renderedNodeId = nodeId;
+            }
+
             _changed = changed;
             _isReadOnly = isReadOnly;
+            _currentNode = node;
+            _currentDescriptor = descriptor;
             _variableOptions = variableOptions == null
                 ? new List<VariableSelectionOption>()
                 : variableOptions.Where(x => x != null && x.Selector != null).ToList();
+            var executionPolicyParent = _executionPolicyPanel == null
+                ? null
+                : LogicalTreeHelper.GetParent(_executionPolicyPanel) as Border;
+            if (executionPolicyParent != null &&
+                object.ReferenceEquals(executionPolicyParent.Child, _executionPolicyPanel))
+            {
+                executionPolicyParent.Child = null;
+            }
+            _editorControls.Clear();
+            _editorErrorBlocks.Clear();
             _rows.Children.Clear();
 
-            _rows.Children.Add(CreateTitle("Properties"));
             if (node == null)
             {
-                _rows.Children.Add(CreateMutedText("Select a node on the canvas."));
+                _rows.Children.Add(CreateTitle("节点属性"));
+                _rows.Children.Add(CreateMutedText("请在画布中选择一个节点。"));
+                SetPendingState(false, isReadOnly);
                 return;
             }
 
-            AddTextField("Id", node.Id, false, null);
-            AddTextField("Name", node.Name, true, delegate(string text) { node.Name = text; });
-            AddTextField("Type", node.Type, false, null);
+            _rows.Children.Add(CreateNodeHeader(node, descriptor));
 
-            _rows.Children.Add(CreateSection("Settings"));
+            var basicFields = new StackPanel();
+            AddTextField(basicFields, "节点 ID", node.Id, false, null, "NodeId");
+            AddTextField(basicFields, "节点名称", node.Name, true, delegate(string text) { node.Name = text; }, "NodeName");
+            AddTextField(basicFields, "节点类型", node.Type, false, null, "NodeType");
+            _rows.Children.Add(CreateSectionCard("基本信息", basicFields, true));
+
+            var settingFields = new StackPanel();
             if (variableIssues != null)
             {
                 foreach (var issue in variableIssues.Where(x => !string.IsNullOrWhiteSpace(x)))
                 {
-                    _rows.Children.Add(CreateInvalidText(issue));
+                    settingFields.Children.Add(CreateInvalidText(issue));
                 }
             }
 
@@ -114,70 +258,102 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     if (value == null)
                     {
                         value = NodeSettingValue.ForConstant(setting.DefaultValue);
-                        if (!_isReadOnly)
-                        {
-                            node.Settings[setting.Name] = value;
-                        }
                     }
 
-                    AddSettingField(setting, value, delegate(NodeSettingValue newValue)
+                    AddSettingField(settingFields, setting, value, delegate(NodeSettingValue newValue)
                     {
                         node.Settings[setting.Name] = newValue;
                     });
                 }
             }
+            if (descriptor == null || descriptor.Settings == null || descriptor.Settings.Count == 0)
+            {
+                settingFields.Children.Add(CreateMutedText("该节点没有可配置参数。"));
+            }
+            _rows.Children.Add(CreateSectionCard("参数设置", settingFields, true));
 
-            _rows.Children.Add(CreateSection("执行策略"));
-            var executionPolicyPanel = new NodeExecutionPolicyPanelControl();
-            executionPolicyPanel.ShowPolicy(node, descriptor, RaiseChanged, _isReadOnly);
-            _rows.Children.Add(executionPolicyPanel);
+            if (_executionPolicyPanel == null)
+            {
+                _executionPolicyPanel = new NodeExecutionPolicyPanelControl();
+            }
+            _executionPolicyPanel.ShowPolicy(node, descriptor, RaiseChanged, _isReadOnly);
+            _rows.Children.Add(CreateSectionCard("执行策略", _executionPolicyPanel, true));
 
             if (descriptor != null && descriptor.Outputs.Count > 0)
             {
-                _rows.Children.Add(CreateSection("Outputs"));
+                var outputs = new StackPanel();
                 foreach (var output in descriptor.Outputs)
                 {
-                    _rows.Children.Add(CreateMutedText(output.Name + " : " + FlowEnumConverter.ToWireValue(output.DataType)));
+                    outputs.Children.Add(CreateOutputTag(output));
                 }
+                _rows.Children.Add(CreateSectionCard("输出", outputs, true));
             }
+
+            SetPendingState(false, isReadOnly);
         }
 
-        private void AddSettingField(NodeSettingDescriptor setting, NodeSettingValue value, Action<NodeSettingValue> setter)
+        private void AddSettingField(
+            Panel layout,
+            NodeSettingDescriptor setting,
+            NodeSettingValue value,
+            Action<NodeSettingValue> setter)
         {
-            _rows.Children.Add(CreateLabel(setting.DisplayName + " (" + setting.Name + ")"));
+            layout.Children.Add(CreateLabel(
+                setting.DisplayName +
+                (setting.IsRequired ? " *" : string.Empty) +
+                " (" + setting.Name + ")"));
             var current = value ?? NodeSettingValue.ForConstant(setting.DefaultValue);
             if (setting.BindingMode != NodeSettingBindingMode.ConstantOrVariable ||
                 setting.EvaluationPhase != NodeSettingEvaluationPhase.Execution)
             {
                 if (current.Mode == NodeSettingValueMode.Variable)
                 {
-                    _rows.Children.Add(CreateInvalidText(setting.EvaluationPhase == NodeSettingEvaluationPhase.ListenerStart
+                    layout.Children.Add(CreateInvalidText(setting.EvaluationPhase == NodeSettingEvaluationPhase.ListenerStart
                         ? "该配置项在监听启动阶段求值，不能使用执行期变量；当前选择会保留并由校验器报告：" + VariableSelectionOption.FormatSelector(current.Selector)
                         : "该配置项只允许固定值；当前变量选择会保留并由校验器报告：" + VariableSelectionOption.FormatSelector(current.Selector)));
                 }
 
-                _rows.Children.Add(CreateConstantEditor(setting, current.ConstantValue, delegate(object constantValue)
+                layout.Children.Add(CreateConstantEditor(setting, current.ConstantValue, delegate(object constantValue)
                 {
                     ApplySetting(setter, NodeSettingValue.ForConstant(constantValue));
                 }));
                 return;
             }
 
-            var container = new Grid { Margin = new Thickness(0, 0, 0, 4) };
-            container.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(92) });
+            var container = new Grid { Margin = new Thickness(0, 0, 0, 5) };
+            container.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(126) });
             container.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             var modeSelector = new ComboBox
             {
                 IsEnabled = !_isReadOnly,
-                MinHeight = 28,
                 Tag = setting.Name + ":Mode",
-                BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
+                Visibility = Visibility.Collapsed
             };
             modeSelector.Items.Add(new ComboBoxItem { Content = "固定值", Tag = NodeSettingValueMode.Constant });
             modeSelector.Items.Add(new ComboBoxItem { Content = "变量", Tag = NodeSettingValueMode.Variable });
             modeSelector.SelectedIndex = current.Mode == NodeSettingValueMode.Variable ? 1 : 0;
             Grid.SetColumn(modeSelector, 0);
             container.Children.Add(modeSelector);
+
+            var segments = new Grid
+            {
+                Height = 36,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            segments.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            segments.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var constantButton = CreateModeButton("固定值", current.Mode == NodeSettingValueMode.Constant);
+            var variableButton = CreateModeButton("变量", current.Mode == NodeSettingValueMode.Variable);
+            constantButton.IsEnabled = !_isReadOnly;
+            variableButton.IsEnabled = !_isReadOnly;
+            constantButton.Click += delegate { modeSelector.SelectedIndex = 0; };
+            variableButton.Click += delegate { modeSelector.SelectedIndex = 1; };
+            Grid.SetColumn(constantButton, 0);
+            Grid.SetColumn(variableButton, 1);
+            segments.Children.Add(constantButton);
+            segments.Children.Add(variableButton);
+            Grid.SetColumn(segments, 0);
+            container.Children.Add(segments);
 
             var editorHost = new ContentControl { Margin = new Thickness(8, 0, 0, 0) };
             Grid.SetColumn(editorHost, 1);
@@ -226,12 +402,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                         Selector = current.Selector
                     };
                 setter(current);
+                ApplyModeButtonVisual(constantButton, mode == NodeSettingValueMode.Constant, true);
+                ApplyModeButtonVisual(variableButton, mode == NodeSettingValueMode.Variable, false);
                 RaiseChanged();
                 renderEditor();
             };
 
             renderEditor();
-            _rows.Children.Add(container);
+            layout.Children.Add(container);
         }
 
         private UIElement CreateVariableEditor(NodeSettingDescriptor setting, NodeSettingValue value, Action<NodeSettingValue> setter)
@@ -275,14 +453,17 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private UIElement CreateConstantEditor(NodeSettingDescriptor setting, object value, Action<object> setter)
         {
+            var editorKey = "Setting:" + setting.Name;
             if (setting.DataType == FlowDataType.Boolean)
             {
                 var checkBox = new CheckBox
                 {
+                    Content = "启用",
                     IsChecked = value != null && Convert.ToBoolean(value, CultureInfo.InvariantCulture),
                     IsEnabled = !_isReadOnly,
-                    Margin = new Thickness(0, 0, 0, 4)
+                    Margin = new Thickness(0, 7, 0, 5)
                 };
+                checkBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.SwitchCheckBoxStyleKey);
                 checkBox.Checked += delegate { if (!_isReadOnly) setter(true); };
                 checkBox.Unchecked += delegate { if (!_isReadOnly) setter(false); };
                 return checkBox;
@@ -292,47 +473,93 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var selectorItems = GetSelectorItems(setting, out usesHostOptions);
             if (usesHostOptions || selectorItems.Count > 0)
             {
+                var initialText = GetRawEditorText(editorKey, ToEditorText(setting, value));
                 var comboBox = new ComboBox
                 {
                     IsEditable = !usesHostOptions,
                     IsEnabled = !_isReadOnly,
-                    Text = ToEditorText(setting, value),
-                    MinHeight = 28,
+                    Text = initialText,
                     Margin = new Thickness(0, 0, 0, 4),
-                    BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
+                    Tag = editorKey
                 };
+                comboBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldComboBoxStyleKey);
                 foreach (var item in selectorItems)
                 {
                     comboBox.Items.Add(item);
                 }
 
-                comboBox.LostFocus += delegate
+                Action applyComboValue = delegate
                 {
-                    if (!_isReadOnly) setter(ConvertFromEditorText(setting, comboBox.Text));
+                    if (_isReadOnly)
+                    {
+                        return;
+                    }
+
+                    var text = comboBox.Text ?? string.Empty;
+                    _rawEditorTexts[editorKey] = text;
+                    if (!selectorItems.Contains(text, StringComparer.OrdinalIgnoreCase))
+                    {
+                        SetEditorError(editorKey, "请选择有效候选项。", comboBox);
+                        RaiseChanged();
+                        return;
+                    }
+
+                    object converted;
+                    string conversionError;
+                    if (!TryConvertFromEditorText(setting, text, out converted, out conversionError))
+                    {
+                        SetEditorError(editorKey, conversionError, comboBox);
+                        RaiseChanged();
+                        return;
+                    }
+
+                    ClearEditorError(editorKey, comboBox);
+                    setter(converted);
                 };
-                comboBox.DropDownClosed += delegate
-                {
-                    if (!_isReadOnly) setter(ConvertFromEditorText(setting, comboBox.Text));
-                };
-                return comboBox;
+                comboBox.LostFocus += delegate { applyComboValue(); };
+                comboBox.DropDownClosed += delegate { applyComboValue(); };
+                comboBox.SelectionChanged += delegate { applyComboValue(); };
+                return WrapEditorWithError(editorKey, comboBox);
             }
 
+            var formattedValue = ToEditorText(setting, value);
             var textBox = new TextBox
             {
-                Text = ToEditorText(setting, value),
+                Text = GetRawEditorText(editorKey, formattedValue),
                 IsReadOnly = _isReadOnly,
-                MinHeight = 28,
-                Padding = new Thickness(7, 4, 7, 4),
                 TextWrapping = TextWrapping.Wrap,
                 AcceptsReturn = setting.Name.IndexOf("Mappings", StringComparison.OrdinalIgnoreCase) >= 0 ||
                     setting.Name.IndexOf("Channels", StringComparison.OrdinalIgnoreCase) >= 0,
-                BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
+                Tag = editorKey
             };
-            textBox.LostFocus += delegate
+            textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
+            if (textBox.AcceptsReturn)
             {
-                if (!_isReadOnly) setter(ConvertFromEditorText(setting, textBox.Text));
+                textBox.MinHeight = 76;
+                textBox.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            }
+
+            textBox.TextChanged += delegate
+            {
+                if (_isReadOnly)
+                {
+                    return;
+                }
+
+                _rawEditorTexts[editorKey] = textBox.Text ?? string.Empty;
+                object converted;
+                string conversionError;
+                if (!TryConvertFromEditorText(setting, textBox.Text, out converted, out conversionError))
+                {
+                    SetEditorError(editorKey, conversionError, textBox);
+                    RaiseChanged();
+                    return;
+                }
+
+                ClearEditorError(editorKey, textBox);
+                setter(converted);
             };
-            return textBox;
+            return WrapEditorWithError(editorKey, textBox);
         }
 
         private static UIElement CreateVariableStatus(
@@ -397,27 +624,46 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 };
         }
 
-        private void AddTextField(string label, string value, bool editable, Action<string> setter)
+        private void AddTextField(
+            Panel layout,
+            string label,
+            string value,
+            bool editable,
+            Action<string> setter,
+            string editorKey)
         {
-            _rows.Children.Add(CreateLabel(label));
+            layout.Children.Add(CreateLabel(label));
             var textBox = new TextBox
             {
-                Text = value ?? string.Empty,
+                Text = editable
+                    ? GetRawEditorText(editorKey, value ?? string.Empty)
+                    : value ?? string.Empty,
                 IsReadOnly = !editable || _isReadOnly,
-                MinHeight = 28,
-                Padding = new Thickness(7, 4, 7, 4),
                 TextWrapping = TextWrapping.Wrap,
-                BorderBrush = FlowDesignerControl.BrushFromRgb(203, 213, 225)
+                Tag = editorKey
             };
-            textBox.LostFocus += delegate
+            textBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldTextBoxStyleKey);
+            textBox.TextChanged += delegate
             {
-                if (!_isReadOnly && setter != null)
+                if (_isReadOnly || !editable || setter == null)
                 {
-                    setter(textBox.Text);
-                    RaiseChanged();
+                    return;
                 }
+
+                _rawEditorTexts[editorKey] = textBox.Text ?? string.Empty;
+                setter(textBox.Text);
+                if (string.IsNullOrWhiteSpace(textBox.Text))
+                {
+                    SetEditorError(editorKey, "节点名称不能为空。", textBox);
+                }
+                else
+                {
+                    ClearEditorError(editorKey, textBox);
+                }
+
+                RaiseChanged();
             };
-            _rows.Children.Add(textBox);
+            layout.Children.Add(editable ? WrapEditorWithError(editorKey, textBox) : textBox);
         }
 
         private void ApplySetting(Action<NodeSettingValue> setter, NodeSettingValue value)
@@ -435,6 +681,422 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 _changed();
             }
+        }
+
+        public bool TryValidate(out string error)
+        {
+            error = null;
+            if (_editorErrors.Count > 0)
+            {
+                error = _editorErrors.Values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+                FocusFirstEditorError();
+                return false;
+            }
+
+            if (_currentNode == null)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(_currentNode.Name))
+            {
+                error = "节点名称不能为空。";
+                SetEditorError("NodeName", error, null);
+                FocusFirstEditorError();
+                return false;
+            }
+
+            if (_currentDescriptor != null && _currentDescriptor.Settings != null)
+            {
+                foreach (var setting in _currentDescriptor.Settings.Where(x => x != null))
+                {
+                    NodeSettingValue value;
+                    _currentNode.Settings.TryGetValue(setting.Name, out value);
+                    if (value == null)
+                    {
+                        value = NodeSettingValue.ForConstant(setting.DefaultValue);
+                    }
+
+                    if (value.Mode == NodeSettingValueMode.Variable)
+                    {
+                        var allowed = _variableOptions
+                            .Where(x => IsSourceAllowed(setting.AllowedVariableSources, x.Selector.Scope))
+                            .ToList();
+                        var compatible = allowed
+                            .Where(x => FlowDataTypeCompatibility.IsCompatible(x.DataType, setting.DataType))
+                            .ToList();
+                        var variableError = GetVariableValidationError(setting, value.Selector, allowed, compatible);
+                        if (!string.IsNullOrWhiteSpace(variableError))
+                        {
+                            error = variableError;
+                            ShowValidationError(error);
+                            FocusValidationSummary();
+                            return false;
+                        }
+
+                        continue;
+                    }
+
+                    if (setting.IsRequired &&
+                        (value.ConstantValue == null ||
+                         (value.ConstantValue is string && string.IsNullOrWhiteSpace((string)value.ConstantValue))))
+                    {
+                        error = setting.DisplayName + " 为必填项。";
+                        SetEditorError("Setting:" + setting.Name, error, null);
+                        FocusFirstEditorError();
+                        return false;
+                    }
+
+                    if (_constantOptionProvider != null)
+                    {
+                        var provided = _constantOptionProvider(setting);
+                        if (provided != null)
+                        {
+                            var candidates = provided
+                                .Where(x => !string.IsNullOrWhiteSpace(x))
+                                .Distinct(StringComparer.OrdinalIgnoreCase)
+                                .ToList();
+                            var text = Convert.ToString(value.ConstantValue, CultureInfo.InvariantCulture);
+                            if (!candidates.Contains(text, StringComparer.OrdinalIgnoreCase))
+                            {
+                                error = setting.DisplayName + " 的当前候选项已失效。";
+                                SetEditorError("Setting:" + setting.Name, error, null);
+                                FocusFirstEditorError();
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (_executionPolicyPanel != null && !_executionPolicyPanel.TryValidate(out error))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public void SetPendingState(bool hasPending, bool isReadOnly)
+        {
+            _applyButton.IsEnabled = hasPending && !isReadOnly && _currentNode != null;
+            _resetButton.IsEnabled = hasPending && !isReadOnly && _currentNode != null;
+            _applyButton.Visibility = isReadOnly ? Visibility.Collapsed : Visibility.Visible;
+            _resetButton.Visibility = isReadOnly ? Visibility.Collapsed : Visibility.Visible;
+            _readOnlyHint.Visibility = isReadOnly && _currentNode != null
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        public void ShowValidationError(string error)
+        {
+            _validationSummary.Text = error ?? string.Empty;
+            _validationSummary.Visibility = string.IsNullOrWhiteSpace(error)
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+        }
+
+        public void FocusValidationSummary()
+        {
+            _validationSummary.BringIntoView();
+            _validationSummary.Focus();
+        }
+
+        public void ResetEditorState()
+        {
+            _editorErrors.Clear();
+            _editorErrorBlocks.Clear();
+            _editorControls.Clear();
+            _rawEditorTexts.Clear();
+            _renderedNodeId = null;
+            if (_executionPolicyPanel != null)
+            {
+                _executionPolicyPanel.ResetEditorState();
+            }
+            ShowValidationError(null);
+        }
+
+        public void UpdateNodeName(string name)
+        {
+            if (_currentNode == null || _isReadOnly)
+            {
+                return;
+            }
+
+            var value = string.IsNullOrWhiteSpace(name) ? _currentNode.Id : name.Trim();
+            _currentNode.Name = value;
+            _rawEditorTexts["NodeName"] = value;
+            ClearEditorError("NodeName", null);
+            RaiseChanged();
+        }
+
+        private string GetRawEditorText(string key, string fallback)
+        {
+            string raw;
+            return !string.IsNullOrWhiteSpace(key) && _rawEditorTexts.TryGetValue(key, out raw)
+                ? raw
+                : fallback;
+        }
+
+        private UIElement WrapEditorWithError(string key, FrameworkElement editor)
+        {
+            var layout = new StackPanel();
+            layout.Children.Add(editor);
+            var control = editor as Control;
+            if (control != null && !string.IsNullOrWhiteSpace(key))
+            {
+                _editorControls[key] = control;
+            }
+            var error = new TextBlock
+            {
+                Foreground = FlowDesignerControl.BrushFromRgb(209, 67, 67),
+                FontSize = 11,
+                Margin = new Thickness(1, 3, 0, 3),
+                TextWrapping = TextWrapping.Wrap,
+                Visibility = Visibility.Collapsed
+            };
+            string existing;
+            if (_editorErrors.TryGetValue(key, out existing) && !string.IsNullOrWhiteSpace(existing))
+            {
+                error.Text = existing;
+                error.Visibility = Visibility.Visible;
+                if (control != null)
+                {
+                    control.BorderBrush = FlowDesignerControl.BrushFromRgb(209, 67, 67);
+                    control.ToolTip = existing;
+                }
+            }
+
+            _editorErrorBlocks[key] = error;
+            layout.Children.Add(error);
+            return layout;
+        }
+
+        private void SetEditorError(string key, string error, Control editor)
+        {
+            _editorErrors[key] = error;
+            TextBlock block;
+            if (_editorErrorBlocks.TryGetValue(key, out block))
+            {
+                block.Text = error;
+                block.Visibility = Visibility.Visible;
+            }
+
+            if (editor == null)
+            {
+                _editorControls.TryGetValue(key, out editor);
+            }
+
+            if (editor != null)
+            {
+                editor.BorderBrush = FlowDesignerControl.BrushFromRgb(209, 67, 67);
+                editor.ToolTip = error;
+            }
+        }
+
+        private void ClearEditorError(string key, Control editor)
+        {
+            _editorErrors.Remove(key);
+            TextBlock block;
+            if (_editorErrorBlocks.TryGetValue(key, out block))
+            {
+                block.Text = string.Empty;
+                block.Visibility = Visibility.Collapsed;
+            }
+
+            if (editor == null)
+            {
+                _editorControls.TryGetValue(key, out editor);
+            }
+
+            if (editor != null)
+            {
+                editor.ClearValue(Control.BorderBrushProperty);
+                editor.ToolTip = null;
+            }
+        }
+
+        private void FocusFirstEditorError()
+        {
+            foreach (var key in _editorErrors.Keys)
+            {
+                Control editor;
+                if (_editorControls.TryGetValue(key, out editor))
+                {
+                    editor.BringIntoView();
+                    editor.Focus();
+                    return;
+                }
+            }
+
+            FocusValidationSummary();
+        }
+
+        private static Button CreateModeButton(string text, bool isSelected)
+        {
+            var button = new Button
+            {
+                Content = text,
+                Height = 36,
+                Padding = new Thickness(5, 0, 5, 0),
+                BorderThickness = new Thickness(1),
+                FontSize = 11.5,
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+            ApplyModeButtonVisual(button, isSelected, string.Equals(text, "固定值", StringComparison.Ordinal));
+            return button;
+        }
+
+        private static void ApplyModeButtonVisual(Button button, bool isSelected, bool isLeft)
+        {
+            button.Background = isSelected
+                ? FlowDesignerControl.BrushFromRgb(234, 248, 242)
+                : Brushes.White;
+            button.Foreground = isSelected
+                ? FlowDesignerControl.BrushFromRgb(13, 139, 97)
+                : FlowDesignerControl.BrushFromRgb(100, 116, 139);
+            button.BorderBrush = isSelected
+                ? FlowDesignerControl.BrushFromRgb(16, 163, 114)
+                : FlowDesignerControl.BrushFromRgb(221, 229, 239);
+            button.FontWeight = isSelected ? FontWeights.SemiBold : FontWeights.Normal;
+            button.Margin = isLeft ? new Thickness(0, 0, -1, 0) : new Thickness(0);
+        }
+
+        private static UIElement CreateNodeHeader(NodeDefinition node, NodeDescriptor descriptor)
+        {
+            var border = new Border
+            {
+                Background = FlowDesignerControl.BrushFromRgb(247, 250, 252),
+                BorderBrush = FlowDesignerControl.BrushFromRgb(221, 229, 239),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(7),
+                Padding = new Thickness(12),
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            border.Child = row;
+            var icon = new Border
+            {
+                Width = 34,
+                Height = 34,
+                Background = FlowDesignerControl.BrushFromRgb(234, 248, 242),
+                CornerRadius = new CornerRadius(7),
+                Child = FlowDesignerIcons.CreateNode(
+                    node.Type,
+                    FlowDesignerControl.BrushFromRgb(16, 163, 114),
+                    18)
+            };
+            row.Children.Add(icon);
+            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            text.Children.Add(new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(node.Name) ? node.Id : node.Name,
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = FlowDesignerControl.BrushFromRgb(36, 50, 71),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            text.Children.Add(new TextBlock
+            {
+                Text = descriptor == null || string.IsNullOrWhiteSpace(descriptor.Description)
+                    ? node.Type
+                    : descriptor.Description,
+                FontSize = 10.5,
+                Foreground = FlowDesignerControl.BrushFromRgb(122, 135, 154),
+                Margin = new Thickness(0, 2, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            Grid.SetColumn(text, 1);
+            row.Children.Add(text);
+            return border;
+        }
+
+        private static UIElement CreateSectionCard(string title, UIElement content, bool isExpanded)
+        {
+            var contentBorder = new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = FlowDesignerControl.BrushFromRgb(226, 232, 240),
+                BorderThickness = new Thickness(1, 0, 1, 1),
+                CornerRadius = new CornerRadius(0, 0, 7, 7),
+                Padding = new Thickness(12, 4, 12, 12),
+                Child = content
+            };
+            var expander = new Expander
+            {
+                Header = new TextBlock
+                {
+                    Text = title,
+                    FontWeight = FontWeights.SemiBold,
+                    FontSize = 12,
+                    Foreground = FlowDesignerControl.BrushFromRgb(51, 65, 85)
+                },
+                Content = contentBorder,
+                IsExpanded = isExpanded,
+                Margin = new Thickness(0, 0, 0, 9),
+                Tag = "PropertySection:" + title
+            };
+            expander.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.ExpanderStyleKey);
+            return expander;
+        }
+
+        private static UIElement CreateOutputTag(NodeOutputDescriptor output)
+        {
+            var border = new Border
+            {
+                Background = FlowDesignerControl.BrushFromRgb(245, 247, 250),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(8, 6, 8, 6),
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            var row = new DockPanel();
+            border.Child = row;
+            var type = new TextBlock
+            {
+                Text = FlowEnumConverter.ToWireValue(output.DataType),
+                Foreground = FlowDesignerControl.BrushFromRgb(47, 128, 237),
+                FontSize = 10.5,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            DockPanel.SetDock(type, Dock.Right);
+            row.Children.Add(type);
+            row.Children.Add(new TextBlock
+            {
+                Text = (string.IsNullOrWhiteSpace(output.DisplayName) ? output.Name : output.DisplayName) +
+                    " (" + output.Name + ")",
+                Foreground = FlowDesignerControl.BrushFromRgb(75, 91, 112),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            return border;
+        }
+
+        private static string GetVariableValidationError(
+            NodeSettingDescriptor setting,
+            VariableSelector selector,
+            IList<VariableSelectionOption> allowedOptions,
+            IList<VariableSelectionOption> compatibleOptions)
+        {
+            if (selector == null || selector.Path == null || selector.Path.Count == 0)
+            {
+                return "请选择变量。";
+            }
+
+            if (!IsSourceAllowed(setting.AllowedVariableSources, selector.Scope))
+            {
+                return "当前配置项不允许该变量范围。";
+            }
+
+            var source = allowedOptions.FirstOrDefault(x => x.Matches(selector));
+            if (source == null)
+            {
+                return "变量来源不可用：" + VariableSelectionOption.FormatSelector(selector);
+            }
+
+            return compatibleOptions.Any(x => x.Matches(selector))
+                ? null
+                : "变量类型不能赋给 " + FlowEnumConverter.ToWireValue(setting.DataType) + "。";
         }
 
         private static TextBlock CreateLabel(string label)
@@ -575,53 +1237,168 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return Convert.ToString(value, CultureInfo.InvariantCulture);
         }
 
-        private static object ConvertFromEditorText(NodeSettingDescriptor setting, string text)
+        private static bool TryConvertFromEditorText(
+            NodeSettingDescriptor setting,
+            string text,
+            out object value,
+            out string error)
         {
+            value = null;
+            error = null;
             if (setting == null)
             {
-                return text;
+                value = text;
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                if (setting.IsRequired)
+                {
+                    error = setting.DisplayName + " 为必填项。";
+                    return false;
+                }
+
+                value = null;
+                return true;
             }
 
             if (string.Equals(setting.Name, "Channels", StringComparison.OrdinalIgnoreCase))
             {
-                return ParseChannels(text);
+                if (!TryValidatePairText(text, true, out error))
+                {
+                    return false;
+                }
+
+                value = ParseChannels(text);
+                return true;
             }
 
             if (string.Equals(setting.Name, "Parameters", StringComparison.OrdinalIgnoreCase))
             {
-                return ParseParameters(text);
+                if (!TryValidatePairText(text, false, out error))
+                {
+                    return false;
+                }
+
+                value = ParseParameters(text);
+                return true;
             }
 
             if (string.Equals(setting.Name, "FieldMappings", StringComparison.OrdinalIgnoreCase))
             {
-                return ParseFieldMappings(text);
+                if (!TryValidatePairText(text, false, out error))
+                {
+                    return false;
+                }
+
+                value = ParseFieldMappings(text);
+                return true;
             }
 
             if (setting.DataType == FlowDataType.Int32)
             {
                 int intValue;
-                return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue) ? intValue : 0;
+                if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue))
+                {
+                    error = "请输入有效整数。";
+                    return false;
+                }
+
+                value = intValue;
+                return true;
             }
 
             if (setting.DataType == FlowDataType.Int64)
             {
                 long longValue;
-                return long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out longValue) ? longValue : 0L;
+                if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out longValue))
+                {
+                    error = "请输入有效长整数。";
+                    return false;
+                }
+
+                value = longValue;
+                return true;
             }
 
             if (setting.DataType == FlowDataType.Double)
             {
                 double doubleValue;
-                return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out doubleValue) ? doubleValue : 0.0;
+                if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out doubleValue))
+                {
+                    error = "请输入有效数字。";
+                    return false;
+                }
+
+                value = doubleValue;
+                return true;
             }
 
             if (setting.DataType == FlowDataType.Boolean)
             {
                 bool boolValue;
-                return bool.TryParse(text, out boolValue) && boolValue;
+                if (!bool.TryParse(text, out boolValue))
+                {
+                    error = "请输入 true 或 false。";
+                    return false;
+                }
+
+                value = boolValue;
+                return true;
             }
 
-            return string.IsNullOrWhiteSpace(text) && !setting.IsRequired ? null : text;
+            if (setting.DataType == FlowDataType.DateTime)
+            {
+                DateTime dateTime;
+                if (!DateTime.TryParse(
+                        text,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind,
+                        out dateTime))
+                {
+                    error = "请输入 ISO 8601 日期时间。";
+                    return false;
+                }
+
+                value = dateTime;
+                return true;
+            }
+
+            value = text;
+            return true;
+        }
+
+        private static bool TryValidatePairText(string text, bool numericValue, out string error)
+        {
+            error = null;
+            var parts = (text ?? string.Empty)
+                .Split(new[] { ';', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in parts)
+            {
+                var index = part.IndexOf('=');
+                if (index <= 0 || index >= part.Length - 1)
+                {
+                    error = "每一项都必须使用 名称=值 格式。";
+                    return false;
+                }
+
+                if (numericValue)
+                {
+                    double parsed;
+                    if (!double.TryParse(
+                            part.Substring(index + 1).Trim(),
+                            NumberStyles.Float,
+                            CultureInfo.InvariantCulture,
+                            out parsed))
+                    {
+                        error = "通道强度必须是有效数字。";
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
 
         private static List<Dictionary<string, object>> ParseChannels(string text)

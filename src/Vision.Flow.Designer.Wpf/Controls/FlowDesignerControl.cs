@@ -46,6 +46,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
         External = 1
     }
 
+    /// <summary>
+    /// 用户处理未应用节点属性时的选择。
+    /// </summary>
+    public enum PendingPropertyChangesDecision
+    {
+        Apply = 0,
+        Discard = 1,
+        Cancel = 2
+    }
+
     public sealed class FlowDesignerOptions
     {
         public FlowDesignerOptions()
@@ -74,6 +84,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
         /// 由嵌入式宿主为节点固定值编辑器提供动态候选项；返回 null 时沿用设计器内置枚举候选。
         /// </summary>
         public Func<NodeSettingDescriptor, IEnumerable<string>> SettingConstantOptionsProvider { get; set; }
+
+        /// <summary>
+        /// 自定义未应用属性决策。测试或业务宿主可提供确定性决策；为空时使用设计器对话框。
+        /// </summary>
+        public Func<PendingPropertyChangesDecision> PendingPropertyChangesPrompt { get; set; }
     }
 
     public sealed partial class FlowDesignerControl : UserControl
@@ -115,6 +130,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private DesignerInteractionMode _interactionMode;
         private FlowDesignDocument _document;
         private NodeDefinition _selectedNode;
+        private NodeDefinition _propertyDraftNode;
+        private NodeDefinition _propertyBaselineNode;
         private EdgeDefinition _selectedEdge;
         private IFlowRunner _runner;
         private Grid _surface;
@@ -161,6 +178,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _interactionMode = DesignerInteractionMode.Edit;
             _palette = new NodePaletteControl();
             _properties = new PropertyPanelControl(_options.SettingConstantOptionsProvider);
+            _properties.ApplyRequested += delegate
+            {
+                string error;
+                TryApplyPendingPropertyChanges(out error);
+            };
+            _properties.ResetRequested += DiscardPendingPropertyChanges;
             _entryTriggerPanel = new EntryTriggerPanelControl
             {
                 Visibility = Visibility.Collapsed,

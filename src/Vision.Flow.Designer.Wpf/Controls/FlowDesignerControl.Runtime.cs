@@ -51,6 +51,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
+            if (!TryResolvePendingPropertyChanges())
+            {
+                return;
+            }
+
             try
             {
                 _document = FlowDesignSerializer.Load(dialog.FileName);
@@ -66,6 +71,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 }
 
                 _selectedNode = _document.Runtime.Nodes.FirstOrDefault();
+                BeginPropertyDraft(_selectedNode);
                 _selectedEdge = null;
                 RenderCanvas();
                 ApplyCanvasViewState();
@@ -94,6 +100,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
 
             if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            if (!TryResolvePendingPropertyChanges())
             {
                 return;
             }
@@ -129,6 +140,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
 
             if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            if (!TryResolvePendingPropertyChanges())
             {
                 return;
             }
@@ -291,6 +307,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private async Task SetInteractionModeAsync(DesignerInteractionMode mode)
         {
             if (_interactionMode == mode)
+            {
+                return;
+            }
+
+            if (mode == DesignerInteractionMode.DebugRun && !TryResolvePendingPropertyChanges())
             {
                 return;
             }
