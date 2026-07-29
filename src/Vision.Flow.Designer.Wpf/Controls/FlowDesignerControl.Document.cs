@@ -842,14 +842,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 dataType));
         }
 
-        private void SelectNode(NodeDefinition node)
+        private bool SelectNode(NodeDefinition node)
         {
             var selectionChanged = !StringEquals(
                 _selectedNode == null ? null : _selectedNode.Id,
                 node == null ? null : node.Id);
             if (selectionChanged && !TryResolvePendingPropertyChanges())
             {
-                return;
+                return false;
             }
 
             _selectedNode = node;
@@ -866,6 +866,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             RenderEdges();
             RenderProperties();
             UpdateStatus();
+            return true;
         }
 
         private void SelectNodeById(string nodeId)

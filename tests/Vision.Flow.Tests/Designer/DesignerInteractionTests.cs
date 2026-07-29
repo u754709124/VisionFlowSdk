@@ -1425,6 +1425,87 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task PropertyDraftPromptDoesNotCaptureReleasedNodeClick()
+        {
+            RunOnSta(delegate
+            {
+                var decision = PendingPropertyChangesDecision.Cancel;
+                var promptCount = 0;
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    PendingPropertyChangesPrompt = delegate
+                    {
+                        promptCount++;
+                        return decision;
+                    }
+                });
+                control.LoadDocumentAsync(CreateTwoDelayDocument())
+                    .GetAwaiter().GetResult();
+
+                var document = GetPrivateField<FlowDesignDocument>(control, "_document");
+                var first = document.Runtime.Nodes[0];
+                var second = document.Runtime.Nodes[1];
+                var nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "NodeName",
+                        StringComparison.Ordinal));
+                nameEditor.Text = "等待处理的名称";
+
+                var secondCard = FindChildren<NodeCardControl>(control)
+                    .First(x => object.ReferenceEquals(x.ViewModel.Node, second));
+                var releasedClick = new MouseButtonEventArgs(
+                    Mouse.PrimaryDevice,
+                    Environment.TickCount,
+                    MouseButton.Left)
+                {
+                    RoutedEvent = UIElement.MouseLeftButtonDownEvent,
+                    Source = secondCard
+                };
+
+                InvokePrivate(control, "OnNodeMouseDown", secondCard, releasedClick);
+
+                AssertEx.Equal(first, GetPrivateField<NodeDefinition>(control, "_selectedNode"),
+                    "Cancel should keep the original node selected.");
+                AssertEx.True(GetPrivateField<NodeCardControl>(control, "_dragCard") == null,
+                    "Closing the pending-property prompt must not capture the original released node click.");
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "Cancel should keep the original property draft editable.");
+
+                decision = PendingPropertyChangesDecision.Apply;
+                releasedClick = new MouseButtonEventArgs(
+                    Mouse.PrimaryDevice,
+                    Environment.TickCount,
+                    MouseButton.Left)
+                {
+                    RoutedEvent = UIElement.MouseLeftButtonDownEvent,
+                    Source = secondCard
+                };
+                InvokePrivate(control, "OnNodeMouseDown", secondCard, releasedClick);
+
+                AssertEx.Equal(second, GetPrivateField<NodeDefinition>(control, "_selectedNode"),
+                    "Apply should commit the draft and complete node selection.");
+                AssertEx.True(GetPrivateField<NodeCardControl>(control, "_dragCard") == null,
+                    "Apply must not leave the old node click in a pending drag state.");
+                AssertEx.Equal("等待处理的名称", first.Name,
+                    "Apply should commit the previous node draft.");
+
+                nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "NodeName",
+                        StringComparison.Ordinal));
+                nameEditor.Text = "第二个节点可继续编辑";
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "The selected node property editor should accept input immediately after the prompt closes.");
+                AssertEx.Equal(2, promptCount,
+                    "Editing the selected node after Apply must not reopen the pending-property prompt.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyDraftRejectsInvalidTextAndSurvivesRefresh()
         {
             RunOnSta(delegate

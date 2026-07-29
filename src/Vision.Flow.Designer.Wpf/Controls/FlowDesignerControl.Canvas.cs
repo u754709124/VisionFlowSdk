@@ -565,7 +565,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Focus();
             if (e.ChangedButton == MouseButton.Left && !_isConnecting)
             {
-                SelectNode(null);
+                if (!SelectNode(null) || e.LeftButton != MouseButtonState.Pressed)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
                 BeginCanvasPan(e);
                 e.Handled = true;
             }
@@ -744,7 +749,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
-            SelectNode(card.ViewModel.Node);
+            if (!SelectNode(card.ViewModel.Node) || Mouse.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+
             _isConnecting = true;
             _connectionSourceNode = card.ViewModel.Node;
             _connectionSourcePort = e.Port.Name;
@@ -905,7 +914,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             Focus();
-            SelectNode(card.ViewModel.Node);
+            if (!SelectNode(card.ViewModel.Node))
+            {
+                e.Handled = true;
+                return;
+            }
+
             if (!CanEditDocument)
             {
                 e.Handled = true;
@@ -915,6 +929,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (e.ClickCount == 2)
             {
                 RenameNode(card.ViewModel.Node);
+                e.Handled = true;
+                return;
+            }
+
+            // 属性草稿提示框会启动嵌套消息循环；用户在弹窗内完成选择后，
+            // 原始按键已释放，不能再为这次旧 MouseDown 启动拖动和捕获鼠标。
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
                 e.Handled = true;
                 return;
             }
