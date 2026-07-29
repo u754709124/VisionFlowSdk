@@ -20,7 +20,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private const double EditorErrorTextHeight = 28;
         private const double EditorStatusSlotHeight = 34;
         private readonly StackPanel _rows;
-        private readonly Func<NodeSettingDescriptor, IEnumerable<string>> _constantOptionProvider;
+        private readonly Func<NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> _constantOptionProvider;
         private readonly Button _applyButton;
         private readonly Button _resetButton;
         private readonly TextBlock _readOnlyHint;
@@ -45,7 +45,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         {
         }
 
-        public PropertyPanelControl(Func<NodeSettingDescriptor, IEnumerable<string>> constantOptionProvider)
+        public PropertyPanelControl(
+            Func<NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> constantOptionProvider)
         {
             _constantOptionProvider = constantOptionProvider;
             Padding = new Thickness(12);
@@ -557,6 +558,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             if (usesHostOptions)
             {
                 var initialText = GetRawEditorText(editorKey, ToEditorText(setting, value));
+                var initialOption = selectorItems.FirstOrDefault(x =>
+                    string.Equals(x.Value, initialText, StringComparison.OrdinalIgnoreCase));
                 var comboBox = new ComboBox
                 {
                     IsEditable = false,
@@ -569,9 +572,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 {
                     comboBox.Items.Add(item);
                 }
+                comboBox.SelectedItem = initialOption;
+                if (initialOption == null)
+                    comboBox.Text = initialText;
                 if (usesHostOptions &&
                     !string.IsNullOrWhiteSpace(initialText) &&
-                    !selectorItems.Contains(initialText, StringComparer.OrdinalIgnoreCase))
+                    initialOption == null)
                 {
                     SetEditorError(editorKey, setting.DisplayName + " 的当前候选项已失效。", comboBox);
                 }
@@ -596,9 +602,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
                         return;
                     }
 
-                    var text = comboBox.Text ?? string.Empty;
+                    var selectedOption = comboBox.SelectedItem as NodeSettingConstantOption;
+                    var text = selectedOption == null ? string.Empty : selectedOption.Value;
                     _rawEditorTexts[editorKey] = text;
-                    if (!selectorItems.Contains(text, StringComparer.OrdinalIgnoreCase))
+                    if (selectedOption == null)
                     {
                         SetEditorError(editorKey, "请选择有效候选项。", comboBox);
                         RaiseChanged();
@@ -881,7 +888,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                         if (provided != null)
                         {
                             var candidates = provided
-                                .Where(x => !string.IsNullOrWhiteSpace(x))
+                                .Where(x => x != null && !string.IsNullOrWhiteSpace(x.Value))
+                                .Select(x => x.Value)
                                 .Distinct(StringComparer.OrdinalIgnoreCase)
                                 .ToList();
                             var text = Convert.ToString(value.ConstantValue, CultureInfo.InvariantCulture);
@@ -1395,9 +1403,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
         }
 
-        private IList<string> GetSelectorItems(NodeSettingDescriptor setting, out bool usesHostOptions)
+        private IList<NodeSettingConstantOption> GetSelectorItems(NodeSettingDescriptor setting, out bool usesHostOptions)
         {
-            var items = new List<string>();
+            var items = new List<NodeSettingConstantOption>();
             usesHostOptions = false;
             if (setting == null)
             {
@@ -1406,14 +1414,19 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (_constantOptionProvider != null)
             {
-                var providedItems = _constantOptionProvider(setting);
-                if (providedItems != null)
+                var providedOptions = _constantOptionProvider(setting);
+                if (providedOptions != null)
                 {
                     usesHostOptions = true;
-                    foreach (var item in providedItems.Where(x => !string.IsNullOrWhiteSpace(x)))
+                    foreach (var option in providedOptions.Where(x => x != null))
                     {
-                        if (!items.Contains(item, StringComparer.OrdinalIgnoreCase))
-                            items.Add(item);
+                        if (!items.Any(x => string.Equals(
+                            x.Value,
+                            option.Value,
+                            StringComparison.OrdinalIgnoreCase)))
+                        {
+                            items.Add(option);
+                        }
                     }
                 }
             }

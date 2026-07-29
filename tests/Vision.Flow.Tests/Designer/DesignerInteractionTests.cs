@@ -464,7 +464,11 @@ namespace Vision.Flow.Tests
 
                 var panel = new PropertyPanelControl(setting =>
                     string.Equals(setting.Name, "CameraId", StringComparison.OrdinalIgnoreCase)
-                        ? new[] { "Camera-A", "Camera-B" }
+                        ? new[]
+                        {
+                            new NodeSettingConstantOption("Camera-A", "Camera-A"),
+                            new NodeSettingConstantOption("Camera-B", "Camera-B")
+                        }
                         : null);
                 panel.ShowNode(node, descriptor, delegate { });
 
@@ -483,7 +487,7 @@ namespace Vision.Flow.Tests
                 AssertEx.False(valueSelector.Items.Cast<object>().Any(x => string.Equals(Convert.ToString(x), "Camera01", StringComparison.Ordinal)),
                     "The designer should not inject a hard-coded camera id.");
 
-                var emptyPanel = new PropertyPanelControl(setting => new string[0]);
+                var emptyPanel = new PropertyPanelControl(setting => new NodeSettingConstantOption[0]);
                 emptyPanel.ShowNode(node, descriptor, delegate { });
                 var emptySelector = FindChildren<ComboBox>(emptyPanel)
                     .FirstOrDefault(x => string.Equals(
@@ -500,6 +504,35 @@ namespace Vision.Flow.Tests
                         string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "固定值", StringComparison.Ordinal) ||
                         string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "变量", StringComparison.Ordinal)),
                     "A constant-only device reference with no candidates must not expose a mode selector.");
+
+                descriptor.Settings[0].Name = "QueueId";
+                descriptor.Settings[0].DisplayName = "队列";
+                descriptor.Settings[0].DataType = FlowDataType.Int32;
+                node.Settings.Clear();
+                node.Settings["QueueId"] = NodeSettingValue.ForConstant(2);
+                var labeledPanel = new PropertyPanelControl(
+                    setting => string.Equals(setting.Name, "QueueId", StringComparison.OrdinalIgnoreCase)
+                        ? new[]
+                        {
+                            new NodeSettingConstantOption("1", "拍照信息队列"),
+                            new NodeSettingConstantOption("2", "待处理图片队列")
+                        }
+                        : null);
+                labeledPanel.ShowNode(node, descriptor, delegate { });
+                var labeledSelector = FindChildren<ComboBox>(labeledPanel)
+                    .FirstOrDefault(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:QueueId",
+                        StringComparison.Ordinal));
+                AssertEx.NotNull(labeledSelector,
+                    "Labeled host options should render a fixed-value selector.");
+                AssertEx.Equal("待处理图片队列", Convert.ToString(labeledSelector.SelectedItem),
+                    "The selector should display the label that belongs to the stored protocol value.");
+                labeledSelector.SelectedIndex = 0;
+                AssertEx.Equal(
+                    1,
+                    Convert.ToInt32(node.Settings["QueueId"].ConstantValue, CultureInfo.InvariantCulture),
+                    "Selecting a labeled option should persist its converted protocol value.");
             });
             return Task.FromResult(0);
         }
@@ -605,7 +638,11 @@ namespace Vision.Flow.Tests
                 node.Settings["CameraId"] = NodeSettingValue.ForConstant("Camera-B");
                 var cameraPanel = new PropertyPanelControl(setting =>
                     string.Equals(setting.Name, "CameraId", StringComparison.OrdinalIgnoreCase)
-                        ? new[] { "Camera-A", "Camera-B" }
+                        ? new[]
+                        {
+                            new NodeSettingConstantOption("Camera-A", "Camera-A"),
+                            new NodeSettingConstantOption("Camera-B", "Camera-B")
+                        }
                         : null);
                 cameraPanel.ShowNode(node, descriptor, delegate { });
                 ArrangeAtPropertyPanelMinimum(cameraPanel);
@@ -1860,7 +1897,9 @@ namespace Vision.Flow.Tests
                     SettingConstantOptionsProvider = delegate(NodeSettingDescriptor setting)
                     {
                         return string.Equals(setting.Name, FlowSettingNames.DelayMs, StringComparison.Ordinal)
-                            ? candidates.ToArray()
+                            ? candidates
+                                .Select(x => new NodeSettingConstantOption(x, x))
+                                .ToArray()
                             : null;
                     }
                 });
@@ -1913,7 +1952,12 @@ namespace Vision.Flow.Tests
                             setting == null ? null : setting.Name,
                             DesignerDynamicDescriptorFactory.CommandSetting,
                             StringComparison.OrdinalIgnoreCase)
-                            ? new[] { "Alpha", "Beta", "Broken" }
+                            ? new[]
+                            {
+                                new NodeSettingConstantOption("Alpha", "Alpha"),
+                                new NodeSettingConstantOption("Beta", "Beta"),
+                                new NodeSettingConstantOption("Broken", "Broken")
+                            }
                             : null;
                     }
                 });

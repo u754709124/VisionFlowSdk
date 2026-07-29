@@ -88,9 +88,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public IDeviceRegistry DebugDevices { get; set; }
 
         /// <summary>
-        /// 由嵌入式宿主为节点固定值编辑器提供动态候选项；返回 null 时沿用设计器内置枚举候选。
+        /// 由嵌入式宿主提供显示文本与稳定协议值分离的固定值候选项。
         /// </summary>
-        public Func<NodeSettingDescriptor, IEnumerable<string>> SettingConstantOptionsProvider { get; set; }
+        public Func<NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> SettingConstantOptionsProvider { get; set; }
 
         /// <summary>
         /// 自定义未应用属性决策。测试或业务宿主可提供确定性决策；为空时使用设计器对话框。

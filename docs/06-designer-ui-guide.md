@@ -4,6 +4,10 @@
 
 WPF Designer 提供流程编辑、调试和发布体验，但不承担生产运行逻辑。
 
+嵌入式宿主通过 `FlowDesignerOptions.SettingConstantOptionsProvider` 提供
+`NodeSettingConstantOption` 候选项。`DisplayName` 只用于属性面板展示，`Value`
+会按 Descriptor 的 `FlowDataType` 转换后写入流程定义；宿主不再提供裸字符串候选。
+
 ## 主要区域
 
 ```text
