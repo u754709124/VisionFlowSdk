@@ -602,6 +602,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             _hasDeferredEdgeRefresh = true;
             RenderEdges();
+            UpdateMiniMap();
             UpdateStatus();
         }
 

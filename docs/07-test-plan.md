@@ -14,7 +14,7 @@ tests/Vision.Flow.Tests
 - Serialization / Publish：Schema v2 round-trip、明确拒绝 v1、入口类型/输入/执行策略 round-trip、节点 `ExecutionPolicy` 完整协议与缺失/null 默认值、结构化 Setting Selector、TriggerInput 可达性和类型冲突、入口绕过变量来源警告、发布后移除 view state、校验通过后写入 `.flowruntime`、无效发布不覆盖、样例流程校验。
 - Core 节点：注册、日志事件、延时、变量写入、AND Join、Condition 分支。
 - Core 契约：`VisionImageReference` 生命周期和精简公共面的守卫。
-- Designer：主题资源解析、内部/外置命令栏、入口触发配置、配置项固定值/变量切换与常量保留、实例级动态 Descriptor 刷新与字段调和、祖先与入口变量候选范围、类型过滤、失效 Selector 保留、属性草稿应用/重置/校验/三种未保存决策、只读模式、节点库四字段搜索与折叠恢复、拖拽、圆形端口锚点、贝塞尔连线箭头、调试抽屉三态和失败/超时自动展开、停止调试、按钮状态恢复、节点卡片运行状态显示。
+- Designer：主题资源解析、内部/外置命令栏、入口触发配置、配置项固定值/变量切换与常量保留、实例级动态 Descriptor 刷新与字段调和、祖先与入口变量候选范围、类型过滤、失效 Selector 保留、属性草稿应用/重置/校验/三种未保存决策、只读模式、节点库四字段搜索与折叠恢复、拖拽、边缘短条端口锚点、贝塞尔连线箭头、缩略图视野换算与边界限制、DPI 像素对齐平移、调试抽屉三态和失败/超时自动展开、停止调试、按钮状态恢复、节点卡片运行状态显示。
 - Variable Settings：常量/变量切换、上游来源限制、类型兼容、TriggerInput、Token 与对象子路径解析、JSON 中不出现 `InputBindings`。
 - Demo：解决方案构建覆盖 WinForms Demo 和 Designer WPF Demo。
 

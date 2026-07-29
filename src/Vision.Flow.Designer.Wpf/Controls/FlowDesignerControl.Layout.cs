@@ -196,7 +196,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
                 Content = _surface
             };
-            _canvasScroll.ScrollChanged += delegate { SaveCanvasViewState(); };
+            _canvasScroll.ScrollChanged += delegate
+            {
+                SaveCanvasViewState();
+                UpdateMiniMap();
+            };
 
             var canvasRoot = new Grid
             {
@@ -204,10 +208,29 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             canvasRoot.PreviewMouseWheel += OnCanvasMouseWheel;
             canvasRoot.Children.Add(_canvasScroll);
+            canvasRoot.Children.Add(CreateMiniMapOverlay());
             canvasRoot.Children.Add(CreateZoomOverlay());
             border.Child = canvasRoot;
 
             return border;
+        }
+
+        private UIElement CreateMiniMapOverlay()
+        {
+            _miniMap.Width = 196;
+            _miniMap.Height = 132;
+            _miniMap.HorizontalAlignment = HorizontalAlignment.Left;
+            _miniMap.VerticalAlignment = VerticalAlignment.Bottom;
+            _miniMap.Margin = new Thickness(14, 0, 0, 14);
+            _miniMap.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                BlurRadius = 10,
+                ShadowDepth = 1,
+                Opacity = 0.14,
+                Color = Color.FromRgb(15, 23, 42)
+            };
+            Panel.SetZIndex(_miniMap, 2);
+            return _miniMap;
         }
 
         private UIElement CreateZoomOverlay()

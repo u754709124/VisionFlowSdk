@@ -116,6 +116,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private readonly EntryTriggerPanelControl _entryTriggerPanel;
         private readonly RuntimeDebugPanelControl _debug;
         private readonly EdgeLayerControl _edges;
+        private readonly FlowMiniMapControl _miniMap;
         private readonly FlowDesignerOptions _options;
         private readonly Canvas _nodeLayer;
         private readonly TextBlock _statusText;
@@ -209,6 +210,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _edges = new EdgeLayerControl();
             _edges.EdgeSelected += SelectEdge;
             _edges.EdgeDeleteRequested += DeleteEdge;
+            _miniMap = new FlowMiniMapControl();
+            _miniMap.ViewportRequested += NavigateToMiniMapViewport;
             _canvasWidth = FlowViewState.DefaultCanvasWidth;
             _canvasHeight = FlowViewState.DefaultCanvasHeight;
             _nodeLayer = new Canvas

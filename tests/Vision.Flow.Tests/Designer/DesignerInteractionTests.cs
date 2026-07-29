@@ -1207,7 +1207,7 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task PortsAndEdgesUseCircularAnchorsAndVisibleArrows()
+        public static Task PortsAndEdgesUseEdgeTabsAndVisibleArrows()
         {
             RunOnSta(delegate
             {
@@ -1229,15 +1229,17 @@ namespace Vision.Flow.Tests
                 host.UpdateLayout();
 
                 var handle = FindChildren<Border>(port)
-                    .First(x => Math.Abs(x.Width - 10) < 0.01 && Math.Abs(x.Height - 10) < 0.01);
-                AssertEx.Equal(5.0, handle.CornerRadius.TopLeft,
-                    "Port handles should be rendered as circles.");
-                var expectedAnchor = handle.TranslatePoint(new Point(5, 5), host);
+                    .First(x => Math.Abs(x.Width - 4) < 0.01 && Math.Abs(x.Height - 16) < 0.01);
+                AssertEx.Equal(2.0, handle.CornerRadius.TopLeft,
+                    "Port handles should be rendered as short edge tabs.");
+                AssertEx.Equal(0.0, handle.BorderThickness.Left,
+                    "Edge tabs should use a solid blue fill without a circular outline.");
+                var expectedAnchor = handle.TranslatePoint(new Point(2, 8), host);
                 var actualAnchor = port.GetAnchorPoint(host);
                 AssertEx.Equal(expectedAnchor.X, actualAnchor.X,
-                    "Port anchor X should be the circular handle center.");
+                    "Port anchor X should be the edge-tab center.");
                 AssertEx.Equal(expectedAnchor.Y, actualAnchor.Y,
-                    "Port anchor Y should be the circular handle center.");
+                    "Port anchor Y should be the edge-tab center.");
 
                 var document = CreateTwoDelayDocument();
                 document.Runtime.Edges.Clear();
@@ -1540,6 +1542,78 @@ namespace Vision.Flow.Tests
                 AssertEx.Equal(2, promptCount,
                     "Editing the selected node after Apply must not reopen the pending-property prompt.");
             });
+            return Task.FromResult(0);
+        }
+
+        public static Task CanvasMiniMapTracksViewportAndClampsNavigation()
+        {
+            RunOnSta(delegate
+            {
+                var document = CreateTwoDelayDocument();
+                var miniMap = new FlowMiniMapControl
+                {
+                    Width = 196,
+                    Height = 132
+                };
+                miniMap.UpdateView(document, 2400, 1600, 2.0, 600, 400, 800, 600);
+                miniMap.Measure(new Size(196, 132));
+                miniMap.Arrange(new Rect(0, 0, 196, 132));
+
+                var viewport = InvokePrivateInstance<Rect>(miniMap, "GetLogicalViewport");
+                AssertEx.Equal(300.0, viewport.X,
+                    "Mini-map viewport X should convert the scaled scroll offset to logical canvas coordinates.");
+                AssertEx.Equal(200.0, viewport.Y,
+                    "Mini-map viewport Y should convert the scaled scroll offset to logical canvas coordinates.");
+                AssertEx.Equal(400.0, viewport.Width,
+                    "Mini-map viewport width should account for canvas zoom.");
+                AssertEx.Equal(300.0, viewport.Height,
+                    "Mini-map viewport height should account for canvas zoom.");
+
+                var clamped = InvokePrivateStatic<Point>(
+                    typeof(FlowMiniMapControl),
+                    "CalculateViewportOrigin",
+                    new Point(2390, 1590),
+                    new Point(100, 75),
+                    2400.0,
+                    1600.0,
+                    400.0,
+                    300.0);
+                AssertEx.Equal(2000.0, clamped.X,
+                    "Dragging the mini-map viewport should clamp navigation at the canvas right edge.");
+                AssertEx.Equal(1300.0, clamped.Y,
+                    "Dragging the mini-map viewport should clamp navigation at the canvas bottom edge.");
+
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false
+                });
+                var hostedMiniMap = GetPrivateField<FlowMiniMapControl>(control, "_miniMap");
+                AssertEx.Equal(HorizontalAlignment.Left, hostedMiniMap.HorizontalAlignment,
+                    "The canvas mini-map should be hosted in the lower-left corner.");
+                AssertEx.Equal(VerticalAlignment.Bottom, hostedMiniMap.VerticalAlignment,
+                    "The canvas mini-map should be hosted in the lower-left corner.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task CanvasPanAlignsOffsetsToDevicePixels()
+        {
+            var aligned = InvokePrivateStatic<double>(
+                typeof(FlowDesignerControl),
+                "AlignToDevicePixel",
+                10.3,
+                1.25);
+            AssertEx.Equal(10.4, aligned,
+                "Canvas panning should align fractional offsets to the current DPI device-pixel grid.");
+
+            var clamped = InvokePrivateStatic<double>(
+                typeof(FlowDesignerControl),
+                "AlignToDevicePixel",
+                -4.0,
+                1.25);
+            AssertEx.Equal(0.0, clamped,
+                "Canvas panning should not produce negative scroll offsets.");
             return Task.FromResult(0);
         }
 

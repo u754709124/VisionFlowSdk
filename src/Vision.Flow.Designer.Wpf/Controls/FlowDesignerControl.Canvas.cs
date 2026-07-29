@@ -52,6 +52,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 {
                     _canvasScroll.ScrollToHorizontalOffset(Math.Max(0, _document.View.OffsetX));
                     _canvasScroll.ScrollToVerticalOffset(Math.Max(0, _document.View.OffsetY));
+                    UpdateMiniMap();
                 }));
             }
         }
@@ -107,6 +108,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 _edges.SetCanvasSize(_canvasWidth, _canvasHeight);
             }
+
+            UpdateMiniMap();
         }
 
         private void EnsureCanvasContainsNodes()
@@ -604,10 +607,63 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             var point = e.GetPosition(this);
-            _canvasScroll.ScrollToHorizontalOffset(_panStartHorizontalOffset - (point.X - _panStart.X));
-            _canvasScroll.ScrollToVerticalOffset(_panStartVerticalOffset - (point.Y - _panStart.Y));
+            _canvasScroll.ScrollToHorizontalOffset(AlignScrollOffsetToDevicePixel(
+                _panStartHorizontalOffset - (point.X - _panStart.X)));
+            _canvasScroll.ScrollToVerticalOffset(AlignScrollOffsetToDevicePixel(
+                _panStartVerticalOffset - (point.Y - _panStart.Y)));
             SaveCanvasViewState();
             e.Handled = true;
+        }
+
+        private double AlignScrollOffsetToDevicePixel(double offset)
+        {
+            var dpiScale = 1.0;
+            var source = _canvasScroll == null ? null : PresentationSource.FromVisual(_canvasScroll);
+            if (source != null && source.CompositionTarget != null)
+            {
+                dpiScale = source.CompositionTarget.TransformToDevice.M11;
+            }
+
+            return AlignToDevicePixel(offset, dpiScale);
+        }
+
+        private static double AlignToDevicePixel(double value, double dpiScale)
+        {
+            var safeValue = IsFinite(value) ? Math.Max(0, value) : 0;
+            var safeScale = IsFinite(dpiScale) && dpiScale > 0 ? dpiScale : 1.0;
+            return Math.Round(safeValue * safeScale, MidpointRounding.AwayFromZero) / safeScale;
+        }
+
+        private void UpdateMiniMap()
+        {
+            if (_miniMap == null)
+            {
+                return;
+            }
+
+            _miniMap.UpdateView(
+                _document,
+                _canvasWidth,
+                _canvasHeight,
+                _canvasScale == null ? 1.0 : _canvasScale.ScaleX,
+                _canvasScroll == null ? 0 : _canvasScroll.HorizontalOffset,
+                _canvasScroll == null ? 0 : _canvasScroll.VerticalOffset,
+                _canvasScroll == null ? 0 : _canvasScroll.ViewportWidth,
+                _canvasScroll == null ? 0 : _canvasScroll.ViewportHeight);
+        }
+
+        private void NavigateToMiniMapViewport(Point logicalTopLeft)
+        {
+            if (_canvasScroll == null || _canvasScale == null)
+            {
+                return;
+            }
+
+            var zoom = _canvasScale.ScaleX <= 0 ? 1.0 : _canvasScale.ScaleX;
+            _canvasScroll.ScrollToHorizontalOffset(AlignScrollOffsetToDevicePixel(logicalTopLeft.X * zoom));
+            _canvasScroll.ScrollToVerticalOffset(AlignScrollOffsetToDevicePixel(logicalTopLeft.Y * zoom));
+            SaveCanvasViewState();
+            UpdateMiniMap();
         }
 
         private void OnSurfaceMouseUp(object sender, MouseButtonEventArgs e)
