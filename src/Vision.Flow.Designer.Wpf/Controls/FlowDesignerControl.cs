@@ -156,6 +156,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private Point _panStart;
         private double _panStartHorizontalOffset;
         private double _panStartVerticalOffset;
+        private bool _isCanvasFrameScheduled;
+        private bool _hasPendingCanvasPan;
+        private double _pendingPanHorizontalOffset;
+        private double _pendingPanVerticalOffset;
+        private bool _hasPendingCanvasZoom;
+        private double _pendingCanvasZoom;
+        private Point _pendingZoomAnchor;
         private bool _isRenderingEdges;
         private bool _hasDeferredEdgeRefresh;
         private bool _isConnecting;
@@ -240,6 +247,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _palette.NodeDragRequested += OnPaletteNodeDragRequested;
             _debug.NodeRequested += SelectNodeById;
             PreviewKeyDown += OnPreviewKeyDown;
+            Unloaded += delegate { CancelCanvasInteractionFrame(); };
             Focusable = true;
             if (_options.LoadSampleOnStartup)
             {

@@ -96,6 +96,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Background = Brushes.White,
                 CornerRadius = new CornerRadius(8),
                 Effect = _cardShadow,
+                CacheMode = new BitmapCache(),
                 IsHitTestVisible = false
             };
             _cardBody = new Border

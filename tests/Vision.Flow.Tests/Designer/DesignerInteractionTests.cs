@@ -2570,6 +2570,8 @@ namespace Vision.Flow.Tests
                     "The card content must not be rasterized together with its shadow.");
                 AssertEx.True(shadowHost.Effect is System.Windows.Media.Effects.DropShadowEffect,
                     "The shadow should render on an independent background layer.");
+                AssertEx.True(shadowHost.CacheMode is BitmapCache,
+                    "The independent shadow layer should be cached for smooth canvas interaction.");
 
                 card.SetCanvasZoom(0.75);
                 AssertEx.Equal(TextFormattingMode.Display, TextOptions.GetTextFormattingMode(card),
@@ -2578,6 +2580,46 @@ namespace Vision.Flow.Tests
                 card.SetCanvasZoom(1.0);
                 AssertEx.Equal(TextFormattingMode.Ideal, TextOptions.GetTextFormattingMode(card),
                     "Node cards should retain scalable ideal glyph metrics outside the 75% range.");
+            });
+            return Task.FromResult(0);
+        }
+
+        public static Task CanvasInteractionCoalescesHighFrequencyUpdates()
+        {
+            RunOnSta(delegate
+            {
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false
+                });
+                var scale = GetPrivateField<ScaleTransform>(control, "_canvasScale");
+
+                InvokePrivate(control, "QueueCanvasZoom", 1.1, new Point(120, 80));
+                InvokePrivate(control, "QueueCanvasZoom", 1.1, new Point(140, 90));
+                AssertEx.Equal(1.0, scale.ScaleX,
+                    "High-frequency wheel input should not synchronously re-layout the canvas for every event.");
+                AssertEx.True(GetPrivateField<bool>(control, "_isCanvasFrameScheduled"),
+                    "Queued canvas input should schedule one composition frame.");
+                AssertEx.True(GetPrivateField<bool>(control, "_hasPendingCanvasZoom"),
+                    "The latest zoom should remain pending until the composition frame.");
+                AssertEx.True(Math.Abs(1.21 - GetPrivateField<double>(control, "_pendingCanvasZoom")) < 0.000001,
+                    "Wheel deltas received in one frame should accumulate into one zoom target.");
+
+                InvokePrivate(control, "QueueCanvasPan", 10.0, 20.0);
+                InvokePrivate(control, "QueueCanvasPan", 30.0, 40.0);
+                AssertEx.Equal(30.0, GetPrivateField<double>(control, "_pendingPanHorizontalOffset"),
+                    "Pan input should keep only the newest horizontal offset for the frame.");
+                AssertEx.Equal(40.0, GetPrivateField<double>(control, "_pendingPanVerticalOffset"),
+                    "Pan input should keep only the newest vertical offset for the frame.");
+
+                InvokePrivate(control, "OnCanvasInteractionFrame", null, EventArgs.Empty);
+                AssertEx.True(Math.Abs(1.21 - scale.ScaleX) < 0.000001,
+                    "The composition frame should apply the accumulated zoom once.");
+                AssertEx.False(GetPrivateField<bool>(control, "_hasPendingCanvasZoom"),
+                    "The applied zoom should leave no stale pending work.");
+                AssertEx.False(GetPrivateField<bool>(control, "_hasPendingCanvasPan"),
+                    "The applied pan should leave no stale pending work.");
             });
             return Task.FromResult(0);
         }

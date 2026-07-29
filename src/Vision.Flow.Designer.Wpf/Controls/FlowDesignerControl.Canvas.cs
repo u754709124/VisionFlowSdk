@@ -439,7 +439,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
-            SetCanvasZoom(_canvasScale.ScaleX * factor, viewportAnchor);
+            QueueCanvasZoom(factor, viewportAnchor);
+        }
+
+        private void QueueCanvasZoom(double factor, Point viewportAnchor)
+        {
+            var currentTarget = _hasPendingCanvasZoom ? _pendingCanvasZoom : _canvasScale.ScaleX;
+            _pendingCanvasZoom = ClampZoom(currentTarget * factor);
+            _pendingZoomAnchor = viewportAnchor;
+            _hasPendingCanvasZoom = true;
+            ScheduleCanvasInteractionFrame();
         }
 
         private void SetCanvasZoom(double zoom, Point viewportAnchor)
@@ -620,12 +629,64 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             var point = e.GetPosition(this);
-            _canvasScroll.ScrollToHorizontalOffset(AlignScrollOffsetToDevicePixel(
-                _panStartHorizontalOffset - (point.X - _panStart.X)));
-            _canvasScroll.ScrollToVerticalOffset(AlignScrollOffsetToDevicePixel(
-                _panStartVerticalOffset - (point.Y - _panStart.Y)));
-            SaveCanvasViewState();
+            QueueCanvasPan(
+                _panStartHorizontalOffset - (point.X - _panStart.X),
+                _panStartVerticalOffset - (point.Y - _panStart.Y));
             e.Handled = true;
+        }
+
+        private void QueueCanvasPan(double horizontalOffset, double verticalOffset)
+        {
+            _pendingPanHorizontalOffset = AlignScrollOffsetToDevicePixel(horizontalOffset);
+            _pendingPanVerticalOffset = AlignScrollOffsetToDevicePixel(verticalOffset);
+            _hasPendingCanvasPan = true;
+            ScheduleCanvasInteractionFrame();
+        }
+
+        private void ScheduleCanvasInteractionFrame()
+        {
+            if (_isCanvasFrameScheduled)
+            {
+                return;
+            }
+
+            _isCanvasFrameScheduled = true;
+            CompositionTarget.Rendering += OnCanvasInteractionFrame;
+        }
+
+        private void OnCanvasInteractionFrame(object sender, EventArgs e)
+        {
+            CompositionTarget.Rendering -= OnCanvasInteractionFrame;
+            _isCanvasFrameScheduled = false;
+
+            if (_hasPendingCanvasPan && _canvasScroll != null)
+            {
+                var horizontalOffset = _pendingPanHorizontalOffset;
+                var verticalOffset = _pendingPanVerticalOffset;
+                _hasPendingCanvasPan = false;
+                _canvasScroll.ScrollToHorizontalOffset(horizontalOffset);
+                _canvasScroll.ScrollToVerticalOffset(verticalOffset);
+            }
+
+            if (_hasPendingCanvasZoom)
+            {
+                var zoom = _pendingCanvasZoom;
+                var anchor = _pendingZoomAnchor;
+                _hasPendingCanvasZoom = false;
+                SetCanvasZoom(zoom, anchor);
+            }
+        }
+
+        private void CancelCanvasInteractionFrame()
+        {
+            if (_isCanvasFrameScheduled)
+            {
+                CompositionTarget.Rendering -= OnCanvasInteractionFrame;
+            }
+
+            _isCanvasFrameScheduled = false;
+            _hasPendingCanvasPan = false;
+            _hasPendingCanvasZoom = false;
         }
 
         private double AlignScrollOffsetToDevicePixel(double offset)
@@ -673,10 +734,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             var zoom = _canvasScale.ScaleX <= 0 ? 1.0 : _canvasScale.ScaleX;
-            _canvasScroll.ScrollToHorizontalOffset(AlignScrollOffsetToDevicePixel(logicalTopLeft.X * zoom));
-            _canvasScroll.ScrollToVerticalOffset(AlignScrollOffsetToDevicePixel(logicalTopLeft.Y * zoom));
-            SaveCanvasViewState();
-            UpdateMiniMap();
+            QueueCanvasPan(logicalTopLeft.X * zoom, logicalTopLeft.Y * zoom);
         }
 
         private void OnSurfaceMouseUp(object sender, MouseButtonEventArgs e)

@@ -149,6 +149,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer ports stay outside cards and edges end naturally", DesignerInteractionTests.PortsStayOutsideCardsAndEdgesEndNaturally),
                 new TestCase("Designer canvas mini-map tracks viewport and clamps navigation", DesignerInteractionTests.CanvasMiniMapTracksViewportAndClampsNavigation),
                 new TestCase("Designer canvas pan aligns offsets to device pixels", DesignerInteractionTests.CanvasPanAlignsOffsetsToDevicePixels),
+                new TestCase("Designer canvas interaction coalesces high frequency updates", DesignerInteractionTests.CanvasInteractionCoalescesHighFrequencyUpdates),
                 new TestCase("Designer debug drawer honors auto open and user preference", DesignerInteractionTests.DebugDrawerHonorsAutoOpenAndUserPreference),
                 new TestCase("Designer property draft applies resets and resolves decisions", DesignerInteractionTests.PropertyDraftAppliesResetsAndResolvesDecisions),
                 new TestCase("Designer property draft prompt releases the original node click", DesignerInteractionTests.PropertyDraftPromptDoesNotCaptureReleasedNodeClick),
