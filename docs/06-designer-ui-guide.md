@@ -89,6 +89,7 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - 每个可校验编辑器都预留固定高度的错误槽，错误出现、消失或变量状态变为有效时，当前输入控件和后续表单项的坐标保持不变，不会发生上下跳动。
 - “重置”恢复到最近一次成功应用的基线；没有变化时两个按钮禁用。
 - `HasPendingPropertyChanges` 报告有效修改和非法原始文本；`TryApplyPendingPropertyChanges(out string error)`、`DiscardPendingPropertyChanges()` 和 `TryResolvePendingPropertyChanges()` 供宿主协调保存、导航和关闭。
+- 加载或重置草稿时已经存在的候选失效、必填缺失等基线校验错误不视为新的未应用修改；用户后续输入和候选变化仍会进入 pending 状态。放弃修改会重新建立该基线，宿主后续捕获或切换文档不会重复提示。
 - `FlowDesignerOptions.PendingPropertyChangesPrompt` 可以返回 `Apply`、`Discard` 或 `Cancel`。为空时使用 SDK 自绘三按钮确认框；测试宿主可注入确定性返回值。
 - 切换节点、进入调试、新建、加载、打开、保存、发布、删除当前节点和关闭 Demo 前都会先解决草稿。取消或应用失败时停留在当前上下文，不会静默丢失输入。
 - 调试运行模式以只读提示替代“应用 / 重置”按钮，并禁用全部属性编辑器。

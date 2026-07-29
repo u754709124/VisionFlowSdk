@@ -42,6 +42,20 @@ namespace Vision.Flow.Designer.Wpf.Controls
             get { return _validationErrors.Count > 0; }
         }
 
+        internal string EditorStateSignature
+        {
+            get
+            {
+                return string.Join(
+                    "\n",
+                    _validationErrors
+                        .Select(x => "E:" + x.Key + "=" + x.Value)
+                        .Concat(_rawEditorTexts.Select(x => "R:" + x.Key + "=" + x.Value))
+                        .OrderBy(x => x, StringComparer.Ordinal)
+                        .ToArray());
+            }
+        }
+
         internal event Action ValidationStateChanged;
 
         /// <summary>

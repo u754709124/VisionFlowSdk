@@ -170,7 +170,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return false;
             }
 
-            return _properties.HasEditorErrors ||
+            return _properties.HasUnappliedEditorState ||
                 !string.Equals(
                     SerializeComparableNode(_propertyBaselineNode),
                     SerializeComparableNode(_propertyDraftNode),

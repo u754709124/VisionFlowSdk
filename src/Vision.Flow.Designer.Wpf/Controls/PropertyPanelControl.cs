@@ -34,6 +34,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private Action _changed;
         private IList<VariableSelectionOption> _variableOptions;
         private bool _isReadOnly;
+        private bool _establishEditorStateBaseline;
+        private string _editorStateBaseline = string.Empty;
         private bool _hasPendingChanges;
         private string _renderedNodeId;
         private NodeDefinition _currentNode;
@@ -177,6 +179,17 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
         }
 
+        public bool HasUnappliedEditorState
+        {
+            get
+            {
+                return !string.Equals(
+                    _editorStateBaseline,
+                    CreateEditorStateSignature(),
+                    StringComparison.Ordinal);
+            }
+        }
+
         public void ShowNode(NodeDefinition node, NodeDescriptor descriptor, Action changed)
         {
             ShowNode(node, descriptor, null, null, changed, false);
@@ -241,6 +254,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 _rows.Children.Add(CreateTitle("节点属性"));
                 _rows.Children.Add(CreateMutedText("请在画布中选择一个节点。"));
                 SetPendingState(false, isReadOnly);
+                EstablishEditorStateBaselineIfRequested();
                 return;
             }
 
@@ -303,6 +317,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             SetPendingState(false, isReadOnly);
+            EstablishEditorStateBaselineIfRequested();
         }
 
         private void AddSettingField(
@@ -959,12 +974,40 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _editorErrorOutlines.Clear();
             _rawEditorTexts.Clear();
             _renderedNodeId = null;
+            _establishEditorStateBaseline = true;
             if (_executionPolicyPanel != null)
             {
                 _executionPolicyPanel.ResetEditorState();
             }
             ShowValidationError(null);
             RefreshActionButtonState();
+        }
+
+        private string CreateEditorStateSignature()
+        {
+            IEnumerable<string> propertyState = _editorErrors
+                .Select(x => "E:" + x.Key + "=" + x.Value)
+                .Concat(_rawEditorTexts.Select(x => "R:" + x.Key + "=" + x.Value));
+            string executionPolicyState = _executionPolicyPanel == null
+                ? string.Empty
+                : _executionPolicyPanel.EditorStateSignature;
+            return string.Join(
+                "\n",
+                propertyState
+                    .Concat(new[] { "P:" + executionPolicyState })
+                    .OrderBy(x => x, StringComparer.Ordinal)
+                    .ToArray());
+        }
+
+        private void EstablishEditorStateBaselineIfRequested()
+        {
+            if (!_establishEditorStateBaseline)
+            {
+                return;
+            }
+
+            _editorStateBaseline = CreateEditorStateSignature();
+            _establishEditorStateBaseline = false;
         }
 
         internal void RemoveDescriptorEditorState(

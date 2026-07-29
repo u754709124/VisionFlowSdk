@@ -150,6 +150,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer debug drawer honors auto open and user preference", DesignerInteractionTests.DebugDrawerHonorsAutoOpenAndUserPreference),
                 new TestCase("Designer property draft applies resets and resolves decisions", DesignerInteractionTests.PropertyDraftAppliesResetsAndResolvesDecisions),
                 new TestCase("Designer property draft prompt releases the original node click", DesignerInteractionTests.PropertyDraftPromptDoesNotCaptureReleasedNodeClick),
+                new TestCase("Designer property draft discard restores an invalid baseline once", DesignerInteractionTests.PropertyDraftDiscardRestoresInvalidBaselineOnce),
                 new TestCase("Designer property draft rejects invalid text and survives refresh", DesignerInteractionTests.PropertyDraftRejectsInvalidTextAndSurvivesRefresh),
                 new TestCase("Designer property draft apply button tracks validation state", DesignerInteractionTests.PropertyDraftApplyButtonTracksValidationState),
                 new TestCase("Designer property panel keeps fields and footer separated", DesignerInteractionTests.PropertyPanelLayoutKeepsFieldsAndFooterSeparated),

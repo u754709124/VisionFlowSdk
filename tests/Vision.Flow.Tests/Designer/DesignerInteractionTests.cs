@@ -1543,6 +1543,56 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task PropertyDraftDiscardRestoresInvalidBaselineOnce()
+        {
+            RunOnSta(delegate
+            {
+                var promptCount = 0;
+                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    PendingPropertyChangesPrompt = delegate
+                    {
+                        promptCount++;
+                        return PendingPropertyChangesDecision.Discard;
+                    },
+                    SettingConstantOptionsProvider = delegate(NodeSettingDescriptor setting)
+                    {
+                        return string.Equals(
+                            setting == null ? null : setting.Name,
+                            FlowSettingNames.DelayMs,
+                            StringComparison.OrdinalIgnoreCase)
+                            ? new NodeSettingConstantOption[0]
+                            : null;
+                    }
+                });
+                control.LoadDocumentAsync(CreateDelayDocument("draft-node", "已应用名称", 25))
+                    .GetAwaiter().GetResult();
+
+                AssertEx.False(control.HasPendingPropertyChanges,
+                    "A validation error already present in the loaded baseline is not an unapplied draft.");
+                var nameEditor = FindChildren<TextBox>(control)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "NodeName",
+                        StringComparison.Ordinal));
+                nameEditor.Text = "等待放弃的名称";
+                AssertEx.True(control.HasPendingPropertyChanges,
+                    "Editing a node with an invalid baseline should still create a pending draft.");
+
+                AssertEx.True(control.TryResolvePendingPropertyChanges(),
+                    "Discard should resolve the edited draft.");
+                AssertEx.False(control.HasPendingPropertyChanges,
+                    "Discard should restore the invalid baseline without creating another draft.");
+                AssertEx.Equal("已应用名称", control.CaptureDocument().Runtime.Nodes[0].Name,
+                    "Capture after Discard should preserve the applied baseline.");
+                AssertEx.Equal(1, promptCount,
+                    "Discard followed by Capture must request a decision exactly once.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyDraftRejectsInvalidTextAndSurvivesRefresh()
         {
             RunOnSta(delegate
