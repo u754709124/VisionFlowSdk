@@ -152,7 +152,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var visiblePath = CreatePath(geometry, stroke, isSelected ? 2.4 : 1.6, null);
             visiblePath.IsHitTestVisible = false;
             group.Children.Add(visiblePath);
-            group.Children.Add(CreateArrow(end, stroke, isSelected ? 8.5 : 7.5));
 
             group.MouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs e)
             {
@@ -196,32 +195,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             var path = CreatePath(geometry, stroke, 1.8, new DoubleCollection { 4, 4 });
             group.Children.Add(path);
-            group.Children.Add(CreateArrow(end, stroke, 7.5));
             return group;
-        }
-
-        private static ShapesPath CreateArrow(Point end, Brush fill, double size)
-        {
-            // 连线层位于节点卡片下方，箭头尖端向左偏移，避免被圆形输入端口遮挡。
-            var tip = new Point(end.X - 6, end.Y);
-            var figure = new PathFigure
-            {
-                StartPoint = tip,
-                IsClosed = true,
-                IsFilled = true
-            };
-            figure.Segments.Add(new LineSegment(new Point(tip.X - size, tip.Y - size * 0.58), true));
-            figure.Segments.Add(new LineSegment(new Point(tip.X - size, tip.Y + size * 0.58), true));
-            var geometry = new PathGeometry();
-            geometry.Figures.Add(figure);
-            return new ShapesPath
-            {
-                Data = geometry,
-                Fill = fill,
-                Stroke = null,
-                IsHitTestVisible = false,
-                Tag = "FlowEdgeArrow"
-            };
         }
 
         private ContextMenu CreateEdgeContextMenu(EdgeDefinition edge)

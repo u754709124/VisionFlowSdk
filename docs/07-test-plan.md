@@ -14,7 +14,7 @@ tests/Vision.Flow.Tests
 - Serialization / Publish：Schema v2 round-trip、明确拒绝 v1、入口类型/输入/执行策略 round-trip、节点 `ExecutionPolicy` 完整协议与缺失/null 默认值、结构化 Setting Selector、TriggerInput 可达性和类型冲突、入口绕过变量来源警告、发布后移除 view state、校验通过后写入 `.flowruntime`、无效发布不覆盖、样例流程校验。
 - Core 节点：注册、日志事件、延时、变量写入、AND Join、Condition 分支。
 - Core 契约：`VisionImageReference` 生命周期和精简公共面的守卫。
-- Designer：主题资源解析、内部/外置命令栏、入口触发配置、配置项固定值/变量切换与常量保留、实例级动态 Descriptor 刷新与字段调和、祖先与入口变量候选范围、类型过滤、失效 Selector 保留、属性草稿应用/重置/校验/三种未保存决策、只读模式、节点库四字段搜索与折叠恢复、拖拽、边缘短条端口锚点、贝塞尔连线箭头、缩略图视野换算与边界限制、DPI 像素对齐平移、调试抽屉三态和失败/超时自动展开、停止调试、按钮状态恢复、节点卡片运行状态显示。
+- Designer：主题资源解析、内部/外置命令栏、入口触发配置、配置项固定值/变量切换与常量保留、实例级动态 Descriptor 刷新与字段调和、祖先与入口变量候选范围、类型过滤、失效 Selector 保留、属性草稿应用/重置/校验/三种未保存决策、只读模式、节点库四字段搜索与折叠恢复、拖拽、卡片外侧短条端口锚点、无三角箭头的贝塞尔连线末端、缩略图视野换算与边界限制、DPI 像素对齐平移、调试抽屉三态和失败/超时自动展开、停止调试、按钮状态恢复、节点卡片运行状态显示。
 - Variable Settings：常量/变量切换、上游来源限制、类型兼容、TriggerInput、Token 与对象子路径解析、JSON 中不出现 `InputBindings`。
 - Demo：解决方案构建覆盖 WinForms Demo 和 Designer WPF Demo。
 
@@ -25,7 +25,7 @@ STA 交互测试至少覆盖：
 - `FlowDesignerTheme.CreateModern()` 可以解析语义色、40 px 字段、主按钮、折叠器和滚动条；主按钮悬停模板保持绿色。
 - `ToolbarPlacement=Internal` 时命令栏属于设计器；`External` 时 `ToolbarView` 无父元素、资源自包含，并在 Arrange 到 300 px 后所有可见按钮都位于边界内。
 - 节点库分别匹配中文名称、描述、`NodeType` 和 `Category`；搜索时匹配组展开，清空后恢复搜索前折叠状态，纯空白查询等同于清空。
-- 端口手柄为圆形，锚点位于圆心；连线包含标记为 `FlowEdgeArrow` 的矢量箭头，箭头尖端不会被输入端口遮挡。
+- 输入、输出端口短条分别位于卡片左右描边外侧，锚点位于短条中心；贝塞尔连线直接结束于输入端口锚点，不绘制额外三角箭头。
 - 调试抽屉 `Auto` 在编辑/调试模式间自动收起和展开；用户 `Open` / `Closed` 偏好跨模式保留；失败和超时事件强制即时展开。
 - 节点属性修改不直接写入源节点；一次应用同时提交名称、设置、重试和默认输出，重置恢复最近应用基线。
 - 非法数字、必填、动态候选失效、变量缺失/类型不兼容和执行策略范围错误禁止应用、保留 dirty 草稿，并定位到稳定 Tag 的首个错误控件。

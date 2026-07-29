@@ -146,7 +146,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer embedded toolbar hides standalone document commands", DesignerInteractionTests.EmbeddedToolbarHidesStandaloneDocumentCommands),
                 new TestCase("Designer modern theme and external toolbar are self-contained", DesignerInteractionTests.ModernThemeAndExternalToolbarAreSelfContained),
                 new TestCase("Designer palette searches all descriptor fields and restores expansion", DesignerInteractionTests.PaletteSearchesAllDescriptorFieldsAndRestoresExpansion),
-                new TestCase("Designer ports and edges use edge tabs and visible arrows", DesignerInteractionTests.PortsAndEdgesUseEdgeTabsAndVisibleArrows),
+                new TestCase("Designer ports stay outside cards and edges end naturally", DesignerInteractionTests.PortsStayOutsideCardsAndEdgesEndNaturally),
                 new TestCase("Designer canvas mini-map tracks viewport and clamps navigation", DesignerInteractionTests.CanvasMiniMapTracksViewportAndClampsNavigation),
                 new TestCase("Designer canvas pan aligns offsets to device pixels", DesignerInteractionTests.CanvasPanAlignsOffsetsToDevicePixels),
                 new TestCase("Designer debug drawer honors auto open and user preference", DesignerInteractionTests.DebugDrawerHonorsAutoOpenAndUserPreference),

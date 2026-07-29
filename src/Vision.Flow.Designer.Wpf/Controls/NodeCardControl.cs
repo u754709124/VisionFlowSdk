@@ -612,7 +612,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
         {
             var row = new Grid
             {
-                Margin = new Thickness(-16, 0, -16, 0),
+                // 端口短条完全位于卡片描边外侧，透明命中区仍覆盖边缘附近，便于拖拽连线。
+                Margin = new Thickness(-20, 0, -20, 0),
                 IsHitTestVisible = true
             };
 

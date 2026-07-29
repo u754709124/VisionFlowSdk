@@ -1207,7 +1207,7 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task PortsAndEdgesUseEdgeTabsAndVisibleArrows()
+        public static Task PortsStayOutsideCardsAndEdgesEndNaturally()
         {
             RunOnSta(delegate
             {
@@ -1241,6 +1241,17 @@ namespace Vision.Flow.Tests
                 AssertEx.Equal(expectedAnchor.Y, actualAnchor.Y,
                     "Port anchor Y should be the edge-tab center.");
 
+                var card = new NodeCardControl(new NodeViewModel(CreateNode(), CreateDescriptor()));
+                card.Measure(new Size(220, 500));
+                card.Arrange(new Rect(0, 0, 220, card.DesiredSize.Height));
+                card.UpdateLayout();
+                var inputAnchor = card.InputPortControls.First().GetAnchorPoint(card);
+                var outputAnchor = card.OutputPortControls.First().GetAnchorPoint(card);
+                AssertEx.True(inputAnchor.X < 0,
+                    "Input tabs should sit outside the card's left border.");
+                AssertEx.True(outputAnchor.X > card.ActualWidth,
+                    "Output tabs should sit outside the card's right border.");
+
                 var document = CreateTwoDelayDocument();
                 document.Runtime.Edges.Clear();
                 document.Runtime.Edges.Add(new EdgeDefinition
@@ -1258,12 +1269,17 @@ namespace Vision.Flow.Tests
                     { "delay_2|Input|In", end }
                 });
                 var arrow = FindChildren<System.Windows.Shapes.Path>(edgeLayer)
-                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "FlowEdgeArrow", StringComparison.Ordinal));
-                var geometry = (PathGeometry)arrow.Data;
-                AssertEx.Equal(end.X - 6, geometry.Figures[0].StartPoint.X,
-                    "Arrow tip should stop before the input-port center so the node layer cannot cover it.");
-                AssertEx.Equal(end.Y, geometry.Figures[0].StartPoint.Y,
-                    "Arrow tip should stay vertically aligned with the input-port anchor.");
+                    .FirstOrDefault(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "FlowEdgeArrow", StringComparison.Ordinal));
+                AssertEx.True(arrow == null,
+                    "Dify-style control connections should not add a detached triangular arrow.");
+                var visibleEdge = FindChildren<System.Windows.Shapes.Path>(edgeLayer)
+                    .First(x => !x.IsHitTestVisible && x.Data is PathGeometry);
+                var geometry = (PathGeometry)visibleEdge.Data;
+                var segment = (BezierSegment)geometry.Figures[0].Segments[0];
+                AssertEx.Equal(end.X, segment.Point3.X,
+                    "The Bezier connection should end at the external input-tab center.");
+                AssertEx.Equal(end.Y, segment.Point3.Y,
+                    "The Bezier connection should end at the external input-tab center.");
             });
             return Task.FromResult(0);
         }
