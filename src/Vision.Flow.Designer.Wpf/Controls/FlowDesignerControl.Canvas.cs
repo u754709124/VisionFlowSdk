@@ -43,6 +43,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var zoom = ClampZoom(_document.View.Zoom <= 0 ? 1.0 : _document.View.Zoom);
             _canvasScale.ScaleX = zoom;
             _canvasScale.ScaleY = zoom;
+            ApplyNodeCardTextRendering(zoom);
             UpdateZoomText();
             UpdateStatus();
 
@@ -465,6 +466,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             _canvasScale.ScaleX = clamped;
             _canvasScale.ScaleY = clamped;
+            ApplyNodeCardTextRendering(clamped);
             _surface.InvalidateMeasure();
             _surface.InvalidateVisual();
             if (_canvasScroll != null)
@@ -477,6 +479,17 @@ namespace Vision.Flow.Designer.Wpf.Controls
             SaveCanvasViewState();
             UpdateZoomText();
             UpdateStatus();
+        }
+
+        private void ApplyNodeCardTextRendering(double zoom)
+        {
+            foreach (var card in _nodeCards.Values)
+            {
+                if (card != null)
+                {
+                    card.SetCanvasZoom(zoom);
+                }
+            }
         }
 
         private static double CalculateZoomedOffset(

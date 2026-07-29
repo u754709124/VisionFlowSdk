@@ -2558,11 +2558,26 @@ namespace Vision.Flow.Tests
             RunOnSta(delegate
             {
                 var card = new NodeCardControl(new NodeViewModel(CreateNode(), CreateDescriptor()));
+                var cardBody = GetPrivateField<Border>(card, "_cardBody");
+                var shadowHost = GetPrivateField<Border>(card, "_cardShadowHost");
 
                 AssertEx.True(card.UseLayoutRounding, "Node cards should round layout pixels to reduce blurry text while zoomed out.");
                 AssertEx.True(card.SnapsToDevicePixels, "Node cards should snap to device pixels while zoomed out.");
-                AssertEx.Equal(TextFormattingMode.Ideal, TextOptions.GetTextFormattingMode(card), "Node cards should use scalable ideal text formatting.");
                 AssertEx.Equal(TextRenderingMode.ClearType, TextOptions.GetTextRenderingMode(card), "Node cards should use ClearType text rendering.");
+                AssertEx.Equal(TextHintingMode.Fixed, TextOptions.GetTextHintingMode(card),
+                    "Node cards should use fixed screen-pixel text hinting.");
+                AssertEx.True(cardBody.Effect == null,
+                    "The card content must not be rasterized together with its shadow.");
+                AssertEx.True(shadowHost.Effect is System.Windows.Media.Effects.DropShadowEffect,
+                    "The shadow should render on an independent background layer.");
+
+                card.SetCanvasZoom(0.75);
+                AssertEx.Equal(TextFormattingMode.Display, TextOptions.GetTextFormattingMode(card),
+                    "Node cards should prioritize screen-pixel glyph metrics at 75% zoom.");
+
+                card.SetCanvasZoom(1.0);
+                AssertEx.Equal(TextFormattingMode.Ideal, TextOptions.GetTextFormattingMode(card),
+                    "Node cards should retain scalable ideal glyph metrics outside the 75% range.");
             });
             return Task.FromResult(0);
         }

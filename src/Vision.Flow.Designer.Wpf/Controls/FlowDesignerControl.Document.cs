@@ -585,6 +585,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
                 var descriptor = GetDescriptor(node);
                 var card = new NodeCardControl(new NodeViewModel(node, descriptor));
+                card.SetCanvasZoom(_canvasScale == null ? 1.0 : _canvasScale.ScaleX);
                 card.SetSelected(StringEquals(node.Id, _selectedNode == null ? null : _selectedNode.Id));
                 card.SetDisabled(IsNodeDisabled(node));
                 card.SetEditEnabled(CanEditDocument);

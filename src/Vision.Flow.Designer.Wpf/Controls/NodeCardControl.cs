@@ -37,6 +37,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private readonly TextBlock _type;
         private readonly StackPanel _summaryRows;
         private readonly Border _cardBody;
+        private readonly Border _cardShadowHost;
         private readonly TextBlock _runtimeSummary;
         private readonly Border _stateChip;
         private readonly TextBlock _stateText;
@@ -62,6 +63,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             SnapsToDevicePixels = true;
             TextOptions.SetTextFormattingMode(this, TextFormattingMode.Ideal);
             TextOptions.SetTextRenderingMode(this, TextRenderingMode.ClearType);
+            TextOptions.SetTextHintingMode(this, TextHintingMode.Fixed);
             InputPortControls = new List<PortControl>();
             OutputPortControls = new List<PortControl>();
 
@@ -89,16 +91,25 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Opacity = 0.08,
                 Color = Color.FromRgb(15, 23, 42)
             };
+            _cardShadowHost = new Border
+            {
+                Background = Brushes.White,
+                CornerRadius = new CornerRadius(8),
+                Effect = _cardShadow,
+                IsHitTestVisible = false
+            };
             _cardBody = new Border
             {
                 Background = Brushes.White,
                 BorderBrush = FlowDesignerControl.BrushFromRgb(221, 229, 239),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(9, 8, 9, 8),
-                Effect = _cardShadow
+                Padding = new Thickness(9, 8, 9, 8)
             };
-            outer.Children.Add(_cardBody);
+            var cardHost = new Grid();
+            cardHost.Children.Add(_cardShadowHost);
+            cardHost.Children.Add(_cardBody);
+            outer.Children.Add(cardHost);
 
             var chrome = new Grid();
             _cardBody.Child = chrome;
@@ -333,6 +344,21 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 port.SetEditEnabled(isEditEnabled);
             }
+        }
+
+        /// <summary>
+        /// 在常用的 75% 缩放附近优先使用屏幕像素提示；其它倍率保留适合几何缩放的字形度量。
+        /// </summary>
+        public void SetCanvasZoom(double zoom)
+        {
+            var useDisplayMetrics = !double.IsNaN(zoom) &&
+                !double.IsInfinity(zoom) &&
+                Math.Abs(zoom - 0.75) <= 0.035;
+            TextOptions.SetTextFormattingMode(
+                this,
+                useDisplayMetrics ? TextFormattingMode.Display : TextFormattingMode.Ideal);
+            TextOptions.SetTextRenderingMode(this, TextRenderingMode.ClearType);
+            TextOptions.SetTextHintingMode(this, TextHintingMode.Fixed);
         }
 
         public void SetRuntimeState(NodeRuntimeState state)
