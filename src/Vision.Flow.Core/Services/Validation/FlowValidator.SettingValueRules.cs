@@ -56,6 +56,32 @@ namespace Vision.Flow.Core.Services.Validation
 
             if (setting.Mode == NodeSettingValueMode.Constant)
             {
+                if (descriptor == null)
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.SettingValueInvalid,
+                        "Constant setting does not have a matching setting descriptor.",
+                        nodeId: node.Id,
+                        field: field);
+                    return;
+                }
+
+                object normalizedValue;
+                string validationError;
+                if (!NodeSettingValueValidation.TryValidateConstant(
+                    descriptor,
+                    setting.ConstantValue,
+                    out normalizedValue,
+                    out validationError))
+                {
+                    result.AddError(
+                        IsCustomValidationFailure(descriptor, normalizedValue)
+                            ? FlowValidationIssueCodes.SettingCustomValidationFailed
+                            : FlowValidationIssueCodes.SettingValueInvalid,
+                        validationError,
+                        nodeId: node.Id,
+                        field: field);
+                }
                 return;
             }
 
@@ -122,6 +148,15 @@ namespace Vision.Flow.Core.Services.Validation
                     environmentVariables,
                     result);
             }
+        }
+
+        private static bool IsCustomValidationFailure(
+            NodeSettingDescriptor descriptor,
+            object normalizedValue)
+        {
+            return descriptor != null &&
+                descriptor.Validator != null &&
+                normalizedValue != null;
         }
 
         private static void ValidateEnvironmentVariableSelector(

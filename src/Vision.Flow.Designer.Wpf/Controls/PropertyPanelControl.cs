@@ -563,8 +563,41 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     VerticalContentAlignment = VerticalAlignment.Center
                 };
                 checkBox.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.SwitchCheckBoxStyleKey);
-                checkBox.Checked += delegate { if (!_isReadOnly) setter(true); };
-                checkBox.Unchecked += delegate { if (!_isReadOnly) setter(false); };
+                Action<bool> applyValue = delegate(bool nextValue)
+                {
+                    if (_isReadOnly)
+                    {
+                        return;
+                    }
+
+                    object normalizedValue;
+                    string validationError;
+                    if (!NodeSettingValueValidation.TryValidateConstant(
+                        setting,
+                        nextValue,
+                        out normalizedValue,
+                        out validationError))
+                    {
+                        SetEditorError(editorKey, validationError, checkBox);
+                        RaiseChanged();
+                        return;
+                    }
+
+                    ClearEditorError(editorKey, checkBox);
+                    setter(normalizedValue);
+                };
+                checkBox.Checked += delegate { applyValue(true); };
+                checkBox.Unchecked += delegate { applyValue(false); };
+                object initialBooleanValue;
+                string initialBooleanError;
+                if (!NodeSettingValueValidation.TryValidateConstant(
+                    setting,
+                    checkBox.IsChecked == true,
+                    out initialBooleanValue,
+                    out initialBooleanError))
+                {
+                    SetEditorError(editorKey, initialBooleanError, checkBox);
+                }
                 return WrapEditorWithError(editorKey, checkBox);
             }
 
@@ -1505,6 +1538,26 @@ namespace Vision.Flow.Designer.Wpf.Controls
         }
 
         private static bool TryConvertFromEditorText(
+            NodeSettingDescriptor setting,
+            string text,
+            out object value,
+            out string error)
+        {
+            object converted;
+            if (!TryConvertEditorTextCore(setting, text, out converted, out error))
+            {
+                value = null;
+                return false;
+            }
+
+            return NodeSettingValueValidation.TryValidateConstant(
+                setting,
+                converted,
+                out value,
+                out error);
+        }
+
+        private static bool TryConvertEditorTextCore(
             NodeSettingDescriptor setting,
             string text,
             out object value,

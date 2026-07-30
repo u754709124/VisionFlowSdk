@@ -41,9 +41,11 @@ namespace Vision.Flow.Tests
 
         public static Task DataTypeCompatibilityRules()
         {
-            AssertEx.Equal(FlowDataTypeCompatibilityResult.Compatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Int32, FlowDataType.Double), "Int32 should safely widen to Double.");
-            AssertEx.Equal(FlowDataTypeCompatibilityResult.Warning, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Int64, FlowDataType.Double), "Int64 to Double should warn about possible precision loss.");
-            AssertEx.Equal(FlowDataTypeCompatibilityResult.Warning, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Object, FlowDataType.String), "Object to a concrete type should require a runtime check.");
+            AssertEx.Equal(FlowDataTypeCompatibilityResult.Compatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Int32, FlowDataType.Int32), "Equal setting types should be compatible.");
+            AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Int32, FlowDataType.Double), "Numeric widening should not bypass strict setting types.");
+            AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Int64, FlowDataType.Double), "Potentially lossy numeric conversion should be incompatible.");
+            AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Object, FlowDataType.String), "Object should not bind to a concrete setting type.");
+            AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.String, FlowDataType.Object), "Concrete values should not bind to Object settings.");
             AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Control, FlowDataType.Object), "Control is never a setting value.");
             AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.IVisionImage, FlowDataType.String), "Vision images only bind to the same type or Object.");
             return Task.FromResult(0);

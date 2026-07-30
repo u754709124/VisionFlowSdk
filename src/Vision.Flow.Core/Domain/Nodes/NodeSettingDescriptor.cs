@@ -1,6 +1,11 @@
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
+    /// 校验节点配置项的单个常量值；返回空字符串表示校验通过。
+    /// </summary>
+    public delegate string NodeSettingValueValidator(object value);
+
+    /// <summary>
     /// 节点配置项描述，驱动设计器属性编辑和运行前校验。
     /// </summary>
     public sealed class NodeSettingDescriptor
@@ -22,6 +27,12 @@ namespace Vision.Flow.Core.Domain.Nodes
         public NodeSettingEvaluationPhase EvaluationPhase { get; set; }
 
         public VariableSelectorScopeFlags AllowedVariableSources { get; set; }
+
+        /// <summary>
+        /// 常量完成 DataType 转换后执行的同步单项校验器。
+        /// 该委托属于 Descriptor 元数据，不会写入流程文件，也不会用于运行时变量值校验。
+        /// </summary>
+        public NodeSettingValueValidator Validator { get; set; }
 
         /// <summary>
         /// 指示常量值变化后是否需要重新解析节点实例 Descriptor。

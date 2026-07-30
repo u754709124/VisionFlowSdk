@@ -35,6 +35,7 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("ElapsedMs", FlowRuntimeDataKeys.ElapsedMs, "runtime elapsed data key");
 
             AssertEx.Equal("NodeIdDuplicate", FlowValidationIssueCodes.NodeIdDuplicate, "validation code wire value");
+            AssertEx.Equal("SettingCustomValidationFailed", FlowValidationIssueCodes.SettingCustomValidationFailed, "custom setting validation code wire value");
             AssertEx.Equal("RuntimeContainsViewState", FlowValidationIssueCodes.RuntimeContainsViewState, "runtime view-state validation code wire value");
             AssertEx.Equal(".flowdesign", FlowFileExtensions.FlowDesign, "design file extension wire value");
             AssertEx.Equal(".flowruntime", FlowFileExtensions.FlowRuntime, "runtime file extension wire value");

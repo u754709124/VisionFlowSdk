@@ -1,7 +1,7 @@
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
-    /// 数据类型赋值兼容性；Warning 表示需要运行时检查或存在精度风险。
+    /// 数据类型赋值兼容性；Warning 为兼容保留值，严格配置绑定不再返回该状态。
     /// </summary>
     public enum FlowDataTypeCompatibilityResult
     {
@@ -11,7 +11,7 @@ namespace Vision.Flow.Core.Domain.Nodes
     }
 
     /// <summary>
-    /// 为校验器和设计器提供统一的节点输出到配置项类型兼容规则。
+    /// 为校验器和设计器提供统一的严格配置类型规则。
     /// </summary>
     public static class FlowDataTypeCompatibility
     {
@@ -22,33 +22,7 @@ namespace Vision.Flow.Core.Domain.Nodes
                 return FlowDataTypeCompatibilityResult.Incompatible;
             }
 
-            if (source == target || target == FlowDataType.Object)
-            {
-                return FlowDataTypeCompatibilityResult.Compatible;
-            }
-
-            if (source == FlowDataType.Object)
-            {
-                return FlowDataTypeCompatibilityResult.Warning;
-            }
-
-            if ((source == FlowDataType.IVisionImage || source == FlowDataType.CameraFrameData) ||
-                (target == FlowDataType.IVisionImage || target == FlowDataType.CameraFrameData))
-            {
-                return FlowDataTypeCompatibilityResult.Incompatible;
-            }
-
-            if (source == FlowDataType.Int32 && (target == FlowDataType.Int64 || target == FlowDataType.Double))
-            {
-                return FlowDataTypeCompatibilityResult.Compatible;
-            }
-
-            if (source == FlowDataType.Int64 && target == FlowDataType.Double)
-            {
-                return FlowDataTypeCompatibilityResult.Warning;
-            }
-
-            if (target == FlowDataType.String)
+            if (source == target)
             {
                 return FlowDataTypeCompatibilityResult.Compatible;
             }

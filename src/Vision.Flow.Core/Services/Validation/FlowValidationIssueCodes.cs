@@ -50,6 +50,7 @@ namespace Vision.Flow.Core.Services.Validation
         public const string RuntimeContainsViewState = "RuntimeContainsViewState";
         public const string DuplicatePolicyInvalid = "DuplicatePolicyInvalid";
         public const string SettingValueInvalid = "SettingValueInvalid";
+        public const string SettingCustomValidationFailed = "SettingCustomValidationFailed";
         public const string VariableSelectorInvalid = "VariableSelectorInvalid";
         public const string VariableSelectorNotAllowed = "VariableSelectorNotAllowed";
         public const string VariableSourceNodeMissing = "VariableSourceNodeMissing";

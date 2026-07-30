@@ -32,7 +32,7 @@ namespace Vision.Flow.Tests
                 }).ConfigureAwait(false);
 
             AssertEx.Equal(FlowRunStatus.Succeeded, result.Status, "A valid external trigger should succeed.");
-            AssertEx.Equal(42, Convert.ToInt32(result.Variables["Captured"]), "TriggerInput should resolve into an editable node setting.");
+            AssertEx.Equal(42, Convert.ToInt32(result.Variables["set.DelayMs"]), "TriggerInput should resolve into a same-typed node setting.");
             AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.FlowRunStarted && x.FlowRunId == result.FlowRunId), "FlowRunStarted should use the returned FlowRunId.");
             AssertEx.True(sink.Events.Any(x => x.EventType == FlowRuntimeEventType.FlowRunCompleted && x.FlowRunId == result.FlowRunId), "FlowRunCompleted should use the returned FlowRunId.");
             var tokenCreated = sink.Events.First(x => x.EventType == FlowRuntimeEventType.TokenCreated && x.FlowRunId == result.FlowRunId);
@@ -182,7 +182,7 @@ namespace Vision.Flow.Tests
             AssertEx.True(valid.IsValid, "A reachable declared TriggerInput selector should publish successfully.");
 
             var unavailableFlow = CreateExternalInputFlow();
-            unavailableFlow.Nodes[0].Settings[FlowSettingNames.Value] = NodeSettingValue.ForVariable(VariableSelector.ForTriggerInput("missing"));
+            unavailableFlow.Nodes[0].Settings[FlowSettingNames.DelayMs] = NodeSettingValue.ForVariable(VariableSelector.ForTriggerInput("missing"));
             var unavailable = validator.Validate(unavailableFlow);
             AssertEx.True(unavailable.Errors.Any(x => x.Code == FlowValidationIssueCodes.TriggerInputUnavailable), "An undeclared TriggerInput selector should be rejected.");
 
@@ -224,13 +224,12 @@ namespace Vision.Flow.Tests
             flow.Nodes.Add(new NodeDefinition
             {
                 Id = "set",
-                Type = FlowNodeTypes.VariableSet,
-                Name = "Set Variable",
+                Type = FlowNodeTypes.DelayWait,
+                Name = "Delay",
                 Version = "1.0.0",
                 Settings =
                 {
-                    { FlowSettingNames.VariableName, NodeSettingValue.ForConstant("Captured") },
-                    { FlowSettingNames.Value, NodeSettingValue.ForVariable(VariableSelector.ForTriggerInput("number")) }
+                    { FlowSettingNames.DelayMs, NodeSettingValue.ForVariable(VariableSelector.ForTriggerInput("number")) }
                 }
             });
             flow.Entries.Add(new FlowEntryDefinition
@@ -291,7 +290,7 @@ namespace Vision.Flow.Tests
                     new TriggerInputDescriptor
                     {
                         Name = "payload",
-                        DataType = FlowDataType.String,
+                        DataType = FlowDataType.Object,
                         IsRequired = true
                     }
                 }

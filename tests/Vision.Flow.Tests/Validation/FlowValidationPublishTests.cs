@@ -113,7 +113,7 @@ namespace Vision.Flow.Tests
         public static Task MissingVariableOutputReturnsError()
         {
             var flow = CreateValidRuntime();
-            flow.Nodes[1].Settings["Message"] = NodeSettingValue.ForVariable(VariableSelector.ForNodeOutput("delay1", "MissingOutput"));
+            flow.Nodes[1].Settings["DelayMs"] = NodeSettingValue.ForVariable(VariableSelector.ForNodeOutput("delay1", "MissingOutput"));
 
             var result = CreateValidator().Validate(flow);
 
@@ -201,6 +201,67 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task CustomSettingValidatorsAreApplied()
+        {
+            var registry = CreateRegistry();
+            registry.Register(new ValidatedSettingFactory());
+            var validator = new FlowValidator(registry);
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "custom-setting-validation",
+                FlowName = "Custom Setting Validation",
+                Version = "1.0.0",
+                Nodes =
+                {
+                    new NodeDefinition
+                    {
+                        Id = "validated",
+                        Type = ValidatedSettingFactory.TypeName,
+                        Name = "Validated",
+                        Version = "1.0.0",
+                        Settings =
+                        {
+                            { "Threshold", NodeSettingValue.ForConstant(5) },
+                            { "Optional", NodeSettingValue.ForConstant(null) }
+                        }
+                    }
+                },
+                Entries =
+                {
+                    new FlowEntryDefinition
+                    {
+                        EntryName = "ManualStart",
+                        TargetNodeId = "validated",
+                        TriggerKind = FlowTriggerKind.Manual
+                    }
+                }
+            };
+
+            AssertEx.True(validator.Validate(flow).IsValid, "A valid typed constant should pass its custom validator.");
+            AssertEx.False(
+                RuntimeFlowSerializer.Serialize(flow).IndexOf("Validator", StringComparison.OrdinalIgnoreCase) >= 0,
+                "Descriptor validators must not be serialized into runtime files.");
+
+            flow.Nodes[0].Settings["Threshold"] = NodeSettingValue.ForConstant(-1);
+            AssertHasIssue(
+                validator.Validate(flow),
+                FlowValidationIssueCodes.SettingCustomValidationFailed,
+                "A custom validator error should block publication.");
+
+            flow.Nodes[0].Settings["Threshold"] = NodeSettingValue.ForConstant("not-an-integer");
+            AssertHasIssue(
+                validator.Validate(flow),
+                FlowValidationIssueCodes.SettingValueInvalid,
+                "An invalid constant type should be reported before custom validation.");
+
+            flow.Nodes[0].Settings["Threshold"] = NodeSettingValue.ForConstant(13);
+            AssertHasIssue(
+                validator.Validate(flow),
+                FlowValidationIssueCodes.SettingCustomValidationFailed,
+                "A custom validator exception should be converted to a validation issue.");
+            return Task.FromResult(0);
+        }
+
         public static Task PublishRuntimeDoesNotContainViewState()
         {
             var document = CreateValidDesignDocument();
@@ -245,8 +306,8 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(2, result.Runtime.Nodes.Count, "Published runtime nodes should be preserved.");
             AssertEx.Equal(1, result.Runtime.Edges.Count, "Published runtime edges should be preserved.");
             AssertEx.Equal(1, result.Runtime.Entries.Count, "Published runtime entries should be preserved.");
-            AssertEx.Equal(NodeSettingValueMode.Variable, result.Runtime.Nodes[1].Settings["Message"].Mode, "Variable setting should be preserved.");
-            AssertEx.Equal("delay1", result.Runtime.Nodes[1].Settings["Message"].Selector.Path[0], "Variable source should be preserved.");
+            AssertEx.Equal(NodeSettingValueMode.Variable, result.Runtime.Nodes[1].Settings["DelayMs"].Mode, "Variable setting should be preserved.");
+            AssertEx.Equal("delay1", result.Runtime.Nodes[1].Settings["DelayMs"].Selector.Path[0], "Variable source should be preserved.");
             AssertEx.False(object.ReferenceEquals(document.Runtime.Nodes[0].ExecutionPolicy, result.Runtime.Nodes[0].ExecutionPolicy),
                 "Publish should clone node execution policies.");
             AssertEx.False(object.ReferenceEquals(document.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy, result.Runtime.Nodes[0].ExecutionPolicy.RetryPolicy),
@@ -484,13 +545,12 @@ namespace Vision.Flow.Tests
             flow.Nodes.Add(new NodeDefinition
             {
                 Id = "log1",
-                Type = LogNodeFactory.TypeName,
-                Name = "Log",
+                Type = DelayNodeFactory.TypeName,
+                Name = "Bound Delay",
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "Level", NodeSettingValue.ForConstant("Info") },
-                    { "Message", NodeSettingValue.ForVariable(VariableSelector.ForNodeOutput("delay1", "DelayMs")) }
+                    { "DelayMs", NodeSettingValue.ForVariable(VariableSelector.ForNodeOutput("delay1", "DelayMs")) }
                 }
             });
 
@@ -555,6 +615,75 @@ namespace Vision.Flow.Tests
             public IFlowNode Create(NodeDefinition definition)
             {
                 return null;
+            }
+        }
+
+        private sealed class ValidatedSettingFactory : INodeFactory
+        {
+            public const string TypeName = "test.validated-setting";
+
+            public string NodeType
+            {
+                get { return TypeName; }
+            }
+
+            public NodeDescriptor Descriptor
+            {
+                get
+                {
+                    return new NodeDescriptor
+                    {
+                        NodeType = TypeName,
+                        DisplayName = "配置校验测试节点",
+                        Category = "测试",
+                        Version = "1.0.0",
+                        Settings =
+                        {
+                            new NodeSettingDescriptor
+                            {
+                                Name = "Threshold",
+                                DisplayName = "阈值",
+                                DataType = FlowDataType.Int32,
+                                IsRequired = true,
+                                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                                EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                                AllowedVariableSources = VariableSelectorScopeFlags.All,
+                                Validator = delegate(object value)
+                                {
+                                    var threshold = (int)value;
+                                    if (threshold == 13)
+                                    {
+                                        throw new InvalidOperationException("validator exception");
+                                    }
+                                    return threshold < 0 ? "阈值不能小于零。" : null;
+                                }
+                            },
+                            new NodeSettingDescriptor
+                            {
+                                Name = "Optional",
+                                DisplayName = "可选值",
+                                DataType = FlowDataType.Int32,
+                                BindingMode = NodeSettingBindingMode.ConstantOnly,
+                                Validator = delegate { return "空值不应执行校验器。"; }
+                            }
+                        },
+                        OutputPorts =
+                        {
+                            new NodePortDescriptor
+                            {
+                                Name = FlowPortNames.Next,
+                                DisplayName = FlowPortNames.Next,
+                                Direction = FlowPortDirection.Output,
+                                DataType = FlowDataType.Control
+                            }
+                        }
+                    };
+                }
+            }
+
+            public IFlowNode Create(NodeDefinition definition)
+            {
+                return new RecordingNode(definition, new List<string>());
             }
         }
     }
