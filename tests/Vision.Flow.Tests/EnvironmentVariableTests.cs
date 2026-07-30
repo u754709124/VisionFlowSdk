@@ -123,6 +123,10 @@ namespace Vision.Flow.Tests
                     var control = new FlowDesignerControl(CreateRegistry());
                     var document = CreateDocument();
                     control.LoadDocumentAsync(document).GetAwaiter().GetResult();
+                    control.UpdateEnvironmentVariables(new[]
+                    {
+                        document.Runtime.EnvironmentVariables[0]
+                    });
                     var method = typeof(FlowDesignerControl).GetMethod(
                         "CreateVariableSuggestions",
                         BindingFlags.Instance | BindingFlags.NonPublic);
@@ -137,6 +141,8 @@ namespace Vision.Flow.Tests
                             x.Selector.Path[0] == "timeout" &&
                             x.DataType == FlowDataType.Int32),
                         "Environment variables should be available without an upstream node.");
+                    AssertEx.Equal(1, control.CaptureDocument().Runtime.EnvironmentVariables.Count,
+                        "Embedded hosts should update environment definitions in place.");
                 }
                 catch (Exception ex)
                 {
