@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Core.Domain.Flows;
@@ -49,7 +51,12 @@ namespace Vision.Flow.Core.Runtime.Engine
             {
                 FanOutMode = source.FanOutMode,
                 MaxDegreeOfParallelism = source.MaxDegreeOfParallelism <= 0 ? 1 : source.MaxDegreeOfParallelism,
-                DefaultNodeTimeoutMs = source.DefaultNodeTimeoutMs
+                DefaultNodeTimeoutMs = source.DefaultNodeTimeoutMs,
+                EnvironmentVariableValues = source.EnvironmentVariableValues == null
+                    ? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, object>(
+                        source.EnvironmentVariableValues,
+                        StringComparer.OrdinalIgnoreCase)
             };
         }
     }

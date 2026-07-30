@@ -127,6 +127,8 @@ namespace Vision.Flow.Core.Services.Publishing
                 SchemaVersion = source.SchemaVersion == 0 ? document.SchemaVersion : source.SchemaVersion,
                 Version = source.Version,
                 Settings = CloneObjectDictionary(source.Settings),
+                EnvironmentVariables = CloneEnvironmentVariables(
+                    source.EnvironmentVariables),
                 Nodes = new List<NodeDefinition>(),
                 Edges = new List<EdgeDefinition>(),
                 Entries = new List<FlowEntryDefinition>()
@@ -151,6 +153,27 @@ namespace Vision.Flow.Core.Services.Publishing
             }
 
             return runtime;
+        }
+
+        private static List<EnvironmentVariableDefinition> CloneEnvironmentVariables(
+            IList<EnvironmentVariableDefinition> source)
+        {
+            var result = new List<EnvironmentVariableDefinition>();
+            if (source == null)
+                return result;
+            foreach (var definition in source)
+            {
+                result.Add(definition == null
+                    ? null
+                    : new EnvironmentVariableDefinition
+                    {
+                        Id = definition.Id,
+                        Name = definition.Name,
+                        DataType = definition.DataType,
+                        DefaultValue = CloneObjectValue(definition.DefaultValue)
+                    });
+            }
+            return result;
         }
 
         private static NodeDefinition CloneNode(NodeDefinition source)

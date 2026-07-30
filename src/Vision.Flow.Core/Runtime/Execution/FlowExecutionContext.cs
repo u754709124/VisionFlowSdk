@@ -58,6 +58,31 @@ namespace Vision.Flow.Core.Runtime.Execution
             IFlowContinuationDispatcher continuations,
             string flowRunId,
             IDictionary<string, object> triggerInputs)
+            : this(
+                flow,
+                node,
+                token,
+                variables,
+                events,
+                devices,
+                continuations,
+                flowRunId,
+                triggerInputs,
+                null)
+        {
+        }
+
+        public FlowExecutionContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            IFlowEventSink events,
+            IDeviceRegistry devices,
+            IFlowContinuationDispatcher continuations,
+            string flowRunId,
+            IDictionary<string, object> triggerInputs,
+            IDictionary<string, object> environmentVariableValues)
         {
             if (flow == null)
             {
@@ -95,6 +120,11 @@ namespace Vision.Flow.Core.Runtime.Execution
             TriggerInputs = triggerInputs == null
                 ? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, object>(triggerInputs, StringComparer.OrdinalIgnoreCase);
+            EnvironmentVariableValues = environmentVariableValues == null
+                ? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, object>(
+                    environmentVariableValues,
+                    StringComparer.OrdinalIgnoreCase);
             SettingValueResolver = DefaultSettingValueResolver.Instance;
         }
 
@@ -118,6 +148,8 @@ namespace Vision.Flow.Core.Runtime.Execution
         /// 本次流程运行通过入口协议注入的值，供 TriggerInput Selector 解析。
         /// </summary>
         public IDictionary<string, object> TriggerInputs { get; private set; }
+
+        public IDictionary<string, object> EnvironmentVariableValues { get; private set; }
 
         public ISettingValueResolver SettingValueResolver { get; private set; }
 

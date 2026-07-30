@@ -757,6 +757,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     return (flags & VariableSelectorScopeFlags.TriggerInput) != 0;
                 case VariableSelectorScope.Token:
                     return (flags & VariableSelectorScopeFlags.Token) != 0;
+                case VariableSelectorScope.EnvironmentVariable:
+                    return (flags & VariableSelectorScopeFlags.EnvironmentVariable) != 0;
                 default:
                     return false;
             }

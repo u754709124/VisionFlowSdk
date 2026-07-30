@@ -15,6 +15,7 @@ namespace Vision.Flow.Core.Services.Serialization
                 { "SchemaVersion", definition.SchemaVersion },
                 { "Version", definition.Version },
                 { "Settings", NormalizeObject(definition.Settings) },
+                { "EnvironmentVariables", ToSerializableEnvironmentVariables(definition.EnvironmentVariables) },
                 { "Nodes", ToSerializableNodes(definition.Nodes) },
                 { "Edges", ToSerializableEdges(definition.Edges) },
                 { "Entries", ToSerializableEntries(definition.Entries) }
@@ -22,6 +23,31 @@ namespace Vision.Flow.Core.Services.Serialization
 
             return result;
         }
+
+        private static object ToSerializableEnvironmentVariables(
+            IEnumerable<EnvironmentVariableDefinition> definitions)
+        {
+            var result = new List<object>();
+            if (definitions == null)
+            {
+                return result;
+            }
+
+            foreach (var definition in definitions)
+            {
+                result.Add(definition == null
+                    ? null
+                    : new Dictionary<string, object>
+                    {
+                        { "Id", definition.Id },
+                        { "Name", definition.Name },
+                        { "DataType", FlowEnumConverter.ToWireValue(definition.DataType) },
+                        { "DefaultValue", NormalizeObject(definition.DefaultValue) }
+                    });
+            }
+            return result;
+        }
+
 
         public static object ToSerializableDesignDocument(FlowDesignDocument document)
         {

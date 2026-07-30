@@ -47,6 +47,8 @@ namespace Vision.Flow.Core.Runtime.Execution
                     return ResolveToken(path, context);
                 case VariableSelectorScope.TriggerInput:
                     return ResolveTriggerInput(path, context);
+                case VariableSelectorScope.EnvironmentVariable:
+                    return ResolveEnvironmentVariable(path, context);
                 default:
                     throw new InvalidOperationException("Unsupported variable selector scope: " + selector.Scope);
             }
@@ -110,6 +112,26 @@ namespace Vision.Flow.Core.Runtime.Execution
             }
 
             return ResolveNestedPath(value, path, 1);
+        }
+
+        private static object ResolveEnvironmentVariable(
+            IList<string> path,
+            FlowExecutionContext context)
+        {
+            if (path.Count != 1 || string.IsNullOrWhiteSpace(path[0]))
+            {
+                throw new InvalidOperationException(
+                    "EnvironmentVariable selector Path must contain exactly one variable id.");
+            }
+
+            object value;
+            if (!TryGetDictionaryValue(context.EnvironmentVariableValues, path[0], out value))
+            {
+                throw new KeyNotFoundException(
+                    "Environment variable was not found: " + path[0]);
+            }
+
+            return value;
         }
 
         private static object ResolveNestedPath(object value, IList<string> path, int startIndex)

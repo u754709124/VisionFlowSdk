@@ -12,6 +12,7 @@ namespace Vision.Flow.Core.Services.Validation
             IList<NodeDefinition> nodes,
             IList<EdgeDefinition> edges,
             IList<FlowEntryDefinition> entries,
+            IDictionary<string, EnvironmentVariableDefinition> environmentVariables,
             IDictionary<string, NodeDefinition> nodeMap,
             IDictionary<string, NodeDescriptor> descriptorsByNodeId,
             FlowValidationResult result)
@@ -30,7 +31,7 @@ namespace Vision.Flow.Core.Services.Validation
                 {
                     var field = "Nodes[" + nodeIndex + "].Settings." + item.Key;
                     var settingDescriptor = FindSetting(targetDescriptor, item.Key);
-                    ValidateSettingValue(node, field, item.Value, settingDescriptor, edges, entries, nodeMap, descriptorsByNodeId, result);
+                    ValidateSettingValue(node, field, item.Value, settingDescriptor, edges, entries, environmentVariables, nodeMap, descriptorsByNodeId, result);
                 }
             }
         }
@@ -42,6 +43,7 @@ namespace Vision.Flow.Core.Services.Validation
             NodeSettingDescriptor descriptor,
             IList<EdgeDefinition> edges,
             IList<FlowEntryDefinition> entries,
+            IDictionary<string, EnvironmentVariableDefinition> environmentVariables,
             IDictionary<string, NodeDefinition> nodeMap,
             IDictionary<string, NodeDescriptor> descriptorsByNodeId,
             FlowValidationResult result)
@@ -75,6 +77,16 @@ namespace Vision.Flow.Core.Services.Validation
                 return;
             }
 
+            if (descriptor.EvaluationPhase != NodeSettingEvaluationPhase.Execution)
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableSelectorNotAllowed,
+                    "ListenerStart settings cannot use execution-time variables.",
+                    nodeId: node.Id,
+                    field: field);
+                return;
+            }
+
             var selector = setting.Selector;
             if (selector == null || selector.Path == null || selector.Path.Count == 0 || selector.Path.Any(string.IsNullOrWhiteSpace))
             {
@@ -97,6 +109,71 @@ namespace Vision.Flow.Core.Services.Validation
             if (selector.Scope == VariableSelectorScope.TriggerInput)
             {
                 ValidateTriggerInputSelector(node, field, selector, descriptor, edges, entries, result);
+                return;
+            }
+
+            if (selector.Scope == VariableSelectorScope.EnvironmentVariable)
+            {
+                ValidateEnvironmentVariableSelector(
+                    node,
+                    field,
+                    selector,
+                    descriptor,
+                    environmentVariables,
+                    result);
+            }
+        }
+
+        private static void ValidateEnvironmentVariableSelector(
+            NodeDefinition node,
+            string field,
+            VariableSelector selector,
+            NodeSettingDescriptor targetSetting,
+            IDictionary<string, EnvironmentVariableDefinition> environmentVariables,
+            FlowValidationResult result)
+        {
+            if (selector.Path.Count != 1)
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableSelectorInvalid,
+                    "EnvironmentVariable selector Path must contain exactly one variable Id.",
+                    nodeId: node.Id,
+                    field: field + ".Selector.Path");
+                return;
+            }
+
+            EnvironmentVariableDefinition definition;
+            if (environmentVariables == null ||
+                !environmentVariables.TryGetValue(selector.Path[0], out definition))
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.EnvironmentVariableMissing,
+                    "Environment variable does not exist: " + selector.Path[0],
+                    nodeId: node.Id,
+                    field: field);
+                return;
+            }
+
+            var compatibility = FlowDataTypeCompatibility.GetCompatibility(
+                definition.DataType,
+                targetSetting.DataType);
+            if (compatibility == FlowDataTypeCompatibilityResult.Incompatible)
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableTypeIncompatible,
+                    "Environment variable type " + definition.DataType +
+                    " cannot be assigned to setting type " +
+                    targetSetting.DataType + ".",
+                    nodeId: node.Id,
+                    field: field);
+            }
+            else if (compatibility == FlowDataTypeCompatibilityResult.Warning)
+            {
+                result.AddWarning(
+                    FlowValidationIssueCodes.VariableTypeWarning,
+                    "Environment variable type will be checked at runtime.",
+                    nodeId: node.Id,
+                    field: field);
             }
         }
 
@@ -286,11 +363,24 @@ namespace Vision.Flow.Core.Services.Validation
 
         private static bool IsScopeAllowed(VariableSelectorScopeFlags flags, VariableSelectorScope scope)
         {
-            var value = scope == VariableSelectorScope.NodeOutput
-                ? VariableSelectorScopeFlags.NodeOutput
-                : scope == VariableSelectorScope.TriggerInput
-                    ? VariableSelectorScopeFlags.TriggerInput
-                    : VariableSelectorScopeFlags.Token;
+            VariableSelectorScopeFlags value;
+            switch (scope)
+            {
+                case VariableSelectorScope.NodeOutput:
+                    value = VariableSelectorScopeFlags.NodeOutput;
+                    break;
+                case VariableSelectorScope.TriggerInput:
+                    value = VariableSelectorScopeFlags.TriggerInput;
+                    break;
+                case VariableSelectorScope.Token:
+                    value = VariableSelectorScopeFlags.Token;
+                    break;
+                case VariableSelectorScope.EnvironmentVariable:
+                    value = VariableSelectorScopeFlags.EnvironmentVariable;
+                    break;
+                default:
+                    return false;
+            }
             return (flags & value) == value;
         }
 

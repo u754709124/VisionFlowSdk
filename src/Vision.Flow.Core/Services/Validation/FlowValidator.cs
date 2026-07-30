@@ -67,6 +67,9 @@ namespace Vision.Flow.Core.Services.Validation
             }
 
             var edges = definition.Edges ?? new List<EdgeDefinition>();
+            var environmentVariables = ValidateEnvironmentVariables(
+                definition.EnvironmentVariables,
+                result);
             ValidateEdges(edges, nodeMap, descriptorsByNodeId, result);
             ValidateNoCycles(edges, nodeMap, result);
             ValidateEntries(definition.Entries ?? new List<FlowEntryDefinition>(), nodeMap, result);
@@ -76,6 +79,7 @@ namespace Vision.Flow.Core.Services.Validation
                 nodes,
                 edges,
                 definition.Entries ?? new List<FlowEntryDefinition>(),
+                environmentVariables,
                 nodeMap,
                 descriptorsByNodeId,
                 result);

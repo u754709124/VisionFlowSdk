@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Vision.Flow.Core.Runtime.Execution
 {
     /// <summary>
@@ -16,5 +18,11 @@ namespace Vision.Flow.Core.Runtime.Execution
         public int MaxDegreeOfParallelism { get; set; }
 
         public int DefaultNodeTimeoutMs { get; set; }
+
+        /// <summary>
+        /// 按环境变量稳定 Id 提供的运行值；FlowRunner 构造时会制作只读快照。
+        /// 未提供的变量使用流程定义中的默认值。
+        /// </summary>
+        public IDictionary<string, object> EnvironmentVariableValues { get; set; }
     }
 }

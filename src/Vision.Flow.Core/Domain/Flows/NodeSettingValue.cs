@@ -19,7 +19,8 @@ namespace Vision.Flow.Core.Domain.Flows
     {
         NodeOutput = 0,
         TriggerInput = 1,
-        Token = 2
+        Token = 2,
+        EnvironmentVariable = 3
     }
 
     /// <summary>
@@ -73,6 +74,20 @@ namespace Vision.Flow.Core.Domain.Flows
             {
                 Scope = VariableSelectorScope.TriggerInput,
                 Path = path == null ? new List<string>() : new List<string>(path)
+            };
+        }
+
+        public static VariableSelector ForEnvironmentVariable(string variableId)
+        {
+            if (string.IsNullOrWhiteSpace(variableId))
+            {
+                throw new ArgumentException("Environment variable id is required.", "variableId");
+            }
+
+            return new VariableSelector
+            {
+                Scope = VariableSelectorScope.EnvironmentVariable,
+                Path = new List<string> { variableId }
             };
         }
     }

@@ -90,7 +90,7 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 
 - `BindingMode`：`ConstantOnly` 或 `ConstantOrVariable`
 - `EvaluationPhase`：`Execution` 或 `ListenerStart`
-- `AllowedVariableSources`：允许的 NodeOutput、Token、TriggerInput 范围
+- `AllowedVariableSources`：允许的 NodeOutput、Token、TriggerInput、EnvironmentVariable 范围
 - `AffectsDescriptor`：该常量变化后是否需要重新解析实例 Descriptor
 
 执行期配置在节点中统一读取：
@@ -100,6 +100,8 @@ var timeoutMs = context.GetSettingValue<int>("TimeoutMs");
 ```
 
 不要为控制输入端口创建变量绑定。节点输出通过 `VariableSelector.ForNodeOutput(nodeId, outputName)` 绑定到具体配置项。
+流程环境变量通过 `VariableSelector.ForEnvironmentVariable(variableId)` 绑定；
+只有 `Execution + ConstantOrVariable` 配置项能够使用。
 
 ## 动态 Descriptor
 
