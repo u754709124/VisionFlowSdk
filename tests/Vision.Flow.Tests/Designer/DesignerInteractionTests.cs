@@ -32,6 +32,46 @@ namespace Vision.Flow.Tests
     // Designer 控件测试在 STA 线程运行，覆盖调试只读模式和节点运行状态摘要。
     internal static class DesignerInteractionTests
     {
+        public static Task PropertyPanelAppliesCustomConstantValidation()
+        {
+            RunOnSta(delegate
+            {
+                var node = CreateNode();
+                var descriptor = CreateDescriptor();
+                descriptor.Settings.First(x => string.Equals(x.Name, "Message", StringComparison.Ordinal))
+                    .Validator = delegate(object value)
+                    {
+                        var text = value as string;
+                        return text != null && text.Length >= 3 ? null : "消息至少需要三个字符。";
+                    };
+                var panel = new PropertyPanelControl();
+                panel.ShowNode(
+                    node,
+                    descriptor,
+                    new VariableSelectionOption[0],
+                    delegate { },
+                    false);
+
+                var editor = FindChildren<TextBox>(panel).FirstOrDefault(
+                    x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:Message",
+                        StringComparison.Ordinal));
+                AssertEx.NotNull(editor, "The validated setting should render a text editor.");
+
+                editor.Text = "x";
+                AssertEx.True(panel.HasEditorErrors, "A custom validator error should block applying the property draft.");
+                AssertEx.Equal("hello", Convert.ToString(node.Settings["Message"].ConstantValue, CultureInfo.InvariantCulture),
+                    "An invalid editor value should not replace the last valid typed constant.");
+
+                editor.Text = "valid";
+                AssertEx.False(panel.HasEditorErrors, "Correcting the constant should clear the custom validation error.");
+                AssertEx.Equal("valid", Convert.ToString(node.Settings["Message"].ConstantValue, CultureInfo.InvariantCulture),
+                    "A valid constant should be written to the property draft.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyPanelReadOnlyDisablesEditors()
         {
             RunOnSta(delegate
@@ -51,7 +91,7 @@ namespace Vision.Flow.Tests
                         "Source",
                         "source",
                         "Image",
-                        FlowDataType.Object)
+                        FlowDataType.String)
                 }, delegate { }, true);
 
                 var textBoxes = FindChildren<TextBox>(panel).ToList();
@@ -79,7 +119,7 @@ namespace Vision.Flow.Tests
                     "Source",
                     "source",
                     "Image",
-                    FlowDataType.Object);
+                    FlowDataType.String);
                 editablePanel.ShowNode(editableNode, descriptor, new[] { compatibleOption }, delegate { }, false);
 
                 var modeSelector = FindChildren<ComboBox>(editablePanel)

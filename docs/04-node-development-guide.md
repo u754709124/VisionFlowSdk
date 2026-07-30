@@ -93,6 +93,33 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 - `AllowedVariableSources`：允许的 NodeOutput、Token、TriggerInput、EnvironmentVariable 范围
 - `AffectsDescriptor`：该常量变化后是否需要重新解析实例 Descriptor
 
+配置项通过 `DataType` 对常量和变量实施统一的强类型约束。变量来源的
+`FlowDataType` 必须与配置项完全一致，不执行数值扩宽、`Object` 向具体类型转换
+或字符串隐式转换。需要范围、格式或枚举成员等业务约束时，可以声明同步单项
+`Validator`：
+
+```csharp
+new NodeSettingDescriptor
+{
+    Name = "TimeoutMs",
+    DisplayName = "超时时间",
+    DataType = FlowDataType.Int32,
+    BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+    Validator = delegate(object value)
+    {
+        var timeout = (int)value;
+        return timeout >= 0 && timeout <= 60000
+            ? null
+            : "超时时间必须在 0～60000 毫秒之间。";
+    }
+}
+```
+
+校验器接收已经转换为目标 `DataType` 的非空常量；返回空字符串表示通过，返回
+非空字符串会在设计器和发布校验中阻止应用或发布。可选空值不会调用校验器，
+校验器异常也会转换为结构化校验错误。首版校验器不读取其他配置项，也不校验
+运行时变量的实际值。Descriptor 和 Validator 都不进入流程文件。
+
 执行期配置在节点中统一读取：
 
 ```csharp
