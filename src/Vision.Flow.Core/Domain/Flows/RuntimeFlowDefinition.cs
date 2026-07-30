@@ -14,6 +14,7 @@ namespace Vision.Flow.Core.Domain.Flows
             Nodes = new List<NodeDefinition>();
             Edges = new List<EdgeDefinition>();
             Entries = new List<FlowEntryDefinition>();
+            EnvironmentVariables = new List<EnvironmentVariableDefinition>();
             Settings = new Dictionary<string, object>();
         }
 
@@ -39,6 +40,11 @@ namespace Vision.Flow.Core.Domain.Flows
         /// 外部事件可触发的流程入口。
         /// </summary>
         public List<FlowEntryDefinition> Entries { get; set; }
+
+        /// <summary>
+        /// 流程级环境变量定义；运行时可通过 FlowExecutionOptions 按 Id 覆盖默认值。
+        /// </summary>
+        public List<EnvironmentVariableDefinition> EnvironmentVariables { get; set; }
 
         public Dictionary<string, object> Settings { get; set; }
     }

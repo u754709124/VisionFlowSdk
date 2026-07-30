@@ -61,6 +61,7 @@ namespace Vision.Flow.Core.Domain.Nodes
         NodeOutput = 1,
         TriggerInput = 2,
         Token = 4,
-        All = NodeOutput | TriggerInput | Token
+        EnvironmentVariable = 8,
+        All = NodeOutput | TriggerInput | Token | EnvironmentVariable
     }
 }

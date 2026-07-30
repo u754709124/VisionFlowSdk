@@ -57,6 +57,10 @@ namespace Vision.Flow.Core.Runtime.Engine
             _eventSink = eventSink ?? new InMemoryFlowEventSink();
             _devices = devices ?? EmptyDeviceRegistry.Instance;
             _options = CloneOptions(options);
+            _options.EnvironmentVariableValues =
+                EnvironmentVariableValues.CreateSnapshot(
+                    definition.EnvironmentVariables,
+                    _options.EnvironmentVariableValues);
             _nodeInstances = new Dictionary<string, IFlowNode>(StringComparer.OrdinalIgnoreCase);
             _entryGates = CreateEntryGates(definition.Entries);
             _startedListeners = new List<IFlowListenerNode>();

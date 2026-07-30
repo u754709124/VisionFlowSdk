@@ -42,7 +42,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             SetResourceReference(
                 FrameworkElement.StyleProperty,
                 FlowDesignerTheme.VariableSelectorButtonStyleKey);
-            ToolTip = "选择一个可用的前置节点输出或 Token 字段。";
+            ToolTip = "选择一个可用的前置节点输出、环境变量、触发输入或 Token 字段。";
             Click += OnClick;
         }
 

@@ -61,5 +61,11 @@ namespace Vision.Flow.Core.Services.Validation
         public const string TriggerInputUnavailable = "TriggerInputUnavailable";
         public const string TriggerInputNotGuaranteed = "TriggerInputNotGuaranteed";
         public const string TriggerInputTypeConflict = "TriggerInputTypeConflict";
+        public const string EnvironmentVariableInvalid = "EnvironmentVariableInvalid";
+        public const string EnvironmentVariableIdInvalid = "EnvironmentVariableIdInvalid";
+        public const string EnvironmentVariableNameInvalid = "EnvironmentVariableNameInvalid";
+        public const string EnvironmentVariableTypeInvalid = "EnvironmentVariableTypeInvalid";
+        public const string EnvironmentVariableDefaultInvalid = "EnvironmentVariableDefaultInvalid";
+        public const string EnvironmentVariableMissing = "EnvironmentVariableMissing";
     }
 }

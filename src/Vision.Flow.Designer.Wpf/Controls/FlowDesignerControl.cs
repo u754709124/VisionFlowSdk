@@ -289,6 +289,30 @@ namespace Vision.Flow.Designer.Wpf.Controls
             RenderProperties();
         }
 
+        /// <summary>
+        /// 由嵌入式宿主原位替换环境变量定义并刷新当前属性草稿。
+        /// </summary>
+        public void UpdateEnvironmentVariables(
+            IEnumerable<EnvironmentVariableDefinition> definitions)
+        {
+            if (_document == null || _document.Runtime == null)
+                return;
+
+            _document.Runtime.EnvironmentVariables =
+                (definitions ?? Enumerable.Empty<EnvironmentVariableDefinition>())
+                    .Select(x => x == null
+                        ? null
+                        : new EnvironmentVariableDefinition
+                        {
+                            Id = x.Id,
+                            Name = x.Name,
+                            DataType = x.DataType,
+                            DefaultValue = x.DefaultValue
+                        })
+                    .ToList();
+            RenderProperties();
+        }
+
         private bool CanEditDocument
         {
             get { return _interactionMode == DesignerInteractionMode.Edit; }

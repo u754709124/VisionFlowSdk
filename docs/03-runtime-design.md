@@ -165,6 +165,11 @@ condition.if
 
 节点在 `ExecuteAsync` 中通过 `GetSettingValue(name)` 或 `GetSettingValue<T>(name)` 获取配置。常量模式直接返回 `ConstantValue`；变量模式由 `ISettingValueResolver` 根据结构化 `VariableSelector` 从上游节点输出变量池、入口 TriggerInputs 或当前 Token 解析。运行时不再提供 `GetInputValue`，控制端口不参与配置取值。
 
+`FlowExecutionOptions.EnvironmentVariableValues` 允许上位机按环境变量 `Id`
+提供运行值。`FlowRunner` 构造时将覆盖值与流程定义默认值合并、按声明类型转换，
+并生成与调用方字典隔离的只读快照；未覆盖项使用默认值，未知 Id、空值或类型错误
+会在 Runner 创建阶段被拒绝。
+
 `FlowListenerContext` 携带监听节点启动所需的入口定义、`IDeviceRegistry`、`IFlowContinuationDispatcher` 和 `IFlowEventSink`，不承载单次 Token 变量状态。
 
 ## 线程规则

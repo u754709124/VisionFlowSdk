@@ -645,6 +645,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         {
             var items = new List<VariableSelectionOption>();
             AddTokenVariableSuggestions(items);
+            AddEnvironmentVariableSuggestions(items);
 
             if (_document == null || _document.Runtime == null || _document.Runtime.Nodes == null || currentNode == null)
             {
@@ -682,10 +683,43 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return items
                 .GroupBy(x => VariableSelectionOption.FormatSelector(x.Selector), StringComparer.OrdinalIgnoreCase)
                 .Select(x => x.First())
-                .OrderBy(x => x.Selector.Scope == VariableSelectorScope.Token ? 0 : 1)
+                .OrderBy(x => x.Selector.Scope == VariableSelectorScope.Token
+                    ? 0
+                    : x.Selector.Scope == VariableSelectorScope.EnvironmentVariable
+                        ? 1
+                        : 2)
                 .ThenBy(x => x.GroupName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(x => x.ValueName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        private void AddEnvironmentVariableSuggestions(
+            ICollection<VariableSelectionOption> items)
+        {
+            if (_document == null ||
+                _document.Runtime == null ||
+                _document.Runtime.EnvironmentVariables == null)
+            {
+                return;
+            }
+
+            foreach (var definition in _document.Runtime.EnvironmentVariables)
+            {
+                if (definition == null ||
+                    string.IsNullOrWhiteSpace(definition.Id) ||
+                    string.IsNullOrWhiteSpace(definition.Name))
+                {
+                    continue;
+                }
+
+                items.Add(new VariableSelectionOption(
+                    VariableSelector.ForEnvironmentVariable(definition.Id),
+                    "环境变量",
+                    "环境变量",
+                    definition.Id,
+                    definition.Name + " (" + definition.Id + ")",
+                    definition.DataType));
+            }
         }
 
         private IList<string> CreateVariableSuggestionIssues(NodeDefinition currentNode)

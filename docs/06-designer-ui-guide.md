@@ -101,6 +101,8 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - 节点输出候选只来自当前节点沿控制入边反向遍历得到的全部直接、间接前置节点，不显示自身、下游或无关节点。
 - 候选项显示节点名称、节点 ID、输出名称和 `FlowDataType`，并按目标配置类型过滤；`Object` 到具体类型的转换会显示风险提示。
 - Token 字段单独分组。变量来源因删除节点、删除连线或 Descriptor 变化而失效时，选择器保留原 Selector 并显示错误，不会静默清空。
+- 环境变量单独分组，显示名称、稳定 Id 和类型，不受控制流拓扑限制；定义删除或类型变化导致绑定失效时同样保留原 Selector 并显示错误。
+- 嵌入式宿主在配方变量变化后调用 `UpdateEnvironmentVariables`，设计器会原位更新流程定义和候选并保留当前属性草稿。
 - `ConstantOnly` 或 `ListenerStart` 配置不开放执行期节点输出变量；只读模式同时禁用模式切换、固定值编辑器和变量选择器。
 
 节点卡片只摘要显示变量模式的配置来源，不再摘要控制输入端口绑定。

@@ -139,3 +139,12 @@
 `FlowValidator` 按每个 `NodeDefinition` 解析当前实例 Descriptor，再校验必填配置、端口、输出绑定和 `DefaultOutputs`。动态 Descriptor 解析失败时返回 `NodeDescriptorResolutionFailed`，不会把提供程序异常直接抛出到发布调用方。
 
 固定策略值继续使用枚举公共 API，并在 JSON 的 `ConstantValue` 中序列化为稳定字符串，例如 `Equal`、`Ignore`、`Warning`。
+
+## 环境变量
+
+Schema v2 的 `Runtime` 可包含 `EnvironmentVariables`。每项使用不可变 `Id`
+作为流程协议标识，`Name` 仅用于用户界面，首期 `DataType` 只允许 `Int32`、
+`Boolean`、`String`，并要求提供类型匹配的 `DefaultValue`。节点配置通过
+`VariableSelectorScope.EnvironmentVariable` 和单段 `Path: [variableId]` 引用；
+改显示名称不会破坏绑定。发布会校验并深拷贝定义，旧的无环境变量 v2 文件继续按
+空集合加载。

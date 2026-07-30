@@ -1,5 +1,12 @@
 ﻿# 09 - Release and Integration
 
+## MVision 环境变量接入
+
+上位机加载 `.flowruntime` 后枚举 `RuntimeFlowDefinition.EnvironmentVariables`，
+将每项用户输入初始化为 `DefaultValue` 并要求用户提供完整有效值；启动流程时按
+稳定 `Id` 组装字典赋给 `FlowExecutionOptions.EnvironmentVariableValues`。
+运行层在缺少覆盖时回退默认值，以支持设计器调试和通用宿主。
+
 ## SDK Package
 
 ```powershell

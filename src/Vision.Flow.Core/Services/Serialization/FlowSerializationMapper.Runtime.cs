@@ -25,6 +25,20 @@ namespace Vision.Flow.Core.Services.Serialization
                 definition.Settings = ToObjectDictionary(settingsValue);
             }
 
+            object environmentVariablesValue;
+            if (TryGetValue(
+                dictionary,
+                "EnvironmentVariables",
+                out environmentVariablesValue))
+            {
+                foreach (var environmentVariable in
+                    AsEnumerable(environmentVariablesValue))
+                {
+                    definition.EnvironmentVariables.Add(
+                        ToEnvironmentVariableDefinition(environmentVariable));
+                }
+            }
+
             object nodesValue;
             if (TryGetValue(dictionary, "Nodes", out nodesValue))
             {
@@ -54,6 +68,33 @@ namespace Vision.Flow.Core.Services.Serialization
 
             return definition;
         }
+
+        private static EnvironmentVariableDefinition ToEnvironmentVariableDefinition(
+            object value)
+        {
+            var dictionary = AsDictionary(value);
+            FlowDataType dataType;
+            try
+            {
+                dataType = FlowEnumConverter.Parse<FlowDataType>(
+                    GetString(dictionary, "DataType"));
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException(
+                    "Environment variable DataType is invalid.",
+                    ex);
+            }
+
+            return new EnvironmentVariableDefinition
+            {
+                Id = GetString(dictionary, "Id"),
+                Name = GetString(dictionary, "Name"),
+                DataType = dataType,
+                DefaultValue = GetObject(dictionary, "DefaultValue")
+            };
+        }
+
         private static NodeDefinition ToNodeDefinition(object value)
         {
             var dictionary = AsDictionary(value);
