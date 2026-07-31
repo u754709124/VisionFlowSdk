@@ -1,3 +1,5 @@
+using System;
+
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
@@ -33,6 +35,33 @@ namespace Vision.Flow.Core.Domain.Nodes
         public static bool IsCompatible(FlowDataType source, FlowDataType target)
         {
             return GetCompatibility(source, target) != FlowDataTypeCompatibilityResult.Incompatible;
+        }
+
+        /// <summary>
+        /// 判断变量来源与目标设置的基础类型及具体枚举类型是否兼容。
+        /// 只要任一侧声明枚举元数据，两侧就必须声明同一个有效枚举类型。
+        /// </summary>
+        public static bool IsCompatible(
+            FlowDataType source,
+            Type sourceEnumType,
+            FlowDataType target,
+            Type targetEnumType)
+        {
+            if (!IsCompatible(source, target))
+            {
+                return false;
+            }
+
+            if (sourceEnumType == null && targetEnumType == null)
+            {
+                return true;
+            }
+
+            return sourceEnumType != null &&
+                targetEnumType != null &&
+                sourceEnumType.IsEnum &&
+                targetEnumType.IsEnum &&
+                sourceEnumType == targetEnumType;
         }
     }
 }

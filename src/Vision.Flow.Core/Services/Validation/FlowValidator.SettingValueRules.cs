@@ -192,7 +192,11 @@ namespace Vision.Flow.Core.Services.Validation
             var compatibility = FlowDataTypeCompatibility.GetCompatibility(
                 definition.DataType,
                 targetSetting.DataType);
-            if (compatibility == FlowDataTypeCompatibilityResult.Incompatible)
+            if (!FlowDataTypeCompatibility.IsCompatible(
+                definition.DataType,
+                null,
+                targetSetting.DataType,
+                targetSetting.EnumType))
             {
                 result.AddError(
                     FlowValidationIssueCodes.VariableTypeIncompatible,
@@ -296,7 +300,11 @@ namespace Vision.Flow.Core.Services.Validation
             }
 
             var compatibility = FlowDataTypeCompatibility.GetCompatibility(sourceType, targetSetting.DataType);
-            if (compatibility == FlowDataTypeCompatibilityResult.Incompatible)
+            if (!FlowDataTypeCompatibility.IsCompatible(
+                sourceType,
+                null,
+                targetSetting.DataType,
+                targetSetting.EnumType))
             {
                 result.AddError(
                     FlowValidationIssueCodes.VariableTypeIncompatible,
@@ -379,9 +387,15 @@ namespace Vision.Flow.Core.Services.Validation
             }
 
             var compatibility = FlowDataTypeCompatibility.GetCompatibility(output.DataType, targetSetting.DataType);
-            if (compatibility == FlowDataTypeCompatibilityResult.Incompatible)
+            if (!FlowDataTypeCompatibility.IsCompatible(
+                output.DataType,
+                output.EnumType,
+                targetSetting.DataType,
+                targetSetting.EnumType))
             {
-                result.AddError(FlowValidationIssueCodes.VariableTypeIncompatible, "Variable output type " + output.DataType + " cannot be assigned to setting type " + targetSetting.DataType + ".", nodeId: node.Id, field: field);
+                var sourceType = output.EnumType == null ? output.DataType.ToString() : output.EnumType.Name;
+                var targetType = targetSetting.EnumType == null ? targetSetting.DataType.ToString() : targetSetting.EnumType.Name;
+                result.AddError(FlowValidationIssueCodes.VariableTypeIncompatible, "Variable output type " + sourceType + " cannot be assigned to setting type " + targetType + ".", nodeId: node.Id, field: field);
             }
             else if (compatibility == FlowDataTypeCompatibilityResult.Warning)
             {

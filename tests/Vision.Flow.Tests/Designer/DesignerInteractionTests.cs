@@ -577,6 +577,89 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task PropertyPanelUsesEnumConstantsAndExactEnumVariables()
+        {
+            RunOnSta(delegate
+            {
+                var descriptor = CreateDescriptor();
+                var setting = descriptor.Settings.First(x =>
+                    string.Equals(x.Name, "Message", StringComparison.Ordinal));
+                setting.EnumType = typeof(TestOperatingMode);
+                var node = CreateNode();
+                node.Settings["Message"] = NodeSettingValue.ForConstant("Automatic");
+                var exact = new VariableSelectionOption(
+                    VariableSelector.ForNodeOutput("exact", "Mode"),
+                    "Exact [exact]",
+                    "Exact",
+                    "exact",
+                    "Mode",
+                    FlowDataType.String,
+                    typeof(TestOperatingMode));
+                var otherEnum = new VariableSelectionOption(
+                    VariableSelector.ForNodeOutput("other", "Mode"),
+                    "Other [other]",
+                    "Other",
+                    "other",
+                    "Mode",
+                    FlowDataType.String,
+                    typeof(TestFailureMode));
+                var plainString = new VariableSelectionOption(
+                    VariableSelector.ForNodeOutput("plain", "Text"),
+                    "Plain [plain]",
+                    "Plain",
+                    "plain",
+                    "Text",
+                    FlowDataType.String);
+                var panel = new PropertyPanelControl();
+                panel.ShowNode(
+                    node,
+                    descriptor,
+                    new[] { exact, otherEnum, plainString },
+                    delegate { },
+                    false);
+
+                var constantSelector = FindChildren<ComboBox>(panel)
+                    .FirstOrDefault(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:Message",
+                        StringComparison.Ordinal));
+                AssertEx.NotNull(constantSelector,
+                    "An enum setting should render a constant selector without host options.");
+                AssertEx.Equal(
+                    Enum.GetNames(typeof(TestOperatingMode)).Length,
+                    constantSelector.Items.Count,
+                    "The enum constant selector should contain every declared member.");
+                AssertEx.Equal(
+                    "Automatic",
+                    Convert.ToString(constantSelector.SelectedItem, CultureInfo.InvariantCulture),
+                    "The enum selector should select the stored wire value.");
+
+                var modeSelector = FindChildren<ComboBox>(panel)
+                    .First(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Message:Mode",
+                        StringComparison.Ordinal));
+                modeSelector.SelectedIndex = 1;
+                var variableSelector = FindChildren<VariableSelectorControl>(panel).Single();
+                variableSelector.RaiseEvent(new RoutedEventArgs(
+                    Button.ClickEvent,
+                    variableSelector));
+                var selectableItems = variableSelector.ContextMenu.Items
+                    .OfType<MenuItem>()
+                    .SelectMany(x => x.Items.OfType<MenuItem>())
+                    .ToList();
+                AssertEx.Equal(
+                    1,
+                    selectableItems.Count,
+                    "An enum setting should expose only variables with the same concrete enum type.");
+                AssertEx.True(
+                    Convert.ToString(selectableItems[0].Header, CultureInfo.InvariantCulture)
+                        .IndexOf("Exact", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "The matching enum variable should remain selectable.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyPanelUsesModernEditorTypesAndSeparatedSegments()
         {
             RunOnSta(delegate
@@ -710,6 +793,18 @@ namespace Vision.Flow.Tests
                     "A constant-only device reference should not expose fixed/variable mode controls.");
             });
             return Task.FromResult(0);
+        }
+
+        private enum TestOperatingMode
+        {
+            Manual = 0,
+            Automatic = 1
+        }
+
+        private enum TestFailureMode
+        {
+            Stop = 0,
+            Continue = 1
         }
 
         public static Task PropertyTextEditorsKeepSingleAndMultilineLayoutRules()

@@ -20,7 +20,8 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
             string sourceName,
             string sourceId,
             string valueName,
-            FlowDataType dataType)
+            FlowDataType dataType,
+            Type enumType = null)
         {
             Selector = selector;
             GroupName = groupName;
@@ -28,6 +29,7 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
             SourceId = sourceId;
             ValueName = valueName;
             DataType = dataType;
+            EnumType = enumType;
         }
 
         /// <summary>
@@ -61,6 +63,11 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
         public FlowDataType DataType { get; private set; }
 
         /// <summary>
+        /// 获取候选值对应的具体枚举类型；为空表示普通数据类型。
+        /// </summary>
+        public Type EnumType { get; private set; }
+
+        /// <summary>
         /// 返回包含来源、字段与类型的完整展示文本。
         /// </summary>
         public string DisplayText
@@ -70,7 +77,10 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
                 var source = string.IsNullOrWhiteSpace(SourceId) || string.Equals(SourceName, SourceId, StringComparison.OrdinalIgnoreCase)
                     ? SourceName
                     : SourceName + " [" + SourceId + "]";
-                return source + " / " + ValueName + " (" + FlowEnumConverter.ToWireValue(DataType) + ")";
+                var typeName = EnumType == null
+                    ? FlowEnumConverter.ToWireValue(DataType)
+                    : EnumType.Name;
+                return source + " / " + ValueName + " (" + typeName + ")";
             }
         }
 

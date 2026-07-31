@@ -99,7 +99,7 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - 普通固定值使用固定 40 px、单行不换行的现代文本框完成字符串、数字和日期转换，长内容在控件内水平浏览，不会撑高表单；只有既有 `Mappings` / `Channels` 结构化字段保留换行、回车输入和纵向滚动。Boolean 使用绿色开关；设计器不会根据配置键名称猜测下拉选项。
 - 变量模式用结构化 `VariableSelector` 替换整个配置值；切换期间保留原 `ConstantValue`，切回固定值时恢复。
 - 节点输出候选只来自当前节点沿控制入边反向遍历得到的全部直接、间接前置节点，不显示自身、下游或无关节点。
-- 候选项显示节点名称、节点 ID、输出名称和 `FlowDataType`，并只保留与目标配置项 `FlowDataType` 完全一致的变量；数值扩宽、`Object` 转换和字符串隐式转换均不开放。
+- 候选项显示节点名称、节点 ID、输出名称和类型，并只保留与目标配置项 `FlowDataType` 完全一致的变量；当设置或输出声明 `EnumType` 时还必须是同一个具体枚举类型。数值扩宽、不同枚举之间转换、`Object` 转换和字符串隐式转换均不开放。
 - Token 字段单独分组。变量来源因删除节点、删除连线或 Descriptor 变化而失效时，选择器保留原 Selector 并显示错误，不会静默清空。
 - 环境变量单独分组，显示名称、稳定 Id 和类型，不受控制流拓扑限制；定义删除或类型变化导致绑定失效时同样保留原 Selector 并显示错误。
 - 嵌入式宿主在配方变量变化后调用 `UpdateEnvironmentVariables`，设计器会原位更新流程定义和候选并保留当前属性草稿。
@@ -109,7 +109,7 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 
 具体项目可以通过传入自己的节点注册表、节点 Descriptor 和调试设备来扩展属性面板的实际体验。
 
-嵌入式宿主还可以通过 `FlowDesignerOptions.SettingConstantOptionsProvider` 为固定值编辑器提供明确的动态候选项。例如项目相机节点的 `CameraId` 可以直接读取宿主当前绑定的设备配置，并在 Descriptor 中声明为 `ConstantOnly`，从而只显示设备数据源下拉框，不显示固定值/变量切换。候选项发生变化后调用 `RefreshSelectedNodeProperties()` 即可刷新当前属性面板。刷新同一节点会保留设置和执行策略的草稿、非法原始文本及行内错误；当前值从候选中失效时继续显示原值并禁止应用，不会清空用户输入。只有宿主为该 Descriptor 返回非 `null` 枚举对象时，编辑器才使用不可自由输入的现代下拉框；即使枚举为空也保持空下拉框。返回 `null` 时继续使用手工输入文本框。设计器不再为相机标识提供硬编码默认值。
+嵌入式宿主还可以通过 `FlowDesignerOptions.SettingConstantOptionsProvider` 为固定值编辑器提供明确的动态候选项。例如项目相机节点的 `CameraId` 可以直接读取宿主当前绑定的设备配置，并在 Descriptor 中声明为 `ConstantOnly`，从而只显示设备数据源下拉框，不显示固定值/变量切换。候选项发生变化后调用 `RefreshSelectedNodeProperties()` 即可刷新当前属性面板。刷新同一节点会保留设置和执行策略的草稿、非法原始文本及行内错误；当前值从候选中失效时继续显示原值并禁止应用，不会清空用户输入。宿主为该 Descriptor 返回非 `null` 候选集合时，编辑器使用不可自由输入的现代下拉框；即使集合为空也保持空下拉框。宿主返回 `null` 时，声明了有效 `EnumType` 的设置使用枚举成员下拉框，其余设置继续使用手工输入控件。设计器不再为相机标识提供硬编码默认值。
 
 对于支持“固定值 / 变量”切换的配置项，两个 40 px 圆角分段按钮之间保留明确间距，并与右侧 40 px 固定值编辑器或变量选择器顶边对齐。状态或校验提示显示在控件下方的固定错误槽内，红色描边只覆盖编辑器本身，不改变输入控件及相邻表单项的布局。
 
@@ -176,6 +176,6 @@ Designer 调试运行会把当前 `.flowdesign` 发布为运行态定义，再�
 
 ## 枚举编辑体验
 
-Designer 根据 `FlowDataType` 选择属性编辑控件：`Boolean` 使用绿色开关，`Int32` / `Double` 使用手工输入及数字文本转换，其它普通类型使用手工输入文本框。只有宿主通过 `SettingConstantOptionsProvider` 为具体 Descriptor 提供明确选项数据源时才使用下拉框。
+Designer 根据 `FlowDataType` 选择属性编辑控件：`Boolean` 使用绿色开关，`Int32` / `Double` 使用手工输入及数字文本转换，其它普通类型使用手工输入文本框。`NodeSettingDescriptor.EnumType` 指向有效枚举类型时，设计器自动使用枚举成员下拉框；宿主也可以通过 `SettingConstantOptionsProvider` 为具体 Descriptor 提供优先级更高的明确选项数据源。
 
 端口连线规则使用 `FlowPortDirection` 判断输入/输出方向。条件操作符、AND Join 重复策略和日志等级仍写回既有字符串协议值，并由既有校验器检查；若宿主希望把这些值限制为下拉候选，应通过 `SettingConstantOptionsProvider` 返回对应 wire values，不修改 `.flowdesign` / `.flowruntime` 协议。

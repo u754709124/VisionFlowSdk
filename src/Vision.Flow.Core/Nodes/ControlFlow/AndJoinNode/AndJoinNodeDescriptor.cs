@@ -29,7 +29,7 @@ namespace Vision.Flow.Nodes
                     CreateStringSetting(FlowSettingNames.JoinKeyBinding, "Join Key", null, true, "Join key value or variable selector."),
                     CreateIntSetting(FlowSettingNames.ExpectedInputCount, "Expected Inputs", 2, true, "Number of inputs required for the join key."),
                     CreateIntSetting(FlowSettingNames.TimeoutMs, "Timeout (ms)", 0, false, "Reserved timeout. Zero disables timeout handling."),
-                    CreateStringSetting(FlowSettingNames.DuplicatePolicy, "Duplicate Policy", FlowEnumConverter.ToWireValue(FlowDuplicatePolicy.Ignore), true, "Ignore, Replace, or Error when the same token arrives twice.")
+                    CreateStringSetting(FlowSettingNames.DuplicatePolicy, "Duplicate Policy", FlowEnumConverter.ToWireValue(FlowDuplicatePolicy.Ignore), true, "Ignore, Replace, or Error when the same token arrives twice.", typeof(FlowDuplicatePolicy))
                 },
                 Outputs =
                 {
@@ -55,13 +55,14 @@ namespace Vision.Flow.Nodes
             };
         }
 
-        private static NodeSettingDescriptor CreateStringSetting(string name, string displayName, string defaultValue, bool isRequired, string description)
+        private static NodeSettingDescriptor CreateStringSetting(string name, string displayName, string defaultValue, bool isRequired, string description, Type enumType = null)
         {
             return new NodeSettingDescriptor
             {
                 Name = name,
                 DisplayName = displayName,
                 DataType = FlowDataType.String,
+                EnumType = enumType,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
                 Description = description,

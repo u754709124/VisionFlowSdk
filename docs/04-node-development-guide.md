@@ -98,6 +98,22 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 或字符串隐式转换。需要范围、格式或枚举成员等业务约束时，可以声明同步单项
 `Validator`：
 
+字符串协议承载枚举值时，设置与输出应同时通过 `EnumType` 声明具体枚举类型。
+Designer 会为常量自动生成枚举成员下拉框，并且变量选择和发布校验只接受
+`DataType` 与 `EnumType` 都一致的来源；流程文件仍保存原有字符串 wire value：
+
+```csharp
+new NodeSettingDescriptor
+{
+    Name = "Mode",
+    DisplayName = "运行模式",
+    DataType = FlowDataType.String,
+    EnumType = typeof(RunMode),
+    DefaultValue = FlowEnumConverter.ToWireValue(RunMode.Auto),
+    BindingMode = NodeSettingBindingMode.ConstantOrVariable
+}
+```
+
 ```csharp
 new NodeSettingDescriptor
 {

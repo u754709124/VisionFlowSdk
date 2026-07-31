@@ -1,3 +1,5 @@
+using System;
+
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
@@ -10,6 +12,12 @@ namespace Vision.Flow.Core.Domain.Nodes
         public string DisplayName { get; set; }
 
         public FlowDataType DataType { get; set; }
+
+        /// <summary>
+        /// 获取或设置字符串协议值对应的具体枚举类型；为空表示普通数据类型。
+        /// 变量绑定只有在目标设置声明同一枚举类型时才兼容。
+        /// </summary>
+        public Type EnumType { get; set; }
 
         public string Description { get; set; }
     }

@@ -673,7 +673,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                             displayName,
                             node.Id,
                             outputDisplayName + " (" + output.Name + ")",
-                            output.DataType));
+                            output.DataType,
+                            output.EnumType));
                     }
                 }
             }

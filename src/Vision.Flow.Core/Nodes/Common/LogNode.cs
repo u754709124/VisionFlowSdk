@@ -150,6 +150,7 @@ namespace Vision.Flow.Nodes
                         Name = FlowSettingNames.Level,
                         DisplayName = "Level",
                         DataType = FlowDataType.String,
+                        EnumType = typeof(FlowLogLevel),
                         DefaultValue = FlowEnumConverter.ToWireValue(FlowLogLevel.Info),
                         IsRequired = false,
                         Description = "Log level, such as Info, Warning, or Error.",
@@ -177,6 +178,7 @@ namespace Vision.Flow.Nodes
                         Name = FlowSettingNames.Level,
                         DisplayName = "Level",
                         DataType = FlowDataType.String,
+                        EnumType = typeof(FlowLogLevel),
                         Description = "The resolved log level."
                     },
                     new NodeOutputDescriptor

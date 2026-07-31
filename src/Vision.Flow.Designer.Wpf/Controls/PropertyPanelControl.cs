@@ -455,7 +455,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 .Where(x => IsSourceAllowed(setting.AllowedVariableSources, x.Selector.Scope))
                 .ToList();
             var compatibleOptions = allowedOptions
-                .Where(x => FlowDataTypeCompatibility.IsCompatible(x.DataType, setting.DataType))
+                .Where(x => FlowDataTypeCompatibility.IsCompatible(
+                    x.DataType,
+                    x.EnumType,
+                    setting.DataType,
+                    setting.EnumType))
                 .ToList();
 
             var layout = new StackPanel();
@@ -768,8 +772,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (!compatibleOptions.Any(x => x.Matches(selector)))
             {
-                return CreateInvalidText("变量类型 " + FlowEnumConverter.ToWireValue(source.DataType) +
-                    " 不能赋给 " + FlowEnumConverter.ToWireValue(setting.DataType) + "。");
+                var sourceType = source.EnumType == null
+                    ? FlowEnumConverter.ToWireValue(source.DataType)
+                    : source.EnumType.Name;
+                var targetType = setting.EnumType == null
+                    ? FlowEnumConverter.ToWireValue(setting.DataType)
+                    : setting.EnumType.Name;
+                return CreateInvalidText("变量类型 " + sourceType +
+                    " 不能赋给 " + targetType + "。");
             }
 
             if (FlowDataTypeCompatibility.GetCompatibility(source.DataType, setting.DataType) == FlowDataTypeCompatibilityResult.Warning)
@@ -1506,6 +1516,17 @@ namespace Vision.Flow.Designer.Wpf.Controls
                             items.Add(option);
                         }
                     }
+                }
+            }
+
+            if (!usesHostOptions &&
+                setting.EnumType != null &&
+                setting.EnumType.IsEnum)
+            {
+                usesHostOptions = true;
+                foreach (var name in Enum.GetNames(setting.EnumType))
+                {
+                    items.Add(new NodeSettingConstantOption(name, name));
                 }
             }
 

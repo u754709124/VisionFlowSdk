@@ -27,7 +27,7 @@ namespace Vision.Flow.Nodes
                 Settings =
                 {
                     CreateObjectSetting(FlowSettingNames.LeftBinding, "Left Value", null, true, "Left comparison value or variable selector."),
-                    CreateStringSetting(FlowSettingNames.Operator, "Operator", FlowEnumConverter.ToWireValue(ConditionOperator.Equal), true, "Equal, NotEqual, GreaterThan, LessThan, Contains, IsNull, or IsNotNull."),
+                    CreateStringSetting(FlowSettingNames.Operator, "Operator", FlowEnumConverter.ToWireValue(ConditionOperator.Equal), true, "Equal, NotEqual, GreaterThan, LessThan, Contains, IsNull, or IsNotNull.", typeof(ConditionOperator)),
                     CreateObjectSetting(FlowSettingNames.RightValue, "Right Value", null, false, "Constant right value."),
                     CreateObjectSetting(FlowSettingNames.RightBinding, "Right Variable", null, false, "Optional right comparison variable selector.")
                 },
@@ -37,7 +37,7 @@ namespace Vision.Flow.Nodes
                     CreateOutput(FlowOutputNames.IsMatched, "Is Matched", FlowDataType.Boolean, "Alias for Result."),
                     CreateOutput("Left", "Left", FlowDataType.Object, "Resolved left value."),
                     CreateOutput("Right", "Right", FlowDataType.Object, "Resolved right value."),
-                    CreateOutput(FlowSettingNames.Operator, "Operator", FlowDataType.String, "Operator used for evaluation.")
+                    CreateOutput(FlowSettingNames.Operator, "Operator", FlowDataType.String, "Operator used for evaluation.", typeof(ConditionOperator))
                 }
             };
         }
@@ -55,13 +55,14 @@ namespace Vision.Flow.Nodes
             };
         }
 
-        private static NodeSettingDescriptor CreateStringSetting(string name, string displayName, string defaultValue, bool isRequired, string description)
+        private static NodeSettingDescriptor CreateStringSetting(string name, string displayName, string defaultValue, bool isRequired, string description, Type enumType = null)
         {
             return new NodeSettingDescriptor
             {
                 Name = name,
                 DisplayName = displayName,
                 DataType = FlowDataType.String,
+                EnumType = enumType,
                 DefaultValue = defaultValue,
                 IsRequired = isRequired,
                 Description = description,
@@ -87,13 +88,14 @@ namespace Vision.Flow.Nodes
             };
         }
 
-        private static NodeOutputDescriptor CreateOutput(string name, string displayName, FlowDataType dataType, string description)
+        private static NodeOutputDescriptor CreateOutput(string name, string displayName, FlowDataType dataType, string description, Type enumType = null)
         {
             return new NodeOutputDescriptor
             {
                 Name = name,
                 DisplayName = displayName,
                 DataType = dataType,
+                EnumType = enumType,
                 Description = description
             };
         }

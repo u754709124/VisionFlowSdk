@@ -444,6 +444,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return left != null &&
                 right != null &&
                 left.DataType == right.DataType &&
+                left.EnumType == right.EnumType &&
                 left.BindingMode == right.BindingMode &&
                 left.EvaluationPhase == right.EvaluationPhase &&
                 left.AllowedVariableSources == right.AllowedVariableSources &&
@@ -518,6 +519,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 AppendDescriptorValue(result, setting.Name);
                 AppendDescriptorValue(result, setting.DisplayName);
                 AppendDescriptorValue(result, setting.DataType);
+                AppendDescriptorValue(
+                    result,
+                    setting.EnumType == null
+                        ? null
+                        : setting.EnumType.AssemblyQualifiedName);
                 AppendDescriptorValue(result, setting.DefaultValue);
                 AppendDescriptorValue(result, setting.IsRequired);
                 AppendDescriptorValue(result, setting.Description);
@@ -557,6 +563,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 AppendDescriptorValue(result, output.Name);
                 AppendDescriptorValue(result, output.DisplayName);
                 AppendDescriptorValue(result, output.DataType);
+                AppendDescriptorValue(
+                    result,
+                    output.EnumType == null
+                        ? null
+                        : output.EnumType.AssemblyQualifiedName);
                 AppendDescriptorValue(result, output.Description);
             }
 
