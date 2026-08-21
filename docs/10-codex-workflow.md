@@ -52,3 +52,9 @@
 - 线程风险
 - 序列化兼容性
 - 测试覆盖
+
+## 旧式 C# 项目的源文件清单
+
+\`Vision.Flow.Core\` 和 \`Vision.Flow.Designer.Wpf\` 使用旧式 C# 项目格式。项目文件必须显式列出全部 \`.cs\` 源文件；不要仅依赖 \`Compile Include="**\\*.cs"\` 通配符。旧式项目系统可能继续使用过期的设计时源文件缓存，导致 IntelliSense 报告实际编译不存在的类型错误。
+
+新增或删除这两个项目的源文件时，同步更新对应 \`.csproj\` 的 \`Compile\` 清单；如果 Visual Studio 仍显示已不存在的类型错误，关闭 Visual Studio 后删除解决方案或项目目录下的 \`.vs\` 缓存，再重新打开解决方案。
