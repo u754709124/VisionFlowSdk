@@ -13,9 +13,18 @@ namespace Vision.Flow.Core.Runtime.Events
         private long _droppedEventCount;
 
         /// <summary>
-        /// 创建有界内存事件出口，容量满时淘汰最早事件。
+        /// 使用 4096 条容量创建有界内存事件出口，保留旧调用方的无参二进制契约。
         /// </summary>
-        public InMemoryFlowEventSink(int capacity = 4096)
+        public InMemoryFlowEventSink()
+            : this(4096)
+        {
+        }
+
+        /// <summary>
+        /// 使用指定容量创建有界内存事件出口，容量满时淘汰最早事件。
+        /// </summary>
+        /// <param name="capacity">允许保留的最大事件数量。</param>
+        public InMemoryFlowEventSink(int capacity)
         {
             if (capacity <= 0)
             {

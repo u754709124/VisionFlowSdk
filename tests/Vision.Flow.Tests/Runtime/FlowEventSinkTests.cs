@@ -11,6 +11,19 @@ namespace Vision.Flow.Tests
     internal static class FlowEventSinkTests
     {
         /// <summary>
+        /// 验证旧二进制调用方依赖的无参构造器仍真实存在于程序集元数据。
+        /// </summary>
+        public static Task ParameterlessInMemorySinkPreservesBinaryContract()
+        {
+            var constructor = typeof(InMemoryFlowEventSink).GetConstructor(
+                Type.EmptyTypes);
+            AssertEx.True(
+                constructor != null,
+                "The legacy public parameterless constructor must remain present in metadata.");
+            return Task.FromResult(0);
+        }
+
+        /// <summary>
         /// 验证事件快照不会保留图像、帧或二进制缓冲区资源。
         /// </summary>
         public static async Task SanitizerRemovesResourceReferences()

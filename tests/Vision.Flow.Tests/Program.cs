@@ -97,6 +97,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Late continuation publishes a rejected FlowRun terminal", FlowRunnerTests.ContinuationAfterStopPublishesRejectedTerminal),
                 new TestCase("FlowRunner reports a clear missing entry exception", FlowRunnerTests.MissingEntryThrows),
                 new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
+                new TestCase("In-memory sink preserves parameterless binary contract", FlowEventSinkTests.ParameterlessInMemorySinkPreservesBinaryContract),
                 new TestCase("Runtime event snapshots remove resource references", FlowEventSinkTests.SanitizerRemovesResourceReferences),
                 new TestCase("Bounded event sink contains telemetry pressure", FlowEventSinkTests.BoundedSinkContainsTelemetryPressure),
                 new TestCase("Node retry is disabled by default", NodeExecutionPolicyTests.RetryDisabledExecutesOnce),
