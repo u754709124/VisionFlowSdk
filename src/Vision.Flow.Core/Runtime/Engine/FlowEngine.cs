@@ -42,7 +42,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             }
 
             _nodeRegistry = nodeRegistry;
-            _eventSink = eventSink ?? new InMemoryFlowEventSink();
+            _eventSink = eventSink ?? new BoundedFlowEventSink();
             _devices = devices ?? EmptyDeviceRegistry.Instance;
             _options = CloneOptions(options);
         }

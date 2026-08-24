@@ -12,6 +12,7 @@ tests/Vision.Flow.Tests
 - Unified Trigger：Manual / External 来源匹配、入口输入校验与类型转换、TriggerInput 配置解析、结果变量快照、生命周期事件和 FlowRunId、默认串行、配置并行、队列满拒绝。
 - NodeEvent：只启动入口引用的 `IFlowListenerNode`、监听续流携带入口与 TriggerInputs、按 SourceNodeId 出边继续、停止时释放监听器。
 - FlowRun 生命周期：终态 exactly-once、终态 Sink 异常不重发、并发 `StopAsync` 共享排空、`FlowStopped` 晚于全部 Active 终态、停止后迟到续流按原 `FlowRunId` 拒绝。
+- 事件压力：十万条 `OutputProduced` 下队列不超过配置容量、保留内存增量不超过 32 MB、丢弃计数可观测、关键终态满载背压且最终送达、事件快照不包含图像/帧/字节缓冲区原对象。
 - Serialization / Publish：Schema v2 round-trip、明确拒绝 v1、入口类型/输入/执行策略 round-trip、节点 `ExecutionPolicy` 完整协议与缺失/null 默认值、结构化 Setting Selector、TriggerInput 可达性和类型冲突、入口绕过变量来源警告、发布后移除 view state、校验通过后写入 `.flowruntime`、无效发布不覆盖、样例流程校验。
 - Core 节点：注册、日志事件、延时、变量写入、AND Join、Condition 分支。
 - Core 契约：`VisionImageReference` 生命周期和精简公共面的守卫。

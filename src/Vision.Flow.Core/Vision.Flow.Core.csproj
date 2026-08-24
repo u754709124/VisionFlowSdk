@@ -111,11 +111,16 @@
     <Compile Include="Runtime\Engine\FlowRunner.TriggerInputs.cs" />
     <Compile Include="Runtime\Engine\RuntimeFlowPlan.cs" />
     <Compile Include="Runtime\Events\FlowRuntimeDataKeys.cs" />
+    <Compile Include="Runtime\Events\BoundedFlowEventSink.cs" />
+    <Compile Include="Runtime\Events\FlowEventSinkOptions.cs" />
     <Compile Include="Runtime\Events\FlowRuntimeEvent.cs" />
     <Compile Include="Runtime\Events\FlowRuntimeEventType.cs" />
+    <Compile Include="Runtime\Events\FlowRuntimeValueSummary.cs" />
     <Compile Include="Runtime\Events\IFlowEventSink.cs" />
     <Compile Include="Runtime\Events\InMemoryFlowEventSink.cs" />
+    <Compile Include="Runtime\Events\NullFlowEventSink.cs" />
     <Compile Include="Runtime\Events\NodeRuntimeState.cs" />
+    <Compile Include="Runtime\Events\SanitizingFlowEventSink.cs" />
     <Compile Include="Runtime\Execution\EnvironmentVariableValues.cs" />
     <Compile Include="Runtime\Execution\FlowContinuation.cs" />
     <Compile Include="Runtime\Execution\FlowExecutionContext.cs" />

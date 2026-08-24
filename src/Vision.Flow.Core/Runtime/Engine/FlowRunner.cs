@@ -69,7 +69,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             _definition = definition;
             _plan = new RuntimeFlowPlan(definition);
             _nodeRegistry = nodeRegistry;
-            _eventSink = eventSink ?? new InMemoryFlowEventSink();
+            _eventSink = new SanitizingFlowEventSink(eventSink ?? new BoundedFlowEventSink());
             _devices = devices ?? EmptyDeviceRegistry.Instance;
             _options = CloneOptions(options);
             _options.EnvironmentVariableValues =
