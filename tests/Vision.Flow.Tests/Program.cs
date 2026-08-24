@@ -130,6 +130,7 @@ namespace Vision.Flow.Tests
                 new TestCase("TriggerInput selectors are validated against reachable entries", FlowTriggerTests.TriggerInputSelectorsAreValidated),
                 new TestCase("VisionImageReference supports clone and disposal", CoreDeviceContractTests.VisionImageReferenceLifecycle),
                 new TestCase("Motion adapter models use read-only snapshots", CoreDeviceContractTests.MotionAdapterModelsUseReadOnlySnapshots),
+                new TestCase("Light controller registry uses explicit contract", CoreDeviceContractTests.LightControllerRegistryUsesExplicitContract),
                 new TestCase("CommonNodeRegistration resolves common factories", CommonNodeTests.RegisterAllResolvesFactories),
                 new TestCase("Common descriptors use strong enum types", CommonNodeTests.CommonDescriptorsUseStrongEnumTypes),
                 new TestCase("Common descriptors use Chinese node metadata", CommonNodeTests.CommonDescriptorsUseChineseNodeMetadata),

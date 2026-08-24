@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Core.Domain.Nodes;
@@ -70,6 +72,36 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("MoveAbsolute", result.CommandName, "Result should keep logical command name.");
             AssertEx.Equal("PositionChanged", received.CommandName, "Event should keep logical command name.");
             AssertEx.Equal("P01", received.WireCode, "Event should keep wire command code as diagnostic data.");
+            return Task.FromResult(0);
+        }
+
+        public static Task LightControllerRegistryUsesExplicitContract()
+        {
+            MethodInfo getLight = typeof(IDeviceRegistry).GetMethod(
+                "GetLightController",
+                new[] { typeof(string) });
+            MethodInfo tryGetLight = typeof(IDeviceRegistry).GetMethod(
+                "TryGetLightController");
+
+            AssertEx.True(getLight != null, "Registry should expose explicit light lookup.");
+            AssertEx.Equal(
+                typeof(ILightControllerAdapter),
+                getLight.ReturnType,
+                "Light lookup should return the Core light Adapter contract.");
+            AssertEx.True(
+                tryGetLight != null &&
+                tryGetLight.GetParameters().Last().ParameterType ==
+                    typeof(ILightControllerAdapter).MakeByRefType(),
+                "TryGet light lookup should use an explicit out Adapter contract.");
+            AssertEx.False(
+                typeof(IDeviceRegistry).GetMethods().Any(x => x.IsGenericMethodDefinition),
+                "Device registry should not require generic Adapter lookup.");
+
+            var range = new LightValueRange(10, 20);
+            var setting = new LightChannelSetting(2, 128, 15);
+            AssertEx.True(range.Contains(10) && range.Contains(20), "Light range should include both bounds.");
+            AssertEx.Equal(2, setting.ChannelIndex, "Light setting should keep its physical channel.");
+            AssertEx.Equal(128, setting.Brightness, "Light setting should keep brightness.");
             return Task.FromResult(0);
         }
 

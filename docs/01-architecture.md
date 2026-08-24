@@ -82,6 +82,10 @@ Upper-machine app
 
 ## Runtime 服务
 
-Core 保留 `IDeviceRegistry`、`ICameraAdapter`、`IMotionAdapter`、`CameraFrameData` 和 `IVisionImage` 等设备基础契约。项目专属节点应通过这些 Adapter 契约访问设备，不直接引用具体 SDK；Core 的运控命令仅使用逻辑字符串和通用字典。
+Core 保留 `IDeviceRegistry`、`ICameraAdapter`、`ILightControllerAdapter`、
+`IMotionAdapter`、`CameraFrameData` 和 `IVisionImage` 等设备基础契约。项目专属节点应
+通过这些 Adapter 契约访问设备，不直接引用具体 SDK；Core 的运控命令仅使用逻辑字符串
+和通用字典。
 
-具体运控命令枚举与线缆协议、光源、Recipe、保存、数据库、队列和扫描/融合分组能力由项目专属节点库自行定义和注册。
+具体运控命令枚举与线缆协议、组合光源映射、Recipe、保存、数据库、队列和扫描/融合
+分组能力由项目专属节点库自行定义和注册。

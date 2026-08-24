@@ -9,6 +9,8 @@ Adapter 契约让项目专属节点可以调用现有上位机设备逻辑，同
 Core 保留相机、运控和图像基础契约：
 
 - `IDeviceRegistry`
+- `ILightControllerAdapter` 与相机、运控 Adapter 同属 Core 设备契约；通过
+  `IDeviceRegistry.GetLightController` / `TryGetLightController` 按稳定控制器 Id 获取。
 - `ICameraAdapter`
 - `IMotionAdapter`
 - `CameraFrameData`
@@ -16,7 +18,10 @@ Core 保留相机、运控和图像基础契约：
 
 Core 不再内置相机节点。真实相机 SDK、Fake 设备、Demo 设备、相机节点和项目专属算法/保存/数据库节点均由具体项目实现。
 
-Core 的运控契约只使用逻辑命令字符串和通用参数字典，不包含任何项目专属命令枚举、线缆协议、命令目录或设备 SDK。光源、Recipe、图像保存、数据库保存和队列服务不作为 Core 公共契约发布；项目如需这些能力，应在项目专属节点库或上位机应用中定义自己的接口。
+Core 的运控契约只使用逻辑命令字符串和通用参数字典，不包含任何项目专属命令枚举、
+线缆协议、命令目录或设备 SDK。Core 光源契约只描述单控制器通道、模式与独占租约；
+组合映射、Recipe、图像保存、数据库保存和队列服务不作为 Core 公共契约发布，项目应在
+项目专属节点库或上位机应用中定义这些接口。
 
 ## ICameraAdapter
 

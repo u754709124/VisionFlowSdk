@@ -44,6 +44,8 @@
     <Compile Include="Contracts\Devices\EmptyDeviceRegistry.cs" />
     <Compile Include="Contracts\Devices\ICameraAdapter.cs" />
     <Compile Include="Contracts\Devices\IDeviceRegistry.cs" />
+    <Compile Include="Contracts\Devices\ILightControllerAdapter.cs" />
+    <Compile Include="Contracts\Devices\LightControllerModels.cs" />
     <Compile Include="Contracts\Devices\IMotionAdapter.cs" />
     <Compile Include="Contracts\Devices\IVisionImage.cs" />
     <Compile Include="Contracts\Devices\MotionAdapterCommandModels.cs" />

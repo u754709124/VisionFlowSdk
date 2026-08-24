@@ -10,7 +10,7 @@ using Vision.Flow.Core.Runtime.State;
 
 namespace Vision.Flow.Tests
 {
-    // 公共面收缩测试通过反射保护运行契约，避免重新引入非相机设备、保存和队列 API。
+    // 公共面收缩测试通过反射保护运行契约，避免重新引入具体设备协议、保存和队列 API。
     internal static class ApiSurfaceReductionTests
     {
         public static Task DeviceContractSurfaceIsConstrained()
@@ -19,9 +19,9 @@ namespace Vision.Flow.Tests
             AssertTypeMissing(DeviceType("I", "Recipe", "Adapter"));
             AssertTypeMissing(DeviceType("I", "ImageSave", "Adapter"));
             AssertTypeMissing(DeviceType("I", "Database", "Adapter"));
-            AssertTypeMissing(DeviceType("Light", "ChannelSetting"));
             AssertTypeMissing(DeviceType("Motion", "Message"));
             AssertEx.True(typeof(IMotionAdapter).IsInterface, "Core should expose the protocol-neutral motion adapter.");
+            AssertEx.True(typeof(ILightControllerAdapter).IsInterface, "Core should expose the protocol-neutral single light-controller adapter.");
             AssertTypeMissing(DeviceType("Recipe", "RunRequest"));
             AssertTypeMissing(DeviceType("Recipe", "RunResult"));
             AssertTypeMissing(DeviceType("ImageSave", "Request"));
@@ -35,9 +35,17 @@ namespace Vision.Flow.Tests
                 .ToArray();
 
             AssertEx.SequenceEqual(
-                new[] { "GetCamera", "GetMotion", "TryGetCamera", "TryGetMotion" },
+                new[]
+                {
+                    "GetCamera",
+                    "GetLightController",
+                    "GetMotion",
+                    "TryGetCamera",
+                    "TryGetLightController",
+                    "TryGetMotion"
+                },
                 methods,
-                "IDeviceRegistry should expose camera and motion lookup methods.");
+                "IDeviceRegistry should expose explicit camera, light-controller and motion lookup methods.");
             return Task.FromResult(0);
         }
 

@@ -21,6 +21,19 @@ namespace Vision.Flow.Core.Contracts.Devices
             throw CreateMissingDeviceException("camera", cameraId);
         }
 
+        public bool TryGetLightController(
+            string controllerId,
+            out ILightControllerAdapter controller)
+        {
+            controller = null;
+            return false;
+        }
+
+        public ILightControllerAdapter GetLightController(string controllerId)
+        {
+            throw CreateMissingDeviceException("light controller", controllerId);
+        }
+
         public bool TryGetMotion(string motionId, out IMotionAdapter motion)
         {
             motion = null;

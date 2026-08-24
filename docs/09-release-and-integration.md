@@ -100,7 +100,9 @@ var eventSink = new StationEventSink();
 var runner = new FlowEngine(nodes, eventSink, devices).CreateRunner(flow);
 ```
 
-项目专属设备节点应通过 `IDeviceRegistry` 获取 `ICameraAdapter` 或 `IMotionAdapter`。具体运控协议、命令枚举和 Adapter 实现随上位机项目发布，不进入 Core。
+项目专属设备节点应通过 `IDeviceRegistry` 获取相机、单光源控制器或运控 Adapter。
+具体厂商 SDK、组合光源映射、运控协议、命令枚举和 Adapter 实现随上位机项目发布，
+不进入 Core。
 
 ## Flow Files
 
