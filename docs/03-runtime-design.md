@@ -63,6 +63,10 @@ var result = await runner.TriggerAsync(new FlowTriggerRequest
 
 每次请求先发布 `TokenCreated`，进入执行槽后发布 `FlowRunStarted`，最后发布 `FlowRunCompleted`、`FlowRunFailed`、`FlowRunCancelled` 或 `FlowRunRejected`。同一次运行的事件共享 `FlowRunId`；Started 事件状态为 `Running`。生命周期事件只携带入口名、触发来源和有效 TriggerInputs，不复制全量变量池，避免图像等大对象放大事件负载。
 
+FlowRun 终态采用 exactly-once 语义：每个被接受的 `FlowRunId` 最多发布一个终态，终态 Sink 返回后才从 Active 集合移除。节点内部派生且沿用当前 `FlowRunId` 的 continuation 属于同一运行，不创建第二组生命周期；没有绑定现有运行的监听 continuation 会建立独立生命周期。停止窗口内到达、尚未接受的监听 continuation 仍会以原 `FlowRunId` 发布 `FlowRunRejected`，供宿主释放已登记的 FlowRun 资源。
+
+`StopAsync` 的排空顺序固定为：关闭新运行准入、逆序停止监听节点、取消 Runner 令牌、等待全部 Active FlowRun 完成终态发布、发布 `FlowStopped`、释放 Runner 令牌源。并发调用共享同一次停止任务；调用方传入的取消令牌只取消自己的等待，不中断后台排空和资源释放。
+
 ## 入口并发与图内并行
 
 入口策略和图内扇出是两个独立层次：

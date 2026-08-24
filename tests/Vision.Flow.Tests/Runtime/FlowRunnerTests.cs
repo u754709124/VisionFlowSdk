@@ -159,6 +159,62 @@ namespace Vision.Flow.Tests
             AssertEx.False(runner.IsRunning, "StopAsync should mark the runner as stopped.");
         }
 
+        /// <summary>
+        /// 验证并发停止调用共享同一次排空，并在返回前完成唯一终态发布。
+        /// </summary>
+        public static async Task ConcurrentStopDrainsActiveRunExactlyOnce()
+        {
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateLongRunningFlow(), new List<string>(), sink);
+            await runner.StartAsync().ConfigureAwait(false);
+            var triggerTask = runner.TriggerAsync(
+                CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-concurrent-stop" }));
+            await WaitForEventAsync(sink, FlowRuntimeEventType.NodeStarted, "A").ConfigureAwait(false);
+
+            var firstStop = runner.StopAsync();
+            var secondStop = runner.StopAsync();
+            await Task.WhenAll(firstStop, secondStop).ConfigureAwait(false);
+            var result = await triggerTask.ConfigureAwait(false);
+
+            var terminalEvents = sink.Events.Where(x =>
+                x.FlowRunId == result.FlowRunId &&
+                (x.EventType == FlowRuntimeEventType.FlowRunCompleted ||
+                 x.EventType == FlowRuntimeEventType.FlowRunFailed ||
+                 x.EventType == FlowRuntimeEventType.FlowRunCancelled ||
+                 x.EventType == FlowRuntimeEventType.FlowRunRejected)).ToList();
+            AssertEx.Equal(1, terminalEvents.Count, "A FlowRun must publish exactly one terminal event.");
+            AssertEx.Equal(FlowRuntimeEventType.FlowRunCancelled, terminalEvents[0].EventType, "Stop should cancel the active FlowRun.");
+            AssertEx.True(
+                sink.Events.IndexOf(terminalEvents[0]) < sink.Events.ToList().FindIndex(x => x.EventType == FlowRuntimeEventType.FlowStopped),
+                "FlowStopped must be published after every active FlowRun terminal.");
+        }
+
+        /// <summary>
+        /// 验证终态下游失败时不会重发第二个终态，且停止仍可完成排空。
+        /// </summary>
+        public static async Task TerminalSinkFailureDoesNotDuplicateTerminal()
+        {
+            var executionLog = new List<string>();
+            var sink = new ThrowOnceTerminalSink();
+            var registry = new NodeRegistry();
+            registry.Register(new RecordingNodeFactory(executionLog));
+            var runner = new FlowEngine(registry, sink).CreateRunner(CreateSingleNodeFlow());
+            await runner.StartAsync().ConfigureAwait(false);
+
+            await AssertEx.ThrowsAsync<InvalidOperationException>(
+                () => runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-terminal-failure" }))).ConfigureAwait(false);
+            await runner.StopAsync().ConfigureAwait(false);
+
+            AssertEx.Equal(
+                1,
+                sink.Events.Count(x =>
+                    x.EventType == FlowRuntimeEventType.FlowRunCompleted ||
+                    x.EventType == FlowRuntimeEventType.FlowRunFailed ||
+                    x.EventType == FlowRuntimeEventType.FlowRunCancelled ||
+                    x.EventType == FlowRuntimeEventType.FlowRunRejected),
+                "A failed terminal publication attempt must not be retried as another terminal state.");
+        }
+
         public static async Task ContinuationDispatcherRoutesOutputPort()
         {
             var executionLog = new List<string>();
@@ -206,6 +262,7 @@ namespace Vision.Flow.Tests
                 () => ((IFlowContinuationDispatcher)runner).DispatchAsync(
                     new FlowContinuation
                     {
+                        FlowRunId = "standalone-cycle",
                         SourceNodeId = "A",
                         OutputPort = FlowPortNames.Next,
                         Variables = continuationVariables,
@@ -225,7 +282,41 @@ namespace Vision.Flow.Tests
                     x.EventType == FlowRuntimeEventType.NodeCompleted &&
                     string.Equals(x.NodeId, "A", StringComparison.OrdinalIgnoreCase)),
                 "A rejected continuation must not publish a source completion event.");
+            AssertEx.Equal(
+                1,
+                sink.Events.Count(x =>
+                    x.FlowRunId == "standalone-cycle" &&
+                    x.EventType == FlowRuntimeEventType.FlowRunFailed),
+                "A standalone continuation failure must publish one FlowRun terminal.");
             await runner.StopAsync().ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 验证停止后到达的监听续流仍使用原 FlowRunId 发布拒绝终态。
+        /// </summary>
+        public static async Task ContinuationAfterStopPublishesRejectedTerminal()
+        {
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateSingleNodeFlow(), new List<string>(), sink);
+            await runner.StartAsync().ConfigureAwait(false);
+            await runner.StopAsync().ConfigureAwait(false);
+
+            await ((IFlowContinuationDispatcher)runner).DispatchAsync(
+                new FlowContinuation
+                {
+                    FlowRunId = "late-listener-run",
+                    SourceNodeId = "A",
+                    OutputPort = FlowPortNames.Next,
+                    Outputs = new Dictionary<string, object>()
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            AssertEx.Equal(
+                1,
+                sink.Events.Count(x =>
+                    x.FlowRunId == "late-listener-run" &&
+                    x.EventType == FlowRuntimeEventType.FlowRunRejected),
+                "A late listener continuation must publish one rejected terminal with its original FlowRunId.");
         }
 
         public static async Task MissingEntryThrows()
@@ -527,6 +618,31 @@ namespace Vision.Flow.Tests
             }
 
             throw new InvalidOperationException("Timed out waiting for event " + eventType + " on node " + nodeId + ".");
+        }
+
+        private sealed class ThrowOnceTerminalSink : IFlowEventSink
+        {
+            private readonly InMemoryFlowEventSink _inner = new InMemoryFlowEventSink();
+            private int _hasThrown;
+
+            public IList<FlowRuntimeEvent> Events
+            {
+                get { return _inner.Events; }
+            }
+
+            public async Task PublishAsync(FlowRuntimeEvent runtimeEvent, CancellationToken cancellationToken)
+            {
+                await _inner.PublishAsync(runtimeEvent, cancellationToken).ConfigureAwait(false);
+                var isTerminal =
+                    runtimeEvent.EventType == FlowRuntimeEventType.FlowRunCompleted ||
+                    runtimeEvent.EventType == FlowRuntimeEventType.FlowRunFailed ||
+                    runtimeEvent.EventType == FlowRuntimeEventType.FlowRunCancelled ||
+                    runtimeEvent.EventType == FlowRuntimeEventType.FlowRunRejected;
+                if (isTerminal && Interlocked.CompareExchange(ref _hasThrown, 1, 0) == 0)
+                {
+                    throw new InvalidOperationException("Requested terminal sink failure.");
+                }
+            }
         }
     }
 }

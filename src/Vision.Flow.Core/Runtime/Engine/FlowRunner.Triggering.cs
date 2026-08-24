@@ -12,6 +12,9 @@ namespace Vision.Flow.Core.Runtime.Engine
 {
     public sealed partial class FlowRunner
     {
+        /// <summary>
+        /// 从命名入口触发一次运行，并返回唯一终态及最终变量快照。
+        /// </summary>
         public Task<FlowRunResult> TriggerAsync(
             FlowTriggerRequest request,
             CancellationToken cancellationToken = default(CancellationToken))
@@ -38,6 +41,9 @@ namespace Vision.Flow.Core.Runtime.Engine
                 cancellationToken);
         }
 
+        /// <summary>
+        /// 调度节点续流；沿用 Active FlowRunId 时归入原运行，否则建立独立的监听续流生命周期。
+        /// </summary>
         public async Task DispatchAsync(FlowContinuation continuation, CancellationToken cancellationToken)
         {
             if (continuation == null)
@@ -76,17 +82,6 @@ namespace Vision.Flow.Core.Runtime.Engine
             string requestedFlowRunId,
             CancellationToken cancellationToken)
         {
-            CancellationToken runnerToken;
-            lock (_gate)
-            {
-                if (!IsRunning || _runnerCancellation == null)
-                {
-                    throw new InvalidOperationException("FlowRunner must be started before TriggerAsync is called.");
-                }
-
-                runnerToken = _runnerCancellation.Token;
-            }
-
             var result = new FlowRunResult
             {
                 FlowRunId = string.IsNullOrWhiteSpace(requestedFlowRunId) ? Guid.NewGuid().ToString("N") : requestedFlowRunId,
@@ -95,9 +90,39 @@ namespace Vision.Flow.Core.Runtime.Engine
                 Token = token,
                 StartedAtUtc = DateTime.UtcNow
             };
+            CancellationToken runnerToken = CancellationToken.None;
+            ActiveFlowRun activeRun = null;
+            var rejectedByStopping = false;
+            lock (_gate)
+            {
+                if (!IsRunning || _runnerCancellation == null)
+                {
+                    if (source != FlowTriggerSource.NodeEvent)
+                    {
+                        throw new InvalidOperationException("FlowRunner must be started before TriggerAsync is called.");
+                    }
+
+                    rejectedByStopping = true;
+                    if (_isStopping)
+                    {
+                        // StopCore 会先等待监听器退出再截取 Active 快照；把竞态窗口内的拒绝续流也纳入排空。
+                        activeRun = RegisterActiveFlowRun(result.FlowRunId);
+                    }
+                }
+                else
+                {
+                    runnerToken = _runnerCancellation.Token;
+                    activeRun = RegisterActiveFlowRun(result.FlowRunId);
+                }
+            }
+
             IDictionary<string, object> triggerInputs = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             string rejectionReason = null;
-            if (!IsTriggerSourceAllowed(entry.TriggerKind, source))
+            if (rejectedByStopping)
+            {
+                rejectionReason = "FlowRunner is stopping and no longer accepts listener continuations.";
+            }
+            else if (!IsTriggerSourceAllowed(entry.TriggerKind, source))
             {
                 rejectionReason = "Trigger source " + source + " does not match entry kind " + entry.TriggerKind + ".";
             }
@@ -110,79 +135,91 @@ namespace Vision.Flow.Core.Runtime.Engine
                 triggerInputs = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             }
 
-            await PublishTokenCreatedAsync(result, triggerInputs).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(rejectionReason))
+            EntryExecutionLease lease = null;
+            IVariablePool variables = null;
+            var status = FlowRunStatus.Succeeded;
+            string errorMessage = null;
+            try
             {
-                return await CompleteFlowRunAsync(result, FlowRunStatus.Rejected, rejectionReason, null).ConfigureAwait(false);
-            }
-
-            using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, runnerToken))
-            {
-                EntryExecutionLease lease = null;
-                IVariablePool variables = null;
-                try
+                await PublishTokenCreatedAsync(result, triggerInputs).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(rejectionReason))
                 {
-                    lease = await GetEntryGate(entry).TryEnterAsync(linkedCancellation.Token).ConfigureAwait(false);
-                    if (lease == null)
-                    {
-                        return await CompleteFlowRunAsync(
-                            result,
-                            FlowRunStatus.Rejected,
-                            "Trigger queue is full for entry: " + entry.EntryName,
-                            triggerInputs).ConfigureAwait(false);
-                    }
-
-                    await PublishFlowRunEventAsync(
-                        FlowRuntimeEventType.FlowRunStarted,
-                        result,
-                        NodeRuntimeState.Running,
-                        null,
-                        triggerInputs).ConfigureAwait(false);
-
-                    variables = nodeEventContinuation == null || nodeEventContinuation.Variables == null
-                        ? new VariablePool()
-                        : nodeEventContinuation.Variables;
-                    if (nodeEventContinuation == null)
-                    {
-                        await ExecuteGraphAsync(
-                            entry.TargetNodeId,
-                            token,
-                            variables,
-                            triggerInputs,
-                            linkedCancellation.Token,
-                            new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                            result.FlowRunId).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        await ExecuteNodeEventContinuationAsync(
-                            entry,
-                            nodeEventContinuation,
-                            token,
-                            variables,
-                            triggerInputs,
-                            linkedCancellation.Token,
-                            result.FlowRunId).ConfigureAwait(false);
-                    }
-
-                    return await CompleteFlowRunAsync(result, FlowRunStatus.Succeeded, null, triggerInputs, variables).ConfigureAwait(false);
+                    status = FlowRunStatus.Rejected;
+                    errorMessage = rejectionReason;
                 }
-                catch (OperationCanceledException ex)
+                else
                 {
-                    return await CompleteFlowRunAsync(result, FlowRunStatus.Cancelled, ex.Message, triggerInputs, variables).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    return await CompleteFlowRunAsync(result, FlowRunStatus.Failed, ex.Message, triggerInputs, variables).ConfigureAwait(false);
-                }
-                finally
-                {
-                    if (lease != null)
+                    using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, runnerToken))
                     {
-                        lease.Dispose();
+                        lease = await GetEntryGate(entry).TryEnterAsync(linkedCancellation.Token).ConfigureAwait(false);
+                        if (lease == null)
+                        {
+                            status = FlowRunStatus.Rejected;
+                            errorMessage = "Trigger queue is full for entry: " + entry.EntryName;
+                        }
+                        else
+                        {
+                            await PublishFlowRunEventAsync(
+                                FlowRuntimeEventType.FlowRunStarted,
+                                result,
+                                NodeRuntimeState.Running,
+                                null,
+                                triggerInputs).ConfigureAwait(false);
+
+                            variables = nodeEventContinuation == null || nodeEventContinuation.Variables == null
+                                ? new VariablePool()
+                                : nodeEventContinuation.Variables;
+                            if (nodeEventContinuation == null)
+                            {
+                                await ExecuteGraphAsync(
+                                    entry.TargetNodeId,
+                                    token,
+                                    variables,
+                                    triggerInputs,
+                                    linkedCancellation.Token,
+                                    new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                                    result.FlowRunId).ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                await ExecuteNodeEventContinuationAsync(
+                                    entry,
+                                    nodeEventContinuation,
+                                    token,
+                                    variables,
+                                    triggerInputs,
+                                    linkedCancellation.Token,
+                                    result.FlowRunId).ConfigureAwait(false);
+                            }
+                        }
                     }
                 }
             }
+            catch (OperationCanceledException ex)
+            {
+                status = FlowRunStatus.Cancelled;
+                errorMessage = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                status = FlowRunStatus.Failed;
+                errorMessage = ex.Message;
+            }
+            finally
+            {
+                if (lease != null)
+                {
+                    lease.Dispose();
+                }
+            }
+
+            return await CompleteFlowRunAsync(
+                activeRun,
+                result,
+                status,
+                errorMessage,
+                triggerInputs,
+                variables).ConfigureAwait(false);
         }
 
         private async Task ExecuteNodeEventContinuationAsync(
@@ -248,34 +285,146 @@ namespace Vision.Flow.Core.Runtime.Engine
             FlowContinuation continuation,
             CancellationToken cancellationToken)
         {
-            CancellationToken runnerToken;
+            var token = continuation.Token ?? new FlowToken();
+            var variables = continuation.Variables ?? new VariablePool();
+            var triggerInputs = continuation.TriggerInputs ?? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            var result = new FlowRunResult
+            {
+                FlowRunId = string.IsNullOrWhiteSpace(continuation.FlowRunId)
+                    ? Guid.NewGuid().ToString("N")
+                    : continuation.FlowRunId,
+                EntryName = string.Empty,
+                Source = FlowTriggerSource.NodeEvent,
+                Token = token,
+                StartedAtUtc = DateTime.UtcNow
+            };
+            CancellationToken runnerToken = CancellationToken.None;
+            ActiveFlowRun activeRun = null;
+            var rejectedByStopping = false;
+            var belongsToActiveRun = false;
             lock (_gate)
             {
                 if (!IsRunning || _runnerCancellation == null)
                 {
-                    return;
+                    rejectedByStopping = true;
+                    if (_isStopping)
+                    {
+                        activeRun = RegisterActiveFlowRun(result.FlowRunId);
+                    }
                 }
-
-                runnerToken = _runnerCancellation.Token;
+                else
+                {
+                    runnerToken = _runnerCancellation.Token;
+                    ActiveFlowRun existingRun;
+                    belongsToActiveRun =
+                        !string.IsNullOrWhiteSpace(continuation.FlowRunId) &&
+                        _activeFlowRuns.TryGetValue(result.FlowRunId, out existingRun);
+                    if (!belongsToActiveRun)
+                    {
+                        activeRun = RegisterActiveFlowRun(result.FlowRunId);
+                    }
+                }
             }
 
-            using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, runnerToken))
+            if (belongsToActiveRun)
             {
-                var token = continuation.Token ?? new FlowToken();
-                var variables = continuation.Variables ?? new VariablePool();
-                var triggerInputs = continuation.TriggerInputs ?? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-                var sourceNode = FindNode(continuation.SourceNodeId);
-                EnsureReadyQueueScopeIsExecutable(sourceNode.Id);
-                var outputPort = string.IsNullOrWhiteSpace(continuation.OutputPort) ? FlowPortNames.Next : continuation.OutputPort;
-                var nodeResult = NodeExecutionResult.Success(outputPort, continuation.Outputs);
-                var flowRunId = string.IsNullOrWhiteSpace(continuation.FlowRunId)
-                    ? Guid.NewGuid().ToString("N")
-                    : continuation.FlowRunId;
+                using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, runnerToken))
+                {
+                    await ExecuteContinuationGraphAsync(
+                        continuation,
+                        token,
+                        variables,
+                        triggerInputs,
+                        linkedCancellation.Token,
+                        result.FlowRunId).ConfigureAwait(false);
+                }
 
-                await WriteOutputsAsync(sourceNode, token, nodeResult, variables, linkedCancellation.Token, flowRunId).ConfigureAwait(false);
+                return;
+            }
+
+            Exception dispatchError = null;
+            var status = rejectedByStopping ? FlowRunStatus.Rejected : FlowRunStatus.Succeeded;
+            try
+            {
+                await PublishTokenCreatedAsync(result, triggerInputs).ConfigureAwait(false);
+                if (!rejectedByStopping)
+                {
+                    await PublishFlowRunEventAsync(
+                        FlowRuntimeEventType.FlowRunStarted,
+                        result,
+                        NodeRuntimeState.Running,
+                        null,
+                        triggerInputs).ConfigureAwait(false);
+
+                    using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, runnerToken))
+                    {
+                        await ExecuteContinuationGraphAsync(
+                            continuation,
+                            token,
+                            variables,
+                            triggerInputs,
+                            linkedCancellation.Token,
+                            result.FlowRunId).ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (OperationCanceledException ex)
+            {
+                status = FlowRunStatus.Cancelled;
+                dispatchError = ex;
+            }
+            catch (Exception ex)
+            {
+                status = FlowRunStatus.Failed;
+                dispatchError = ex;
+            }
+
+            await CompleteFlowRunAsync(
+                activeRun,
+                result,
+                status,
+                rejectedByStopping
+                    ? "FlowRunner is stopping and no longer accepts listener continuations."
+                    : dispatchError == null ? null : dispatchError.Message,
+                triggerInputs,
+                variables).ConfigureAwait(false);
+            if (dispatchError != null)
+            {
+                throw dispatchError;
+            }
+        }
+
+        private async Task ExecuteContinuationGraphAsync(
+            FlowContinuation continuation,
+            FlowToken token,
+            IVariablePool variables,
+            IDictionary<string, object> triggerInputs,
+            CancellationToken cancellationToken,
+            string flowRunId)
+        {
+            var sourceNode = FindNode(continuation.SourceNodeId);
+            EnsureReadyQueueScopeIsExecutable(sourceNode.Id);
+            var outputPort = string.IsNullOrWhiteSpace(continuation.OutputPort) ? FlowPortNames.Next : continuation.OutputPort;
+            var nodeResult = NodeExecutionResult.Success(outputPort, continuation.Outputs);
+
+            await WriteOutputsAsync(sourceNode, token, nodeResult, variables, cancellationToken, flowRunId).ConfigureAwait(false);
+            await PublishAsync(
+                CreateRuntimeEvent(
+                    FlowRuntimeEventType.NodeCompleted,
+                    token,
+                    sourceNode,
+                    NodeRuntimeState.Completed,
+                    null,
+                    outputPort,
+                    flowRunId,
+                    0),
+                cancellationToken).ConfigureAwait(false);
+
+            if (nodeResult.Outputs != null && nodeResult.Outputs.ContainsKey(FlowOutputNames.Image))
+            {
                 await PublishAsync(
                     CreateRuntimeEvent(
-                        FlowRuntimeEventType.NodeCompleted,
+                        FlowRuntimeEventType.ImageProduced,
                         token,
                         sourceNode,
                         NodeRuntimeState.Completed,
@@ -283,43 +432,34 @@ namespace Vision.Flow.Core.Runtime.Engine
                         outputPort,
                         flowRunId,
                         0),
-                    linkedCancellation.Token).ConfigureAwait(false);
-
-                if (nodeResult.Outputs != null && nodeResult.Outputs.ContainsKey(FlowOutputNames.Image))
-                {
-                    await PublishAsync(
-                        CreateRuntimeEvent(
-                            FlowRuntimeEventType.ImageProduced,
-                            token,
-                            sourceNode,
-                            NodeRuntimeState.Completed,
-                            null,
-                            outputPort,
-                            flowRunId,
-                            0),
-                        linkedCancellation.Token).ConfigureAwait(false);
-                }
-
-                var path = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sourceNode.Id };
-                await ExecuteOutgoingEdgesAsync(
-                    sourceNode,
-                    outputPort,
-                    token,
-                    variables,
-                    triggerInputs,
-                    linkedCancellation.Token,
-                    path,
-                    flowRunId).ConfigureAwait(false);
+                    cancellationToken).ConfigureAwait(false);
             }
+
+            var path = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sourceNode.Id };
+            await ExecuteOutgoingEdgesAsync(
+                sourceNode,
+                outputPort,
+                token,
+                variables,
+                triggerInputs,
+                cancellationToken,
+                path,
+                flowRunId).ConfigureAwait(false);
         }
 
         private async Task<FlowRunResult> CompleteFlowRunAsync(
+            ActiveFlowRun activeRun,
             FlowRunResult result,
             FlowRunStatus status,
             string errorMessage,
             IDictionary<string, object> triggerInputs,
             IVariablePool variables = null)
         {
+            if (activeRun != null && !activeRun.TryClaimTerminal())
+            {
+                return result;
+            }
+
             result.Status = status;
             result.ErrorMessage = errorMessage;
             result.CompletedAtUtc = DateTime.UtcNow;
@@ -338,8 +478,49 @@ namespace Vision.Flow.Core.Runtime.Engine
                 : status == FlowRunStatus.Failed
                     ? NodeRuntimeState.Failed
                     : NodeRuntimeState.Stopped;
-            await PublishFlowRunEventAsync(eventType, result, state, errorMessage, triggerInputs).ConfigureAwait(false);
-            return result;
+            try
+            {
+                await PublishFlowRunEventAsync(eventType, result, state, errorMessage, triggerInputs).ConfigureAwait(false);
+                return result;
+            }
+            finally
+            {
+                CompleteActiveFlowRun(activeRun);
+            }
+        }
+
+        private ActiveFlowRun RegisterActiveFlowRun(string flowRunId)
+        {
+            ActiveFlowRun existing;
+            if (_activeFlowRuns.TryGetValue(flowRunId, out existing))
+            {
+                throw new InvalidOperationException("An active FlowRun already uses FlowRunId: " + flowRunId);
+            }
+
+            var activeRun = new ActiveFlowRun(flowRunId);
+            _activeFlowRuns.Add(flowRunId, activeRun);
+            return activeRun;
+        }
+
+        private void CompleteActiveFlowRun(ActiveFlowRun activeRun)
+        {
+            if (activeRun == null)
+            {
+                return;
+            }
+
+            lock (_gate)
+            {
+                ActiveFlowRun registered;
+                if (_activeFlowRuns.TryGetValue(activeRun.FlowRunId, out registered) &&
+                    ReferenceEquals(registered, activeRun))
+                {
+                    _activeFlowRuns.Remove(activeRun.FlowRunId);
+                }
+            }
+
+            // 完成信号必须晚于终态事件发布；宿主据此安全释放 FlowRun 级资源。
+            activeRun.MarkCompleted();
         }
 
         private Task PublishFlowRunEventAsync(

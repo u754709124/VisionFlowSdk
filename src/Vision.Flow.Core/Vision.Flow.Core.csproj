@@ -97,6 +97,7 @@
     <Compile Include="Nodes\ControlFlow\ControlFlowNodeHelpers.cs" />
     <Compile Include="Nodes\Infrastructure\BaseNodeFactory.cs" />
     <Compile Include="Runtime\Engine\BoundFlowContinuationDispatcher.cs" />
+    <Compile Include="Runtime\Engine\ActiveFlowRun.cs" />
     <Compile Include="Runtime\Engine\EntryExecutionGate.cs" />
     <Compile Include="Runtime\Engine\FlowEngine.cs" />
     <Compile Include="Runtime\Engine\FlowRunner.cs" />
