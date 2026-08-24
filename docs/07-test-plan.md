@@ -69,6 +69,9 @@ Runtime 测试至少覆盖：
 - 所有入边均为 `Skipped` 的节点不执行、不发布 `NodeStarted`，其出边继续传播 `Skipped`。
 - Manual / External 入口可以从流程中间节点直接开始，不执行该入口上游节点。
 - NodeEvent continuation 从监听源的输出端口进入同一套就绪队列；其 fan-out/fan-in 结果与手动入口一致。
+- Runner 创建时完成入口作用域预编译与环检测；含环图在任何节点、变量或事件副作用之前被拒绝。
+- 高频重复 FlowRun 与 NodeEvent 续流复用已编译的数组索引和调度状态，不重复构建可达图或执行 LINQ 环检测。
+- 并行调度直接组合节点异步任务，不允许调度器使用 `Task.Run` 产生额外线程池跳转。
 - 串行与并行模式都满足“所有入边已解析且至少一条入边 Taken”的就绪条件，不因完成先后产生重复执行。
 - `NodeSkipped` 对每个被跳过节点只发布一次；Continuation 环检测先于源输出和完成事件副作用。
 

@@ -87,7 +87,9 @@ Core 未显式配置 Sink 时使用 `BoundedFlowEventSink`，默认容量 1024�
 
 ## 就绪队列与控制流边状态
 
-每次 FlowRun 都创建独立的调度状态，控制流边在本次运行内依次从 `Unknown` 解析为 `Taken` 或 `Skipped`：
+`FlowRunner` 创建时为 Manual / External 入口目标和 NodeEvent 源节点预编译执行作用域；其他内部来源首次使用时按 SourceNodeId 缓存，缓存数量最多为流程节点数。预编译一次完成可达节点、入边/出边数组索引和有向环检测；检测到环会在 Runner 创建阶段失败，不发布事件也不执行节点。Runtime 不提供旧调度器或运行时兼容开关。
+
+每次 FlowRun 从对应作用域的有界状态池租用独立数组状态，控制流边在本次运行内依次从 `Unknown` 解析为 `Taken` 或 `Skipped`：
 
 - 节点执行完成后，命中返回 `OutputPort` 的出边标记为 `Taken`，该节点其余出边标记为 `Skipped`。
 - 普通节点只有在**所有入边都已解析**，并且**至少一条入边为 `Taken`** 时才进入就绪队列。
@@ -97,7 +99,7 @@ Core 未显式配置 Sink 时使用 `BoundedFlowEventSink`，默认容量 1024�
 - NodeEvent 续流把监听源节点的本次 `OutputPort` 当作已经完成的源输出，再使用同一套边状态和就绪队列调度下游。
 - Continuation 的 `SourceNodeId` 由当前节点或监听入口上下文绑定；缺失时自动补齐，伪造其他来源会立即失败，避免重入同一节点并发闸门。
 
-`FanOutMode.Sequential` 使用一个确定性的就绪队列，按边定义顺序处理同批就绪节点。`FanOutMode.Parallel` 允许多个就绪节点同时执行，并受 `MaxDegreeOfParallelism` 以及各节点 `MaxConcurrentExecutions` 约束；无论采用哪种模式，入边解析规则和“单次激活只执行一次”的语义保持一致。
+`FanOutMode.Sequential` 使用一个确定性的就绪队列，按边定义顺序处理同批就绪节点。`FanOutMode.Parallel` 直接组合节点返回的异步任务，不通过 `Task.Run` 额外跳转线程池，并受 `MaxDegreeOfParallelism` 以及各节点 `MaxConcurrentExecutions` 约束；无论采用哪种模式，入边解析规则和“单次激活只执行一次”的语义保持一致。
 
 并行分支共享同一个 `FlowToken` 与线程安全变量池；Token 的 `Values` / `Metadata` 使用线程安全映射。节点失败策略是唯一分支失败协议：`StopFlow` 会取消并等待仍在运行的协作式兄弟节点，`ErrorBranch` / `DefaultOutputs` 则把失败转换为可继续的节点结果。Runtime 不再提供无实际语义的分支 Token 克隆或“忽略分支失败”开关。进程内节点无法被强制终止，扩展节点必须响应传入的取消令牌，否则超时、停止或并行失败收敛会继续等待该节点退出。
 
