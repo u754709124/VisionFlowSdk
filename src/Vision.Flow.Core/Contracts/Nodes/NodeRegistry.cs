@@ -86,6 +86,29 @@ namespace Vision.Flow.Core.Contracts.Nodes
                 : provider.GetDescriptor(definition);
         }
 
+        /// <summary>
+        /// 使用完整流程定义解析节点描述符；流程感知扩展优先于现有实例扩展。
+        /// </summary>
+        public NodeDescriptor ResolveDescriptor(
+            RuntimeFlowDefinition flow,
+            NodeDefinition definition)
+        {
+            if (flow == null)
+                throw new ArgumentNullException("flow");
+            if (definition == null)
+                throw new ArgumentNullException("definition");
+
+            var factory = GetFactory(definition.Type);
+            var flowProvider = factory as IFlowDefinitionNodeDescriptorProvider;
+            if (flowProvider != null)
+                return flowProvider.GetDescriptor(flow, definition);
+
+            var instanceProvider = factory as IInstanceNodeDescriptorProvider;
+            return instanceProvider == null
+                ? factory.Descriptor
+                : instanceProvider.GetDescriptor(definition);
+        }
+
         public IFlowNode CreateNode(NodeDefinition definition)
         {
             if (definition == null)

@@ -39,6 +39,19 @@ namespace Vision.Flow.Core.Services.Serialization
                 }
             }
 
+            object globalVariablesValue;
+            if (TryGetValue(
+                dictionary,
+                "GlobalVariables",
+                out globalVariablesValue))
+            {
+                foreach (var globalVariable in AsEnumerable(globalVariablesValue))
+                {
+                    definition.GlobalVariables.Add(
+                        ToGlobalVariableDefinition(globalVariable));
+                }
+            }
+
             object nodesValue;
             if (TryGetValue(dictionary, "Nodes", out nodesValue))
             {
@@ -87,6 +100,32 @@ namespace Vision.Flow.Core.Services.Serialization
             }
 
             return new EnvironmentVariableDefinition
+            {
+                Id = GetString(dictionary, "Id"),
+                Name = GetString(dictionary, "Name"),
+                DataType = dataType,
+                DefaultValue = GetObject(dictionary, "DefaultValue")
+            };
+        }
+
+        private static GlobalVariableDefinition ToGlobalVariableDefinition(
+            object value)
+        {
+            var dictionary = AsDictionary(value);
+            FlowDataType dataType;
+            try
+            {
+                dataType = FlowEnumConverter.Parse<FlowDataType>(
+                    GetString(dictionary, "DataType"));
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException(
+                    "Global variable DataType is invalid.",
+                    ex);
+            }
+
+            return new GlobalVariableDefinition
             {
                 Id = GetString(dictionary, "Id"),
                 Name = GetString(dictionary, "Name"),

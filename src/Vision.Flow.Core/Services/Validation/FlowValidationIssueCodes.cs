@@ -68,5 +68,11 @@ namespace Vision.Flow.Core.Services.Validation
         public const string EnvironmentVariableTypeInvalid = "EnvironmentVariableTypeInvalid";
         public const string EnvironmentVariableDefaultInvalid = "EnvironmentVariableDefaultInvalid";
         public const string EnvironmentVariableMissing = "EnvironmentVariableMissing";
+        public const string GlobalVariableInvalid = "GlobalVariableInvalid";
+        public const string GlobalVariableIdInvalid = "GlobalVariableIdInvalid";
+        public const string GlobalVariableNameInvalid = "GlobalVariableNameInvalid";
+        public const string GlobalVariableTypeInvalid = "GlobalVariableTypeInvalid";
+        public const string GlobalVariableDefaultInvalid = "GlobalVariableDefaultInvalid";
+        public const string GlobalVariableMissing = "GlobalVariableMissing";
     }
 }

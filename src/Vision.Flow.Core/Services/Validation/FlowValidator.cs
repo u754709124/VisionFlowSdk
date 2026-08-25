@@ -59,7 +59,10 @@ namespace Vision.Flow.Core.Services.Validation
 
             var nodes = definition.Nodes ?? new List<NodeDefinition>();
             var nodeMap = BuildNodeMap(nodes, result);
-            var descriptorsByNodeId = ValidateNodeFactories(nodes, result);
+            var descriptorsByNodeId = ValidateNodeFactories(
+                definition,
+                nodes,
+                result);
 
             if (nodes.Count == 0)
             {
@@ -69,6 +72,9 @@ namespace Vision.Flow.Core.Services.Validation
             var edges = definition.Edges ?? new List<EdgeDefinition>();
             var environmentVariables = ValidateEnvironmentVariables(
                 definition.EnvironmentVariables,
+                result);
+            var globalVariables = ValidateGlobalVariables(
+                definition.GlobalVariables,
                 result);
             ValidateEdges(edges, nodeMap, descriptorsByNodeId, result);
             ValidateNoCycles(edges, nodeMap, result);
@@ -80,6 +86,7 @@ namespace Vision.Flow.Core.Services.Validation
                 edges,
                 definition.Entries ?? new List<FlowEntryDefinition>(),
                 environmentVariables,
+                globalVariables,
                 nodeMap,
                 descriptorsByNodeId,
                 result);

@@ -15,6 +15,7 @@ namespace Vision.Flow.Core.Domain.Flows
             Edges = new List<EdgeDefinition>();
             Entries = new List<FlowEntryDefinition>();
             EnvironmentVariables = new List<EnvironmentVariableDefinition>();
+            GlobalVariables = new List<GlobalVariableDefinition>();
             Settings = new Dictionary<string, object>();
         }
 
@@ -45,6 +46,11 @@ namespace Vision.Flow.Core.Domain.Flows
         /// 流程级环境变量定义；运行时可通过 FlowExecutionOptions 按 Id 覆盖默认值。
         /// </summary>
         public List<EnvironmentVariableDefinition> EnvironmentVariables { get; set; }
+
+        /// <summary>
+        /// 流程 Session 级可变全局变量定义；每个 Runner 都从默认值创建独立存储。
+        /// </summary>
+        public List<GlobalVariableDefinition> GlobalVariables { get; set; }
 
         public Dictionary<string, object> Settings { get; set; }
     }

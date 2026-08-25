@@ -17,6 +17,8 @@ namespace Vision.Flow.Core.Domain.Nodes
         public const string Message = "Message";
         public const string Level = "Level";
         public const string VariableName = "VariableName";
+        public const string TargetScope = "TargetScope";
+        public const string GlobalVariableId = "GlobalVariableId";
         public const string Value = "Value";
         public const string ValueBinding = "ValueBinding";
         public const string ConstantValue = "ConstantValue";

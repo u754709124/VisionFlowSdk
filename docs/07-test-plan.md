@@ -14,10 +14,10 @@ tests/Vision.Flow.Tests
 - FlowRun 生命周期：终态 exactly-once、终态 Sink 异常不重发、并发 `StopAsync` 共享排空、`FlowStopped` 晚于全部 Active 终态、停止后迟到续流按原 `FlowRunId` 拒绝。
 - 事件压力：十万条 `OutputProduced` 下队列不超过配置容量、保留内存增量不超过 32 MB、丢弃计数可观测、关键终态满载背压且最终送达、事件快照不包含图像/帧/字节缓冲区原对象。
 - Serialization / Publish：Schema v2 round-trip、明确拒绝 v1、入口类型/输入/执行策略 round-trip、节点 `ExecutionPolicy` 完整协议与缺失/null 默认值、结构化 Setting Selector、TriggerInput 可达性和类型冲突、入口绕过变量来源警告、发布后移除 view state、校验通过后写入 `.flowruntime`、无效发布不覆盖、样例流程校验。
-- Core 节点：注册、日志事件、延时、变量写入、AND Join、Condition 分支。
+- Core 节点：注册、日志事件、延时、FlowRun/全局变量写入、AND Join、Condition 分支。
 - Core 契约：`VisionImageReference` 生命周期和精简公共面的守卫。
-- Designer：主题资源解析、内部/外置命令栏、入口触发配置、配置项固定值/变量切换与常量保留、实例级动态 Descriptor 刷新与字段调和、祖先与入口变量候选范围、类型过滤、失效 Selector 保留、属性草稿应用/重置/校验/三种未保存决策、只读模式、节点库四字段搜索与折叠恢复、拖拽、卡片外侧短条端口锚点、无三角箭头的贝塞尔连线末端、缩略图视野换算与边界限制、DPI 像素对齐平移、调试抽屉三态和失败/超时自动展开、停止调试、按钮状态恢复、节点卡片运行状态显示。
-- Variable Settings：常量/变量切换、上游来源限制、类型兼容、TriggerInput、Token、环境变量默认值与运行覆盖、对象子路径解析、JSON 中不出现 `InputBindings`。
+- Designer：主题资源解析、内部/外置命令栏、入口触发配置、配置项固定值/变量切换与常量保留、实例级和流程感知动态 Descriptor 刷新、祖先与入口变量候选范围、全局变量分组、类型过滤、失效 Selector 保留、有序字段映射增删排序、属性草稿应用/重置/校验/三种未保存决策、只读模式、节点库四字段搜索与折叠恢复、拖拽、卡片外侧短条端口锚点、无三角箭头的贝塞尔连线末端、缩略图视野换算与边界限制、DPI 像素对齐平移、调试抽屉三态和失败/超时自动展开、停止调试、按钮状态恢复、节点卡片运行状态显示。
+- Variable Settings：常量/变量切换、上游来源限制、类型兼容、TriggerInput、Token、只读环境变量、Session 全局变量默认值/严格类型/并发快照/Runner 隔离与重建重置、对象子路径解析、JSON 中不出现 `InputBindings`。
 - Demo：解决方案构建覆盖 WinForms Demo 和 Designer WPF Demo。
 
 ## Designer 现代界面验收

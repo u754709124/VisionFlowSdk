@@ -16,6 +16,7 @@ namespace Vision.Flow.Core.Services.Serialization
                 { "Version", definition.Version },
                 { "Settings", NormalizeObject(definition.Settings) },
                 { "EnvironmentVariables", ToSerializableEnvironmentVariables(definition.EnvironmentVariables) },
+                { "GlobalVariables", ToSerializableGlobalVariables(definition.GlobalVariables) },
                 { "Nodes", ToSerializableNodes(definition.Nodes) },
                 { "Edges", ToSerializableEdges(definition.Edges) },
                 { "Entries", ToSerializableEntries(definition.Entries) }
@@ -32,6 +33,28 @@ namespace Vision.Flow.Core.Services.Serialization
             {
                 return result;
             }
+
+            foreach (var definition in definitions)
+            {
+                result.Add(definition == null
+                    ? null
+                    : new Dictionary<string, object>
+                    {
+                        { "Id", definition.Id },
+                        { "Name", definition.Name },
+                        { "DataType", FlowEnumConverter.ToWireValue(definition.DataType) },
+                        { "DefaultValue", NormalizeObject(definition.DefaultValue) }
+                    });
+            }
+            return result;
+        }
+
+        private static object ToSerializableGlobalVariables(
+            IEnumerable<GlobalVariableDefinition> definitions)
+        {
+            var result = new List<object>();
+            if (definitions == null)
+                return result;
 
             foreach (var definition in definitions)
             {

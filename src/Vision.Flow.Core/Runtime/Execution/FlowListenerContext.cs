@@ -28,6 +28,28 @@ namespace Vision.Flow.Core.Runtime.Execution
             IDeviceRegistry devices,
             IFlowEventSink events,
             IFlowContinuationDispatcher continuations)
+            : this(
+                flow,
+                node,
+                entry,
+                devices,
+                events,
+                continuations,
+                null)
+        {
+        }
+
+        /// <summary>
+        /// 使用完整监听依赖创建上下文；全局变量存储与节点执行上下文共享同一 Session 实例。
+        /// </summary>
+        public FlowListenerContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowEntryDefinition entry,
+            IDeviceRegistry devices,
+            IFlowEventSink events,
+            IFlowContinuationDispatcher continuations,
+            IGlobalVariableStore globalVariables)
         {
             if (flow == null)
             {
@@ -55,6 +77,7 @@ namespace Vision.Flow.Core.Runtime.Execution
             Devices = devices ?? EmptyDeviceRegistry.Instance;
             Events = events;
             Continuations = continuations;
+            GlobalVariables = globalVariables ?? EmptyGlobalVariableStore.Instance;
         }
 
         /// <summary>
@@ -86,5 +109,8 @@ namespace Vision.Flow.Core.Runtime.Execution
         /// 后续调度器，用于把外部事件转换为流程后续执行，避免占用设备回调线程。
         /// </summary>
         public IFlowContinuationDispatcher Continuations { get; private set; }
+
+        /// <summary>获取当前 Runner 共享的 Session 级全局变量存储。</summary>
+        public IGlobalVariableStore GlobalVariables { get; private set; }
     }
 }

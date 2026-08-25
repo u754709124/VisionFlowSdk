@@ -145,6 +145,9 @@ var timeoutMs = context.GetSettingValue<int>("TimeoutMs");
 不要为控制输入端口创建变量绑定。节点输出通过 `VariableSelector.ForNodeOutput(nodeId, outputName)` 绑定到具体配置项。
 流程环境变量通过 `VariableSelector.ForEnvironmentVariable(variableId)` 绑定；
 只有 `Execution + ConstantOrVariable` 配置项能够使用。
+Session 全局变量通过 `VariableSelector.ForGlobalVariable(variableId)` 绑定，并在节点
+执行时从 `context.GlobalVariables` 读取当前值。需要一次读取多个全局值时应调用
+`CreateSnapshot(ids)`，不要逐项读取后自行假设一致性。
 
 ## 动态 Descriptor
 
@@ -170,6 +173,16 @@ public sealed class CommandNodeFactory :
 静态 `Descriptor` 是节点库和新建节点的基础契约，必须包含用于选择实例形状的设置及默认值；`NodeRegistry.ResolveDescriptor(definition)` 才返回节点实例当前生效的契约。影响实例契约的设置必须设为 `AffectsDescriptor = true`、`BindingMode = ConstantOnly`，不得依赖运行时变量决定端口或输出。
 
 实例 Descriptor 不持久化。Factory 必须只根据 `NodeDefinition` 和稳定项目元数据确定性生成结果，并保持 `NodeType` 与注册值一致。解析失败会由 `FlowValidator` 报告为 `NodeDescriptorResolutionFailed`；普通 Factory 无需修改，会自动回退静态 `Descriptor`。
+
+当 Descriptor 还依赖当前流程定义（例如 `variable.set` 的目标全局变量类型）时，
+Factory 实现 `IFlowDefinitionNodeDescriptorProvider`。解析优先级固定为“流程感知 →
+实例感知 → 静态 Descriptor”，调用 `NodeRegistry.ResolveDescriptor(flow, definition)`；
+Designer、Validator 和发布服务使用同一结果。
+
+需要编辑有序的“显式目标字段 + VariableSelector”集合时，将 Object 设置声明为
+`NodeSettingEditorKind.VariableSelectorMappings`，并用 `AllowedVariableSources` 限制来源。
+属性面板会提供新增、删除、上移、下移、字段名和变量选择器列，并原样保存
+`VariableSelectorFieldMapping` 协议。
 
 ## NodeExecutionPolicy 协议
 

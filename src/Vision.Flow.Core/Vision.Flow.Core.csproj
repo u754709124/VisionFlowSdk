@@ -55,10 +55,12 @@
     <Compile Include="Contracts\Nodes\IFlowNode.cs" />
     <Compile Include="Contracts\Nodes\IFlowRunner.cs" />
     <Compile Include="Contracts\Nodes\IInstanceNodeDescriptorProvider.cs" />
+    <Compile Include="Contracts\Nodes\IFlowDefinitionNodeDescriptorProvider.cs" />
     <Compile Include="Contracts\Nodes\INodeFactory.cs" />
     <Compile Include="Contracts\Nodes\NodeRegistry.cs" />
     <Compile Include="Domain\Flows\EdgeDefinition.cs" />
     <Compile Include="Domain\Flows\EnvironmentVariableDefinition.cs" />
+    <Compile Include="Domain\Flows\GlobalVariableDefinition.cs" />
     <Compile Include="Domain\Flows\FlowDesignDocument.cs" />
     <Compile Include="Domain\Flows\FlowEntryDefinition.cs" />
     <Compile Include="Domain\Flows\FlowSchema.cs" />
@@ -67,6 +69,7 @@
     <Compile Include="Domain\Flows\NodeDefinition.cs" />
     <Compile Include="Domain\Flows\NodeExecutionPolicy.cs" />
     <Compile Include="Domain\Flows\NodeSettingValue.cs" />
+    <Compile Include="Domain\Flows\VariableSelectorFieldMapping.cs" />
     <Compile Include="Domain\Flows\NodeViewState.cs" />
     <Compile Include="Domain\Flows\RuntimeFlowDefinition.cs" />
     <Compile Include="Domain\Nodes\FlowDataTypeCompatibility.cs" />
@@ -77,6 +80,7 @@
     <Compile Include="Domain\Nodes\FlowOutputNames.cs" />
     <Compile Include="Domain\Nodes\FlowPortNames.cs" />
     <Compile Include="Domain\Nodes\FlowSettingNames.cs" />
+    <Compile Include="Domain\Nodes\FlowVariableTargetScope.cs" />
     <Compile Include="Domain\Nodes\NodeDescriptor.cs" />
     <Compile Include="Domain\Nodes\NodeOutputDescriptor.cs" />
     <Compile Include="Domain\Nodes\NodePortDescriptor.cs" />
@@ -124,6 +128,9 @@
     <Compile Include="Runtime\Events\NodeRuntimeState.cs" />
     <Compile Include="Runtime\Events\SanitizingFlowEventSink.cs" />
     <Compile Include="Runtime\Execution\EnvironmentVariableValues.cs" />
+    <Compile Include="Runtime\Execution\GlobalVariableStore.cs" />
+    <Compile Include="Runtime\Execution\GlobalVariableValues.cs" />
+    <Compile Include="Runtime\Execution\IGlobalVariableStore.cs" />
     <Compile Include="Runtime\Execution\FlowContinuation.cs" />
     <Compile Include="Runtime\Execution\FlowExecutionContext.cs" />
     <Compile Include="Runtime\Execution\FlowExecutionOptions.cs" />
@@ -157,6 +164,7 @@
     <Compile Include="Services\Validation\FlowValidator.cs" />
     <Compile Include="Services\Validation\FlowValidator.EntryRules.cs" />
     <Compile Include="Services\Validation\FlowValidator.EnvironmentVariables.cs" />
+    <Compile Include="Services\Validation\FlowValidator.GlobalVariables.cs" />
     <Compile Include="Services\Validation\FlowValidator.GraphRules.cs" />
     <Compile Include="Services\Validation\FlowValidator.Helpers.cs" />
     <Compile Include="Services\Validation\FlowValidator.NodeExecutionPolicyRules.cs" />

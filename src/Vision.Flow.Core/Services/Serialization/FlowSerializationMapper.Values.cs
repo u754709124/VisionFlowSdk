@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Domain.Nodes;
 
 namespace Vision.Flow.Core.Services.Serialization
@@ -10,6 +11,12 @@ namespace Vision.Flow.Core.Services.Serialization
     {
         private static object NormalizeObject(object value)
         {
+            var fieldMapping = value as VariableSelectorFieldMapping;
+            if (fieldMapping != null)
+            {
+                return NormalizeObject(fieldMapping.ToSerializableObject());
+            }
+
             if (value != null && value.GetType().IsEnum)
             {
                 return FlowEnumConverter.NormalizeValue(value);

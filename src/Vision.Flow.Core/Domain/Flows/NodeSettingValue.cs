@@ -20,7 +20,8 @@ namespace Vision.Flow.Core.Domain.Flows
         NodeOutput = 0,
         TriggerInput = 1,
         Token = 2,
-        EnvironmentVariable = 3
+        EnvironmentVariable = 3,
+        GlobalVariable = 4
     }
 
     /// <summary>
@@ -87,6 +88,21 @@ namespace Vision.Flow.Core.Domain.Flows
             return new VariableSelector
             {
                 Scope = VariableSelectorScope.EnvironmentVariable,
+                Path = new List<string> { variableId }
+            };
+        }
+
+        /// <summary>创建 Session 级全局变量选择器。</summary>
+        public static VariableSelector ForGlobalVariable(string variableId)
+        {
+            if (string.IsNullOrWhiteSpace(variableId))
+            {
+                throw new ArgumentException("Global variable id is required.", "variableId");
+            }
+
+            return new VariableSelector
+            {
+                Scope = VariableSelectorScope.GlobalVariable,
                 Path = new List<string> { variableId }
             };
         }

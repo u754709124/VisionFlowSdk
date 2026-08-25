@@ -37,6 +37,11 @@ namespace Vision.Flow.Core.Domain.Nodes
         public VariableSelectorScopeFlags AllowedVariableSources { get; set; }
 
         /// <summary>
+        /// 获取或设置设计器使用的专用编辑器；该元数据不写入流程文件。
+        /// </summary>
+        public NodeSettingEditorKind EditorKind { get; set; }
+
+        /// <summary>
         /// 常量完成 DataType 转换后执行的同步单项校验器。
         /// 该委托属于 Descriptor 元数据，不会写入流程文件，也不会用于运行时变量值校验。
         /// </summary>
@@ -81,6 +86,17 @@ namespace Vision.Flow.Core.Domain.Nodes
         TriggerInput = 2,
         Token = 4,
         EnvironmentVariable = 8,
-        All = NodeOutput | TriggerInput | Token | EnvironmentVariable
+        GlobalVariable = 16,
+        All = NodeOutput | TriggerInput | Token | EnvironmentVariable | GlobalVariable
+    }
+
+    /// <summary>节点设置在设计器属性面板中的编辑方式。</summary>
+    public enum NodeSettingEditorKind
+    {
+        /// <summary>根据数据类型使用标准常量或变量编辑器。</summary>
+        Standard = 0,
+
+        /// <summary>使用“目标字段名 + 结构化变量来源”的有序表格编辑器。</summary>
+        VariableSelectorMappings = 1
     }
 }

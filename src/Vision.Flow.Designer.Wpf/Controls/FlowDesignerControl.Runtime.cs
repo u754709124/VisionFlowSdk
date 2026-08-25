@@ -605,7 +605,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             try
             {
-                descriptor = _nodeRegistry.ResolveDescriptor(node);
+                descriptor = _nodeRegistry.ResolveDescriptor(
+                    _document.Runtime,
+                    node);
                 if (descriptor != null)
                 {
                     return true;

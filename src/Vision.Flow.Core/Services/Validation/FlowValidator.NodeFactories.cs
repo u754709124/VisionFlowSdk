@@ -45,6 +45,7 @@ namespace Vision.Flow.Core.Services.Validation
         }
 
         private Dictionary<string, NodeDescriptor> ValidateNodeFactories(
+            RuntimeFlowDefinition definition,
             IList<NodeDefinition> nodes,
             FlowValidationResult result)
         {
@@ -77,7 +78,7 @@ namespace Vision.Flow.Core.Services.Validation
                 NodeDescriptor descriptor;
                 try
                 {
-                    descriptor = _nodeRegistry.ResolveDescriptor(node);
+                    descriptor = _nodeRegistry.ResolveDescriptor(definition, node);
                 }
                 catch (Exception ex)
                 {

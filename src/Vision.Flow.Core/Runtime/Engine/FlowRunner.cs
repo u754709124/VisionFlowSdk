@@ -22,6 +22,7 @@ namespace Vision.Flow.Core.Runtime.Engine
         private readonly IFlowEventSink _eventSink;
         private readonly IDeviceRegistry _devices;
         private readonly FlowExecutionOptions _options;
+        private readonly IGlobalVariableStore _globalVariables;
         private readonly Dictionary<string, IFlowNode> _nodeInstances;
         private readonly Dictionary<string, EntryExecutionGate> _entryGates;
         private readonly List<IFlowListenerNode> _startedListeners;
@@ -76,6 +77,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                 EnvironmentVariableValues.CreateSnapshot(
                     definition.EnvironmentVariables,
                     _options.EnvironmentVariableValues);
+            _globalVariables = new GlobalVariableStore(definition.GlobalVariables);
             _nodeInstances = new Dictionary<string, IFlowNode>(StringComparer.OrdinalIgnoreCase);
             _entryGates = CreateEntryGates(definition.Entries);
             _startedListeners = new List<IFlowListenerNode>();
@@ -102,6 +104,12 @@ namespace Vision.Flow.Core.Runtime.Engine
         public FlowExecutionOptions Options
         {
             get { return _options; }
+        }
+
+        /// <summary>获取当前 Runner 独占的 Session 级全局变量存储。</summary>
+        public IGlobalVariableStore GlobalVariables
+        {
+            get { return _globalVariables; }
         }
 
         /// <summary>

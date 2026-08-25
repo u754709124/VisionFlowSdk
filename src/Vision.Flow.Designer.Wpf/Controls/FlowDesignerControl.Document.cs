@@ -646,6 +646,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var items = new List<VariableSelectionOption>();
             AddTokenVariableSuggestions(items);
             AddEnvironmentVariableSuggestions(items);
+            AddGlobalVariableSuggestions(items);
 
             if (_document == null || _document.Runtime == null || _document.Runtime.Nodes == null || currentNode == null)
             {
@@ -688,7 +689,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     ? 0
                     : x.Selector.Scope == VariableSelectorScope.EnvironmentVariable
                         ? 1
-                        : 2)
+                        : x.Selector.Scope == VariableSelectorScope.GlobalVariable
+                            ? 2
+                            : 3)
                 .ThenBy(x => x.GroupName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(x => x.ValueName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -717,6 +720,35 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     VariableSelector.ForEnvironmentVariable(definition.Id),
                     "环境变量",
                     "环境变量",
+                    definition.Id,
+                    definition.Name + " (" + definition.Id + ")",
+                    definition.DataType));
+            }
+        }
+
+        private void AddGlobalVariableSuggestions(
+            ICollection<VariableSelectionOption> items)
+        {
+            if (_document == null ||
+                _document.Runtime == null ||
+                _document.Runtime.GlobalVariables == null)
+            {
+                return;
+            }
+
+            foreach (var definition in _document.Runtime.GlobalVariables)
+            {
+                if (definition == null ||
+                    string.IsNullOrWhiteSpace(definition.Id) ||
+                    string.IsNullOrWhiteSpace(definition.Name))
+                {
+                    continue;
+                }
+
+                items.Add(new VariableSelectionOption(
+                    VariableSelector.ForGlobalVariable(definition.Id),
+                    "全局变量",
+                    "全局变量",
                     definition.Id,
                     definition.Name + " (" + definition.Id + ")",
                     definition.DataType));

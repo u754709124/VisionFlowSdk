@@ -102,8 +102,13 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - 候选项显示节点名称、节点 ID、输出名称和类型，并只保留与目标配置项 `FlowDataType` 完全一致的变量；当设置或输出声明 `EnumType` 时还必须是同一个具体枚举类型。数值扩宽、不同枚举之间转换、`Object` 转换和字符串隐式转换均不开放。
 - Token 字段单独分组。变量来源因删除节点、删除连线或 Descriptor 变化而失效时，选择器保留原 Selector 并显示错误，不会静默清空。
 - 环境变量单独分组，显示名称、稳定 Id 和类型，不受控制流拓扑限制；定义删除或类型变化导致绑定失效时同样保留原 Selector 并显示错误。
+- Session 全局变量使用独立“全局变量”分组，按稳定 Id 保存、按 `FlowDataType` 精确过滤；宿主通过 `UpdateGlobalVariables` 同步当前流程定义。
 - 嵌入式宿主在配方变量变化后调用 `UpdateEnvironmentVariables`，设计器会原位更新流程定义和候选并保留当前属性草稿。
 - `ConstantOnly` 或 `ListenerStart` 配置不开放执行期节点输出变量；只读模式同时禁用模式切换、固定值编辑器和变量选择器。
+
+`NodeSettingEditorKind.VariableSelectorMappings` 使用专用表格式编辑器。每行编辑稳定
+Attribute 名称和一个结构化变量来源，并支持新增、删除及排序；空名称、大小写不敏感
+重复名称、未选择来源、来源超出 Descriptor 范围或当前候选失效都会禁止应用。
 
 节点卡片只摘要显示变量模式的配置来源，不再摘要控制输入端口绑定。
 
@@ -121,7 +126,7 @@ Validator 只处理设计期常量，不读取其他配置项，也不在调试�
 
 ### 实例级动态 Descriptor
 
-节点工厂实现 `IInstanceNodeDescriptorProvider` 后，Designer 会通过 `NodeRegistry.ResolveDescriptor(NodeDefinition)` 为每个节点实例解析当前生效的端口、配置项和输出。节点库和新建节点默认值仍使用工厂的静态 `Descriptor`；画布节点卡片、属性草稿、执行策略回退输出和上游变量候选使用实例 Descriptor。
+节点工厂实现 `IInstanceNodeDescriptorProvider` 后，Designer 会通过 `NodeRegistry.ResolveDescriptor(NodeDefinition)` 为每个节点实例解析当前生效的端口、配置项和输出。需要读取全局变量定义等流程元数据时实现 `IFlowDefinitionNodeDescriptorProvider`，Designer 调用 `ResolveDescriptor(RuntimeFlowDefinition, NodeDefinition)` 并优先使用流程感知结果。节点库和新建节点默认值仍使用工厂的静态 `Descriptor`；画布节点卡片、属性草稿、执行策略回退输出和上游变量候选使用实例 Descriptor。
 
 用于切换 Descriptor 结构的配置项必须声明 `AffectsDescriptor = true`，并使用 `ConstantOnly`。该固定值在属性草稿中变化时，Designer 会立即刷新属性面板且不提前写回源文档：
 

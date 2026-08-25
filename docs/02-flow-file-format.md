@@ -148,3 +148,19 @@ Schema v2 的 `Runtime` 可包含 `EnvironmentVariables`。每项使用不可变
 `VariableSelectorScope.EnvironmentVariable` 和单段 `Path: [variableId]` 引用；
 改显示名称不会破坏绑定。发布会校验并深拷贝定义，旧的无环境变量 v2 文件继续按
 空集合加载。
+
+## Session 全局变量
+
+Schema v2 的 `Runtime.GlobalVariables` 是独立于只读环境变量的可变 Session 状态。
+每项包含稳定且唯一的 `Id`、唯一显示名 `Name`、`DataType` 和非空
+`DefaultValue`；类型只允许 `String`、`Int32`、`Boolean`，其中 String 允许空字符串。
+流程文件只保存定义和默认值，不保存运行值。
+
+节点通过 `VariableSelectorScope.GlobalVariable` 和单段 `Path: [variableId]` 引用。
+改名不影响引用；删除定义、重复 Id/Name、改变类型导致现有绑定不兼容时，发布校验
+会拒绝流程。`variable.set` 缺少 `TargetScope` 时仍按旧协议写入 FlowRun 局部变量；
+`TargetScope=GlobalVariable` 时以 `GlobalVariableId` 选择目标，并按目标定义生成精确的
+`Value` 类型约束。
+
+结构化字段映射常量使用有序对象集合，每项保存明确的 `AttributeName` 和 `Source`
+选择器。`AttributeName` 是稳定协议键，不从变量或节点名称推导。

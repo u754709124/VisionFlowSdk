@@ -13,6 +13,7 @@ namespace Vision.Flow.Core.Services.Validation
             IList<EdgeDefinition> edges,
             IList<FlowEntryDefinition> entries,
             IDictionary<string, EnvironmentVariableDefinition> environmentVariables,
+            IDictionary<string, GlobalVariableDefinition> globalVariables,
             IDictionary<string, NodeDefinition> nodeMap,
             IDictionary<string, NodeDescriptor> descriptorsByNodeId,
             FlowValidationResult result)
@@ -31,7 +32,7 @@ namespace Vision.Flow.Core.Services.Validation
                 {
                     var field = "Nodes[" + nodeIndex + "].Settings." + item.Key;
                     var settingDescriptor = FindSetting(targetDescriptor, item.Key);
-                    ValidateSettingValue(node, field, item.Value, settingDescriptor, edges, entries, environmentVariables, nodeMap, descriptorsByNodeId, result);
+                    ValidateSettingValue(node, field, item.Value, settingDescriptor, edges, entries, environmentVariables, globalVariables, nodeMap, descriptorsByNodeId, result);
                 }
             }
         }
@@ -44,6 +45,7 @@ namespace Vision.Flow.Core.Services.Validation
             IList<EdgeDefinition> edges,
             IList<FlowEntryDefinition> entries,
             IDictionary<string, EnvironmentVariableDefinition> environmentVariables,
+            IDictionary<string, GlobalVariableDefinition> globalVariables,
             IDictionary<string, NodeDefinition> nodeMap,
             IDictionary<string, NodeDescriptor> descriptorsByNodeId,
             FlowValidationResult result)
@@ -147,6 +149,64 @@ namespace Vision.Flow.Core.Services.Validation
                     descriptor,
                     environmentVariables,
                     result);
+                return;
+            }
+
+            if (selector.Scope == VariableSelectorScope.GlobalVariable)
+            {
+                ValidateGlobalVariableSelector(
+                    node,
+                    field,
+                    selector,
+                    descriptor,
+                    globalVariables,
+                    result);
+            }
+        }
+
+        private static void ValidateGlobalVariableSelector(
+            NodeDefinition node,
+            string field,
+            VariableSelector selector,
+            NodeSettingDescriptor targetSetting,
+            IDictionary<string, GlobalVariableDefinition> globalVariables,
+            FlowValidationResult result)
+        {
+            if (selector.Path.Count != 1)
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableSelectorInvalid,
+                    "GlobalVariable selector Path must contain exactly one variable Id.",
+                    nodeId: node.Id,
+                    field: field + ".Selector.Path");
+                return;
+            }
+
+            GlobalVariableDefinition definition;
+            if (globalVariables == null ||
+                !globalVariables.TryGetValue(selector.Path[0], out definition))
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.GlobalVariableMissing,
+                    "Global variable does not exist: " + selector.Path[0],
+                    nodeId: node.Id,
+                    field: field);
+                return;
+            }
+
+            if (!FlowDataTypeCompatibility.IsCompatible(
+                definition.DataType,
+                null,
+                targetSetting.DataType,
+                targetSetting.EnumType))
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableTypeIncompatible,
+                    "Global variable type " + definition.DataType +
+                    " cannot be assigned to setting type " +
+                    targetSetting.DataType + ".",
+                    nodeId: node.Id,
+                    field: field);
             }
         }
 
@@ -426,6 +486,9 @@ namespace Vision.Flow.Core.Services.Validation
                     break;
                 case VariableSelectorScope.EnvironmentVariable:
                     value = VariableSelectorScopeFlags.EnvironmentVariable;
+                    break;
+                case VariableSelectorScope.GlobalVariable:
+                    value = VariableSelectorScopeFlags.GlobalVariable;
                     break;
                 default:
                     return false;

@@ -49,6 +49,8 @@ namespace Vision.Flow.Core.Runtime.Execution
                     return ResolveTriggerInput(path, context);
                 case VariableSelectorScope.EnvironmentVariable:
                     return ResolveEnvironmentVariable(path, context);
+                case VariableSelectorScope.GlobalVariable:
+                    return ResolveGlobalVariable(path, context);
                 default:
                     throw new InvalidOperationException("Unsupported variable selector scope: " + selector.Scope);
             }
@@ -132,6 +134,19 @@ namespace Vision.Flow.Core.Runtime.Execution
             }
 
             return value;
+        }
+
+        private static object ResolveGlobalVariable(
+            IList<string> path,
+            FlowExecutionContext context)
+        {
+            if (path.Count != 1 || string.IsNullOrWhiteSpace(path[0]))
+            {
+                throw new InvalidOperationException(
+                    "GlobalVariable selector Path must contain exactly one variable id.");
+            }
+
+            return context.GlobalVariables.Get(path[0]);
         }
 
         private static object ResolveNestedPath(object value, IList<string> path, int startIndex)

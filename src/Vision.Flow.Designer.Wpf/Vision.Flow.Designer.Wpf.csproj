@@ -66,6 +66,7 @@
     <Compile Include="Controls\PropertyPanelControl.cs" />
     <Compile Include="Controls\RuntimeDebugPanelControl.cs" />
     <Compile Include="Controls\VariableSelectorControl.cs" />
+    <Compile Include="Controls\VariableSelectorMappingsControl.cs" />
     <Compile Include="Theming\FlowDesignerIcons.cs" />
     <Compile Include="Theming\FlowDesignerTheme.cs" />
     <Compile Include="ViewModels\EdgeViewModel.cs" />

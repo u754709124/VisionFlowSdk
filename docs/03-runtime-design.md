@@ -185,6 +185,12 @@ condition.if
 并生成与调用方字典隔离的只读快照；未覆盖项使用默认值，未知 Id、空值或类型错误
 会在 Runner 创建阶段被拒绝。
 
+每个 `FlowRunner` 还按 `RuntimeFlowDefinition.GlobalVariables` 的默认值创建独占的
+`IGlobalVariableStore`。同一 Runner 的监听器与全部 FlowRun 共享当前值，不同 Runner
+相互隔离；停止后重新创建 Runner 会恢复默认值。读写按稳定 Id 严格校验声明类型，
+`CreateSnapshot(ids)` 在一个临界区内复制指定变量，供需要一致读取多个 Session 值的
+节点使用。全局 Selector 在每次节点执行时读取当前值，不会固化为 FlowRun 启动快照。
+
 `FlowListenerContext` 携带监听节点启动所需的入口定义、`IDeviceRegistry`、`IFlowContinuationDispatcher` 和 `IFlowEventSink`，不承载单次 Token 变量状态。
 
 ## 线程规则

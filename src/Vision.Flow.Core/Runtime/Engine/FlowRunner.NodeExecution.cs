@@ -255,7 +255,8 @@ namespace Vision.Flow.Core.Runtime.Engine
                     continuations,
                     flowRunId,
                     triggerInputs,
-                    _options.EnvironmentVariableValues);
+                    _options.EnvironmentVariableValues,
+                    _globalVariables);
 
                 using (var attemptCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {

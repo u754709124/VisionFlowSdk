@@ -129,6 +129,8 @@ namespace Vision.Flow.Core.Services.Publishing
                 Settings = CloneObjectDictionary(source.Settings),
                 EnvironmentVariables = CloneEnvironmentVariables(
                     source.EnvironmentVariables),
+                GlobalVariables = CloneGlobalVariables(
+                    source.GlobalVariables),
                 Nodes = new List<NodeDefinition>(),
                 Edges = new List<EdgeDefinition>(),
                 Entries = new List<FlowEntryDefinition>()
@@ -166,6 +168,27 @@ namespace Vision.Flow.Core.Services.Publishing
                 result.Add(definition == null
                     ? null
                     : new EnvironmentVariableDefinition
+                    {
+                        Id = definition.Id,
+                        Name = definition.Name,
+                        DataType = definition.DataType,
+                        DefaultValue = CloneObjectValue(definition.DefaultValue)
+                    });
+            }
+            return result;
+        }
+
+        private static List<GlobalVariableDefinition> CloneGlobalVariables(
+            IList<GlobalVariableDefinition> source)
+        {
+            var result = new List<GlobalVariableDefinition>();
+            if (source == null)
+                return result;
+            foreach (var definition in source)
+            {
+                result.Add(definition == null
+                    ? null
+                    : new GlobalVariableDefinition
                     {
                         Id = definition.Id,
                         Name = definition.Name,

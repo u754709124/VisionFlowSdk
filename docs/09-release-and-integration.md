@@ -7,6 +7,10 @@
 稳定 `Id` 组装字典赋给 `FlowExecutionOptions.EnvironmentVariableValues`。
 运行层在缺少覆盖时回退默认值，以支持设计器调试和通用宿主。
 
+`RuntimeFlowDefinition.GlobalVariables` 不走环境覆盖。宿主创建 `FlowRunner` 时，SDK
+仅按流程定义默认值建立 Session 存储；运行值不会写回流程文件或跨 Runner 继承。
+配方重载、切换或其它需要重置 Session 的场景应停止旧 Runner 并创建新 Runner。
+
 ## SDK Package
 
 ```powershell

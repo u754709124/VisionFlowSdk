@@ -83,6 +83,36 @@ namespace Vision.Flow.Core.Runtime.Execution
             string flowRunId,
             IDictionary<string, object> triggerInputs,
             IDictionary<string, object> environmentVariableValues)
+            : this(
+                flow,
+                node,
+                token,
+                variables,
+                events,
+                devices,
+                continuations,
+                flowRunId,
+                triggerInputs,
+                environmentVariableValues,
+                null)
+        {
+        }
+
+        /// <summary>
+        /// 使用完整运行依赖创建节点执行上下文；全局变量存储由 Runner 共享且不会复制。
+        /// </summary>
+        public FlowExecutionContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            IFlowEventSink events,
+            IDeviceRegistry devices,
+            IFlowContinuationDispatcher continuations,
+            string flowRunId,
+            IDictionary<string, object> triggerInputs,
+            IDictionary<string, object> environmentVariableValues,
+            IGlobalVariableStore globalVariables)
         {
             if (flow == null)
             {
@@ -125,6 +155,7 @@ namespace Vision.Flow.Core.Runtime.Execution
                 : new Dictionary<string, object>(
                     environmentVariableValues,
                     StringComparer.OrdinalIgnoreCase);
+            GlobalVariables = globalVariables ?? EmptyGlobalVariableStore.Instance;
             SettingValueResolver = DefaultSettingValueResolver.Instance;
         }
 
@@ -150,6 +181,11 @@ namespace Vision.Flow.Core.Runtime.Execution
         public IDictionary<string, object> TriggerInputs { get; private set; }
 
         public IDictionary<string, object> EnvironmentVariableValues { get; private set; }
+
+        /// <summary>
+        /// 获取当前 Runner 共享的 Session 级全局变量存储；节点不得缓存到 Session 生命周期之外。
+        /// </summary>
+        public IGlobalVariableStore GlobalVariables { get; private set; }
 
         public ISettingValueResolver SettingValueResolver { get; private set; }
 

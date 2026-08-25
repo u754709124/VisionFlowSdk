@@ -331,6 +331,22 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 (setting.IsRequired ? " *" : string.Empty) +
                 " (" + setting.Name + ")"));
             var current = value ?? NodeSettingValue.ForConstant(setting.DefaultValue);
+            if (setting.EditorKind == NodeSettingEditorKind.VariableSelectorMappings)
+            {
+                if (current.Mode == NodeSettingValueMode.Variable)
+                {
+                    layout.Children.Add(CreateInvalidText(
+                        "字段映射必须保存为结构化常量集合；当前变量选择会保留并由校验器报告：" +
+                        VariableSelectionOption.FormatSelector(current.Selector)));
+                }
+
+                layout.Children.Add(CreateVariableSelectorMappingsEditor(setting, current.ConstantValue, delegate(object constantValue)
+                {
+                    ApplySetting(setter, NodeSettingValue.ForConstant(constantValue));
+                }));
+                return;
+            }
+
             if (setting.BindingMode != NodeSettingBindingMode.ConstantOrVariable ||
                 setting.EvaluationPhase != NodeSettingEvaluationPhase.Execution)
             {
@@ -447,6 +463,68 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             renderEditor();
             layout.Children.Add(container);
+        }
+
+        private UIElement CreateVariableSelectorMappingsEditor(
+            NodeSettingDescriptor setting,
+            object value,
+            Action<object> setter)
+        {
+            var editorKey = "Setting:" + setting.Name;
+            var editor = new VariableSelectorMappingsControl(_variableOptions, setting.AllowedVariableSources)
+            {
+                IsEnabled = !_isReadOnly,
+                Tag = editorKey
+            };
+            _editorControls[editorKey] = editor;
+            try
+            {
+                editor.ShowMappings(value);
+                UpdateVariableSelectorMappingsValidation(setting, editor, value);
+            }
+            catch (Exception ex)
+            {
+                editor.ShowMappings(null);
+                SetEditorError(editorKey, "字段映射格式无效：" + ex.Message, editor);
+            }
+
+            editor.MappingsChanged += delegate(IList<VariableSelectorFieldMapping> mappings)
+            {
+                if (_isReadOnly)
+                {
+                    return;
+                }
+
+                var serialized = mappings
+                    .Select(x => (object)x.ToSerializableObject())
+                    .ToList();
+                UpdateVariableSelectorMappingsValidation(setting, editor, serialized);
+                setter(serialized);
+            };
+            return WrapEditorWithError(editorKey, editor);
+        }
+
+        private void UpdateVariableSelectorMappingsValidation(
+            NodeSettingDescriptor setting,
+            VariableSelectorMappingsControl editor,
+            object value)
+        {
+            var editorKey = "Setting:" + setting.Name;
+            var error = editor.ValidationError;
+            object normalizedValue;
+            if (string.IsNullOrWhiteSpace(error) &&
+                !NodeSettingValueValidation.TryValidateConstant(setting, value, out normalizedValue, out error))
+            {
+            }
+
+            if (string.IsNullOrWhiteSpace(error))
+            {
+                ClearEditorError(editorKey, editor);
+            }
+            else
+            {
+                SetEditorError(editorKey, error, editor);
+            }
         }
 
         private UIElement CreateVariableEditor(NodeSettingDescriptor setting, NodeSettingValue value, Action<NodeSettingValue> setter)
@@ -802,6 +880,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     return (flags & VariableSelectorScopeFlags.Token) != 0;
                 case VariableSelectorScope.EnvironmentVariable:
                     return (flags & VariableSelectorScopeFlags.EnvironmentVariable) != 0;
+                case VariableSelectorScope.GlobalVariable:
+                    return (flags & VariableSelectorScopeFlags.GlobalVariable) != 0;
                 default:
                     return false;
             }

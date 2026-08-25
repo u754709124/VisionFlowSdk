@@ -313,6 +313,30 @@ namespace Vision.Flow.Designer.Wpf.Controls
             RenderProperties();
         }
 
+        /// <summary>
+        /// 由嵌入式宿主原位替换全局变量定义并刷新变量候选和动态节点描述符。
+        /// </summary>
+        public void UpdateGlobalVariables(
+            IEnumerable<GlobalVariableDefinition> definitions)
+        {
+            if (_document == null || _document.Runtime == null)
+                return;
+
+            _document.Runtime.GlobalVariables =
+                (definitions ?? Enumerable.Empty<GlobalVariableDefinition>())
+                    .Select(x => x == null
+                        ? null
+                        : new GlobalVariableDefinition
+                        {
+                            Id = x.Id,
+                            Name = x.Name,
+                            DataType = x.DataType,
+                            DefaultValue = x.DefaultValue
+                        })
+                    .ToList();
+            RenderProperties();
+        }
+
         private bool CanEditDocument
         {
             get { return _interactionMode == DesignerInteractionMode.Edit; }

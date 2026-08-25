@@ -48,7 +48,14 @@ namespace Vision.Flow.Core.Runtime.Engine
                     null,
                     null);
                 await listener.StartAsync(
-                    new FlowListenerContext(_definition, node, entry, _devices, _eventSink, dispatcher),
+                    new FlowListenerContext(
+                        _definition,
+                        node,
+                        entry,
+                        _devices,
+                        _eventSink,
+                        dispatcher,
+                        _globalVariables),
                     cancellationToken).ConfigureAwait(false);
 
                 lock (_gate)
