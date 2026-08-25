@@ -245,50 +245,19 @@ namespace Vision.Flow.Tests
             await mismatchRunner.StopAsync().ConfigureAwait(false);
         }
 
-        public static async Task CycleRouteThrows()
+        public static Task CycleRouteThrows()
         {
             var sink = new InMemoryFlowEventSink();
-            var runner = CreateRunner(CreateCycleFlow(), new List<string>(), sink);
-            await runner.StartAsync().ConfigureAwait(false);
-
-            var result = await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-cycle" })).ConfigureAwait(false);
-
-            AssertEx.Equal(FlowRunStatus.Failed, result.Status, "Cycle detection should fail the run.");
-            AssertEx.True(result.ErrorMessage.IndexOf("Cycle detected", StringComparison.OrdinalIgnoreCase) >= 0, "Cycle detection should report a clear error.");
-            AssertEx.False(result.Variables.ContainsKey("A.Value"), "Cycle detection should fail before executing nodes with side effects.");
-
-            var continuationVariables = new VariablePool();
-            var continuationException = await AssertEx.ThrowsAsync<InvalidOperationException>(
-                () => ((IFlowContinuationDispatcher)runner).DispatchAsync(
-                    new FlowContinuation
-                    {
-                        FlowRunId = "standalone-cycle",
-                        SourceNodeId = "A",
-                        OutputPort = FlowPortNames.Next,
-                        Variables = continuationVariables,
-                        Outputs = new Dictionary<string, object> { { "Value", "should-not-be-written" } }
-                    },
-                    CancellationToken.None)).ConfigureAwait(false);
-
+            var executionLog = new List<string>();
+            var exception = AssertEx.Throws<InvalidOperationException>(
+                () => CreateRunner(CreateCycleFlow(), executionLog, sink),
+                "Cycle detection should reject the flow while compiling its execution plan.");
             AssertEx.True(
-                continuationException.Message.IndexOf("Cycle detected", StringComparison.OrdinalIgnoreCase) >= 0,
-                "Continuation cycle detection should report a clear error.");
-            object rejectedOutput;
-            AssertEx.False(
-                continuationVariables.TryGet("A.Value", out rejectedOutput),
-                "Continuation graph validation must run before source outputs are written.");
-            AssertEx.False(
-                sink.Events.Any(x =>
-                    x.EventType == FlowRuntimeEventType.NodeCompleted &&
-                    string.Equals(x.NodeId, "A", StringComparison.OrdinalIgnoreCase)),
-                "A rejected continuation must not publish a source completion event.");
-            AssertEx.Equal(
-                1,
-                sink.Events.Count(x =>
-                    x.FlowRunId == "standalone-cycle" &&
-                    x.EventType == FlowRuntimeEventType.FlowRunFailed),
-                "A standalone continuation failure must publish one FlowRun terminal.");
-            await runner.StopAsync().ConfigureAwait(false);
+                exception.Message.IndexOf("Cycle detected", StringComparison.OrdinalIgnoreCase) >= 0,
+                "Compiled cycle detection should report a clear error.");
+            AssertEx.Equal(0, executionLog.Count, "Plan compilation must reject cycles before executing node side effects.");
+            AssertEx.Equal(0, sink.Events.Count, "Plan compilation must reject cycles before publishing lifecycle events.");
+            return Task.FromResult(0);
         }
 
         /// <summary>
