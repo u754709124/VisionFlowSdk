@@ -83,6 +83,23 @@ namespace Vision.Flow.Core.Services.Validation
                         validationError,
                         nodeId: node.Id,
                         field: field);
+                    return;
+                }
+
+                if (descriptor.EditorKind ==
+                    NodeSettingEditorKind.VariableSelectorMappings)
+                {
+                    ValidateVariableSelectorMappings(
+                        node,
+                        field,
+                        setting.ConstantValue,
+                        descriptor,
+                        edges,
+                        entries,
+                        globalVariables,
+                        nodeMap,
+                        descriptorsByNodeId,
+                        result);
                 }
                 return;
             }
@@ -207,6 +224,206 @@ namespace Vision.Flow.Core.Services.Validation
                     targetSetting.DataType + ".",
                     nodeId: node.Id,
                     field: field);
+            }
+        }
+
+        private static void ValidateVariableSelectorMappings(
+            NodeDefinition node,
+            string field,
+            object value,
+            NodeSettingDescriptor descriptor,
+            IList<EdgeDefinition> edges,
+            IList<FlowEntryDefinition> entries,
+            IDictionary<string, GlobalVariableDefinition> globalVariables,
+            IDictionary<string, NodeDefinition> nodeMap,
+            IDictionary<string, NodeDescriptor> descriptorsByNodeId,
+            FlowValidationResult result)
+        {
+            IList<VariableSelectorFieldMapping> mappings;
+            try
+            {
+                mappings = VariableSelectorFieldMapping.ReadCollection(value);
+            }
+            catch (Exception ex)
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.SettingValueInvalid,
+                    "Variable selector mappings are invalid: " + ex.Message,
+                    nodeId: node.Id,
+                    field: field);
+                return;
+            }
+
+            if (descriptor.IsRequired && mappings.Count == 0)
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.SettingValueInvalid,
+                    "At least one variable selector mapping is required.",
+                    nodeId: node.Id,
+                    field: field);
+                return;
+            }
+
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var index = 0; index < mappings.Count; index++)
+            {
+                var mapping = mappings[index];
+                string mappingField = field + ".ConstantValue[" + index + "]";
+                string name = mapping == null
+                    ? string.Empty
+                    : (mapping.AttributeName ?? string.Empty).Trim();
+                if (name.Length == 0)
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.SettingValueInvalid,
+                        "Mapping AttributeName is required.",
+                        nodeId: node.Id,
+                        field: mappingField + ".AttributeName");
+                }
+                else if (!names.Add(name))
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.SettingValueInvalid,
+                        "Mapping AttributeName must be unique ignoring case: " + name,
+                        nodeId: node.Id,
+                        field: mappingField + ".AttributeName");
+                }
+
+                ValidateVariableSelectorMappingSource(
+                    node,
+                    mappingField,
+                    mapping == null ? null : mapping.Source,
+                    descriptor,
+                    edges,
+                    entries,
+                    globalVariables,
+                    nodeMap,
+                    descriptorsByNodeId,
+                    result);
+            }
+        }
+
+        private static void ValidateVariableSelectorMappingSource(
+            NodeDefinition node,
+            string field,
+            VariableSelector selector,
+            NodeSettingDescriptor descriptor,
+            IList<EdgeDefinition> edges,
+            IList<FlowEntryDefinition> entries,
+            IDictionary<string, GlobalVariableDefinition> globalVariables,
+            IDictionary<string, NodeDefinition> nodeMap,
+            IDictionary<string, NodeDescriptor> descriptorsByNodeId,
+            FlowValidationResult result)
+        {
+            if (selector == null || selector.Path == null ||
+                selector.Path.Count == 0 || selector.Path.Any(string.IsNullOrWhiteSpace))
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableSelectorInvalid,
+                    "Mapping Source selector Path is required.",
+                    nodeId: node.Id,
+                    field: field + ".Source");
+                return;
+            }
+
+            if (!IsScopeAllowed(descriptor.AllowedVariableSources, selector.Scope))
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableSelectorNotAllowed,
+                    "Mapping Source scope is not allowed: " + selector.Scope,
+                    nodeId: node.Id,
+                    field: field + ".Source.Scope");
+                return;
+            }
+
+            if (selector.Scope == VariableSelectorScope.GlobalVariable)
+            {
+                GlobalVariableDefinition definition;
+                if (selector.Path.Count != 1)
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.VariableSelectorInvalid,
+                        "GlobalVariable mapping Path must contain exactly one variable Id.",
+                        nodeId: node.Id,
+                        field: field + ".Source.Path");
+                }
+                else if (globalVariables == null ||
+                    !globalVariables.TryGetValue(selector.Path[0], out definition))
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.GlobalVariableMissing,
+                        "Global variable does not exist: " + selector.Path[0],
+                        nodeId: node.Id,
+                        field: field + ".Source");
+                }
+                return;
+            }
+
+            if (selector.Scope != VariableSelectorScope.NodeOutput)
+                return;
+
+            if (selector.Path.Count < 2)
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableSelectorInvalid,
+                    "NodeOutput mapping Path must contain node id and output name.",
+                    nodeId: node.Id,
+                    field: field + ".Source.Path");
+                return;
+            }
+
+            string sourceNodeId = selector.Path[0];
+            string outputName = selector.Path[1];
+            NodeDefinition sourceNode;
+            if (!nodeMap.TryGetValue(sourceNodeId, out sourceNode))
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableSourceNodeMissing,
+                    "Variable source node does not exist: " + sourceNodeId,
+                    nodeId: node.Id,
+                    field: field + ".Source");
+                return;
+            }
+
+            if (!IsUpstream(sourceNodeId, node.Id, edges))
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableSourceNotUpstream,
+                    "Variable source must be an upstream node: " + sourceNodeId,
+                    nodeId: node.Id,
+                    field: field + ".Source");
+                return;
+            }
+
+            var bypassingEntries = (entries ?? new List<FlowEntryDefinition>())
+                .Where(entry => entry != null &&
+                    CanEntryReachNode(entry, node.Id, edges) &&
+                    CanEntryReachNodeAvoiding(entry, node.Id, sourceNodeId, edges))
+                .Select(entry => entry.EntryName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToArray();
+            if (bypassingEntries.Length > 0)
+            {
+                result.AddWarning(
+                    FlowValidationIssueCodes.VariableSourceNotGuaranteed,
+                    "Variable source '" + sourceNodeId +
+                    "' can be bypassed by entries that reach this node: " +
+                    string.Join(", ", bypassingEntries) + ".",
+                    nodeId: node.Id,
+                    field: field + ".Source");
+            }
+
+            NodeDescriptor sourceDescriptor;
+            if (descriptorsByNodeId.TryGetValue(sourceNodeId, out sourceDescriptor) &&
+                (sourceDescriptor.Outputs == null ||
+                 !sourceDescriptor.Outputs.Any(x => x != null &&
+                     string.Equals(x.Name, outputName, StringComparison.OrdinalIgnoreCase))))
+            {
+                result.AddError(
+                    FlowValidationIssueCodes.VariableOutputMissing,
+                    "Variable source output does not exist: " + sourceNodeId + "." + outputName,
+                    nodeId: node.Id,
+                    field: field + ".Source");
             }
         }
 

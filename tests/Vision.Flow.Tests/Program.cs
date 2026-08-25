@@ -69,6 +69,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Variable set writes global constants and upstream outputs", GlobalVariableTests.VariableSetWritesConstantsAndUpstreamOutputs),
                 new TestCase("Variable set descriptor follows the target global type", GlobalVariableTests.FlowAwareDescriptorTracksTargetTypeAndDeletion),
                 new TestCase("Designer exposes globals and ordered mapping editor", GlobalVariableTests.DesignerExposesGlobalsAndOrderedMappingEditor),
+                new TestCase("Nested mapping selectors are validated for publication", GlobalVariableTests.MappingSelectorsUseNestedPublishValidation),
                 new TestCase("FlowValidator rejects duplicate NodeId", FlowValidationPublishTests.DuplicateNodeIdReturnsError),
                 new TestCase("FlowValidator rejects dangling edges", FlowValidationPublishTests.DanglingEdgeReturnsError),
                 new TestCase("FlowValidator rejects missing required settings", FlowValidationPublishTests.MissingRequiredSettingReturnsError),

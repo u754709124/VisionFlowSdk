@@ -227,6 +227,66 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task MappingSelectorsUseNestedPublishValidation()
+        {
+            var runtime = CreateRuntime();
+            var target = new NodeDefinition
+            {
+                Id = "mapping",
+                Type = MappingNodeFactory.TypeName,
+                Name = "映射",
+                Version = "1.0.0"
+            };
+            target.Settings["FieldMappings"] = NodeSettingValue.ForConstant(new object[]
+            {
+                new VariableSelectorFieldMapping
+                {
+                    AttributeName = "Count",
+                    Source = VariableSelector.ForNodeOutput("delay", FlowOutputNames.DelayMs)
+                },
+                new VariableSelectorFieldMapping
+                {
+                    AttributeName = "Lot",
+                    Source = VariableSelector.ForGlobalVariable("lot")
+                }
+            });
+            runtime.Nodes.Add(target);
+            runtime.Edges.Add(new EdgeDefinition
+            {
+                FromNodeId = "delay",
+                FromPort = FlowPortNames.Next,
+                ToNodeId = "mapping",
+                ToPort = FlowPortNames.In
+            });
+            var registry = CreateRegistry();
+            registry.Register(new MappingNodeFactory());
+            var valid = new FlowValidator(registry).Validate(runtime);
+            AssertEx.False(valid.Issues.Any(x => x.Severity == FlowValidationSeverity.Error),
+                "Valid nested NodeOutput and GlobalVariable mappings should publish.");
+
+            target.Settings["FieldMappings"] = NodeSettingValue.ForConstant(new object[]
+            {
+                new VariableSelectorFieldMapping
+                {
+                    AttributeName = "Duplicate",
+                    Source = VariableSelector.ForNodeOutput("delay", "Missing")
+                },
+                new VariableSelectorFieldMapping
+                {
+                    AttributeName = "duplicate",
+                    Source = VariableSelector.ForGlobalVariable("missing")
+                }
+            });
+            var invalid = new FlowValidator(registry).Validate(runtime);
+            AssertEx.True(invalid.Issues.Any(x => x.Code == FlowValidationIssueCodes.SettingValueInvalid),
+                "Mapping AttributeName values should be unique ignoring case.");
+            AssertEx.True(invalid.Issues.Any(x => x.Code == FlowValidationIssueCodes.VariableOutputMissing),
+                "Nested mappings should validate upstream output names.");
+            AssertEx.True(invalid.Issues.Any(x => x.Code == FlowValidationIssueCodes.GlobalVariableMissing),
+                "Nested mappings should validate global variable Ids.");
+            return Task.FromResult(0);
+        }
+
         private static RuntimeFlowDefinition CreateRuntime()
         {
             var runtime = new RuntimeFlowDefinition
@@ -288,6 +348,64 @@ namespace Vision.Flow.Tests
             var registry = new NodeRegistry();
             CommonNodeRegistration.RegisterAll(registry);
             return registry;
+        }
+
+        private sealed class MappingNodeFactory : INodeFactory
+        {
+            public const string TypeName = "test.mapping";
+
+            public string NodeType { get { return TypeName; } }
+
+            public NodeDescriptor Descriptor
+            {
+                get
+                {
+                    return new NodeDescriptor
+                    {
+                        NodeType = TypeName,
+                        DisplayName = "映射",
+                        Category = "测试",
+                        Version = "1.0.0",
+                        InputPorts =
+                        {
+                            new NodePortDescriptor { Name = FlowPortNames.In, Direction = FlowPortDirection.Input, DataType = FlowDataType.Control, IsRequired = true }
+                        },
+                        OutputPorts =
+                        {
+                            new NodePortDescriptor { Name = FlowPortNames.Next, Direction = FlowPortDirection.Output, DataType = FlowDataType.Control }
+                        },
+                        Settings =
+                        {
+                            new NodeSettingDescriptor
+                            {
+                                Name = "FieldMappings",
+                                DisplayName = "字段映射",
+                                DataType = FlowDataType.Object,
+                                IsRequired = true,
+                                BindingMode = NodeSettingBindingMode.ConstantOnly,
+                                EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput | VariableSelectorScopeFlags.GlobalVariable,
+                                EditorKind = NodeSettingEditorKind.VariableSelectorMappings
+                            }
+                        }
+                    };
+                }
+            }
+
+            public IFlowNode Create(NodeDefinition definition)
+            {
+                return new MappingNode();
+            }
+        }
+
+        private sealed class MappingNode : IFlowNode
+        {
+            public Task<NodeExecutionResult> ExecuteAsync(
+                FlowExecutionContext context,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(NodeExecutionResult.Success(FlowPortNames.Next));
+            }
         }
     }
 }
