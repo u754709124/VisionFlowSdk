@@ -67,6 +67,8 @@ var frame = await camera.GrabOneAsync(cancellationToken);
 camera.FrameArrived += OnFrameArrived;
 ```
 
+监听节点的工厂必须同时实现 `IFlowListenerNodeFactory`。该标识不改变序列化协议，供 Designer 在不创建运行节点、不接触真实设备的情况下自动生成 NodeEvent Entry，也供 Validator 区分监听起点与普通可调用起点。
+
 回调线程只做轻量封装和后台投递，不直接执行后续节点。
 
 禁止节点直接引用具体 SDK 类型或旧上位机业务对象。

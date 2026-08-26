@@ -382,11 +382,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             _document.Runtime.Nodes.Add(node);
             _document.View.Nodes[node.Id] = CreatePaletteNodeViewState(canvasPosition);
-
-            if (_document.Runtime.Entries.Count == 0)
-            {
-                _document.Runtime.Entries.Add(new FlowEntryDefinition { EntryName = DefaultEntryName, TargetNodeId = node.Id });
-            }
+            AddAutomaticListenerEntry(node);
 
             SelectNode(node);
             RenderCanvas();
@@ -1149,6 +1145,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 X = SnapToGrid(view.X + 48),
                 Y = SnapToGrid(view.Y + 48)
             };
+            AddAutomaticListenerEntry(clone);
             RenderCanvas();
             SelectNode(clone);
             AddDebugMessage("Duplicated node " + node.Id + " as " + clone.Id + ".");
@@ -1174,6 +1171,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             _document.Runtime.Nodes.Remove(node);
             _document.Runtime.Edges.RemoveAll(x => StringEquals(x.FromNodeId, node.Id) || StringEquals(x.ToNodeId, node.Id));
+            RemoveAutomaticListenerEntries(node.Id);
             _selectedEdge = null;
             if (_document.View != null)
             {

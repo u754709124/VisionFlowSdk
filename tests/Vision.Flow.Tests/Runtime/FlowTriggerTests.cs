@@ -361,7 +361,7 @@ namespace Vision.Flow.Tests
         }
     }
 
-    internal sealed class TestListenerNodeFactory : INodeFactory
+    internal sealed class TestListenerNodeFactory : IFlowListenerNodeFactory
     {
         public const string TypeName = "test.listener";
 

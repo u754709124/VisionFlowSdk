@@ -139,6 +139,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _openButton = CreateToolbarButton("Open", "open", delegate { OpenDesign(); });
             _saveButton = CreateToolbarButton("Save", "save", delegate { SaveDesign(); });
             _publishButton = CreateToolbarButton("Publish", "publish", delegate { ShowPublishRuntimeDialog(); });
+            _entryListButton = CreateToolbarButton("入口列表", "entries", delegate { ShowEntryListDialog(); }, true);
             _debugRunButton = CreateToolbarButton("运行", "run", async delegate { await RunDebugAsync(); });
             _stopButton = CreateToolbarButton("停止", "stop", async delegate { await StopDebugAsync(); });
 
@@ -151,6 +152,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 buttons.Children.Add(_publishButton);
             }
 
+            buttons.Children.Add(_entryListButton);
             buttons.Children.Add(_debugRunButton);
             buttons.Children.Add(_stopButton);
 
@@ -388,27 +390,45 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
         }
 
-        private Button CreateToolbarButton(string text, string iconName, RoutedEventHandler handler)
+        private Button CreateToolbarButton(
+            string text,
+            string iconName,
+            RoutedEventHandler handler,
+            bool useIconOnlyInExternalToolbar = false)
         {
+            var isExternalIconOnly = useIconOnlyInExternalToolbar &&
+                _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External;
             var button = new Button
             {
                 Tag = text,
-                MinWidth = _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External
-                    ? (text.Length > 3 ? 76 : 52)
+                MinWidth = isExternalIconOnly
+                    ? 28
+                    : _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External
+                    ? (text.Length > 3 ? 62 : 44)
                     : (text.Length > 7 ? 96 : 72),
                 Height = 34,
                 Margin = _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External
-                    ? new Thickness(0, 0, 3, 0)
+                    ? new Thickness(0, 0, 2, 0)
                     : new Thickness(0, 0, 6, 0),
                 Padding = _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External
-                    ? new Thickness(6, 0, 6, 0)
+                    ? new Thickness(3, 0, 3, 0)
                     : new Thickness(12, 0, 12, 0)
             };
-            button.Content = CreateToolbarButtonContent(
-                text,
-                iconName,
-                button,
-                _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External);
+            if (isExternalIconOnly)
+            {
+                var icon = FlowDesignerIcons.Create(iconName, BrushFromRgb(75, 91, 112), 13);
+                icon.SetBinding(Shape.StrokeProperty, new Binding("Foreground") { Source = button });
+                button.Content = icon;
+                button.ToolTip = text;
+            }
+            else
+            {
+                button.Content = CreateToolbarButtonContent(
+                    text,
+                    iconName,
+                    button,
+                    _options.ToolbarPlacement == FlowDesignerToolbarPlacement.External);
+            }
             System.Windows.Automation.AutomationProperties.SetName(button, text);
             button.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.ToolbarButtonStyleKey);
             button.Click += handler;

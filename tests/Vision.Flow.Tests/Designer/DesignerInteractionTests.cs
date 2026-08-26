@@ -1358,6 +1358,128 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task ListenerEntriesAndReadOnlyListFollowDocumentState()
+        {
+            RunOnSta(delegate
+            {
+                var registry = new NodeRegistry();
+                CommonNodeRegistration.RegisterAll(registry);
+                var listenerFactory = new TestListenerNodeFactory();
+                registry.Register(listenerFactory);
+                var control = new FlowDesignerControl(registry, null, new FlowDesignerOptions
+                {
+                    LoadSampleOnStartup = false,
+                    ShowStandaloneDocumentCommands = false,
+                    ToolbarPlacement = FlowDesignerToolbarPlacement.External
+                });
+                var addNodeMethod = typeof(FlowDesignerControl).GetMethod(
+                    "AddNodeFromPalette",
+                    BindingFlags.Instance | BindingFlags.NonPublic,
+                    null,
+                    new[] { typeof(NodeDescriptor) },
+                    null);
+                AssertEx.NotNull(addNodeMethod, "The palette add method should exist.");
+
+                addNodeMethod.Invoke(control, new object[] { registry.GetFactory(DelayNodeFactory.TypeName).Descriptor });
+                var document = GetPrivateField<FlowDesignDocument>(control, "_document");
+                AssertEx.Equal(0, document.Runtime.Entries.Count,
+                    "The first ordinary node must not become a manual entry because of insertion order.");
+
+                addNodeMethod.Invoke(control, new object[] { listenerFactory.Descriptor });
+                var listener = document.Runtime.Nodes.Last();
+                AssertEx.Equal(1, document.Runtime.Entries.Count,
+                    "Adding a listener should create exactly one NodeEvent entry.");
+                AssertEx.Equal(FlowTriggerKind.NodeEvent, document.Runtime.Entries[0].TriggerKind,
+                    "The automatic listener entry should use NodeEvent.");
+                AssertEx.Equal(listener.Id, document.Runtime.Entries[0].SourceNodeId,
+                    "The automatic listener entry should reference the added listener.");
+                AssertEx.Equal("NodeEvent_" + listener.Id, document.Runtime.Entries[0].EntryName,
+                    "The automatic listener entry should use the stable generated name.");
+
+                InvokePrivate(control, "DuplicateNode", listener);
+                var clone = document.Runtime.Nodes.Last();
+                AssertEx.Equal(2, document.Runtime.Entries.Count,
+                    "Duplicating a listener should create a separate entry.");
+                AssertEx.True(document.Runtime.Entries.Select(x => x.EntryName).Distinct(StringComparer.OrdinalIgnoreCase).Count() == 2,
+                    "Duplicated listener entries should have unique protocol names.");
+                InvokePrivate(control, "DeleteNode", clone);
+                AssertEx.Equal(1, document.Runtime.Entries.Count,
+                    "Deleting a listener should remove its NodeEvent entry.");
+
+                var listContent = InvokePrivateInstance<FrameworkElement>(
+                    control,
+                    "CreateEntryListContent",
+                    new Action(delegate { }));
+                var texts = FindChildren<TextBlock>(listContent).Select(x => x.Text ?? string.Empty).ToList();
+                AssertEx.True(texts.Contains("测试监听器") && texts.Contains("节点事件") && texts.Contains(listener.Id),
+                    "The read-only list should show the node name, trigger kind and node id.");
+                AssertEx.False(texts.Contains("入口名称") || texts.Contains("输入参数数量") || texts.Contains(document.Runtime.Entries[0].EntryName),
+                    "The read-only list must hide EntryName and input counts.");
+                var listButtons = FindChildren<Button>(listContent).ToList();
+                AssertEx.Equal(1, listButtons.Count,
+                    "The read-only list should expose only its close button.");
+                AssertEx.Equal("EntryListClose", Convert.ToString(listButtons[0].Tag, CultureInfo.InvariantCulture),
+                    "The only list action should be Close.");
+                var toolbarLabels = FindChildren<Button>(control.ToolbarView)
+                    .Select(GetButtonLabel)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList();
+                AssertEx.True(toolbarLabels.Contains("入口列表"),
+                    "Both embedded and external toolbar hosts should expose the entry list command.");
+
+                InvokePrivate(control, "DeleteNode", listener);
+                var emptyContent = InvokePrivateInstance<FrameworkElement>(
+                    control,
+                    "CreateEntryListContent",
+                    new Action(delegate { }));
+                AssertEx.True(FindChildren<TextBlock>(emptyContent).Any(x => x.Text == "当前流程没有入口。"),
+                    "The list should show an explicit empty state.");
+
+                document.Runtime.Entries.Add(new FlowEntryDefinition
+                {
+                    EntryName = "MissingNode",
+                    TriggerKind = FlowTriggerKind.External,
+                    TargetNodeId = "missing-node"
+                });
+                var missingNodeContent = InvokePrivateInstance<FrameworkElement>(
+                    control,
+                    "CreateEntryListContent",
+                    new Action(delegate { }));
+                var missingNodeTexts = FindChildren<TextBlock>(missingNodeContent)
+                    .Select(x => x.Text ?? string.Empty)
+                    .ToList();
+                AssertEx.True(missingNodeTexts.Contains("节点不存在") && missingNodeTexts.Contains("missing-node"),
+                    "The list should retain an invalid node id and identify the missing node.");
+
+                var staleDocument = new FlowDesignDocument
+                {
+                    FlowId = "stale-listener",
+                    FlowName = "Stale Listener",
+                    Runtime = new RuntimeFlowDefinition
+                    {
+                        FlowId = "stale-listener",
+                        FlowName = "Stale Listener",
+                        Version = "1.0.0",
+                        Nodes =
+                        {
+                            new NodeDefinition
+                            {
+                                Id = "listener-stale",
+                                Type = TestListenerNodeFactory.TypeName,
+                                Name = "旧监听节点",
+                                Version = "1.0.0"
+                            }
+                        }
+                    },
+                    View = new FlowViewState()
+                };
+                control.LoadDocumentAsync(staleDocument).GetAwaiter().GetResult();
+                AssertEx.Equal(0, GetPrivateField<FlowDesignDocument>(control, "_document").Runtime.Entries.Count,
+                    "Loading an old document must not repair missing listener entries.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PaletteSearchesAllDescriptorFieldsAndRestoresExpansion()
         {
             RunOnSta(delegate

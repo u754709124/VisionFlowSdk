@@ -262,6 +262,87 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task ChainStartsRequireMatchingEntries()
+        {
+            var ordinary = CreateValidRuntime();
+            ordinary.Entries.Clear();
+            var missingOrdinary = CreateValidator().Validate(ordinary);
+            AssertHasIssue(
+                missingOrdinary,
+                FlowValidationIssueCodes.ChainStartEntryMissing,
+                "An ordinary chain start without a callable entry should be rejected.");
+
+            ordinary.Entries.Add(new FlowEntryDefinition
+            {
+                EntryName = "MiddleStart",
+                TriggerKind = FlowTriggerKind.Manual,
+                TargetNodeId = "log1"
+            });
+            var middleOnly = CreateValidator().Validate(ordinary);
+            AssertHasIssue(
+                middleOnly,
+                FlowValidationIssueCodes.ChainStartEntryMissing,
+                "An entry that starts from the middle must not cover the actual chain start.");
+
+            ordinary.Entries.Clear();
+            ordinary.Entries.Add(new FlowEntryDefinition
+            {
+                EntryName = "ManualStart",
+                TriggerKind = FlowTriggerKind.Manual,
+                TargetNodeId = "delay1"
+            });
+            var validOrdinary = CreateValidator().Validate(ordinary);
+            AssertEx.False(
+                validOrdinary.Issues.Any(x => x.Code == FlowValidationIssueCodes.ChainStartEntryMissing),
+                "A callable entry should cover an ordinary chain start.");
+
+            var listenerRegistry = CreateRegistry();
+            listenerRegistry.Register(new TestListenerNodeFactory());
+            var listenerFlow = new RuntimeFlowDefinition
+            {
+                FlowId = "listener-entry-validation",
+                FlowName = "Listener Entry Validation",
+                Version = "1.0.0",
+                Nodes =
+                {
+                    new NodeDefinition
+                    {
+                        Id = "listener1",
+                        Type = TestListenerNodeFactory.TypeName,
+                        Name = "Listener",
+                        Version = "1.0.0"
+                    }
+                },
+                Entries =
+                {
+                    new FlowEntryDefinition
+                    {
+                        EntryName = "WrongManualEntry",
+                        TriggerKind = FlowTriggerKind.Manual,
+                        TargetNodeId = "listener1"
+                    }
+                }
+            };
+            var wrongListenerEntry = new FlowValidator(listenerRegistry).Validate(listenerFlow);
+            AssertHasIssue(
+                wrongListenerEntry,
+                FlowValidationIssueCodes.ChainStartEntryMissing,
+                "A manual entry must not replace a listener NodeEvent entry.");
+
+            listenerFlow.Entries.Clear();
+            listenerFlow.Entries.Add(new FlowEntryDefinition
+            {
+                EntryName = "NodeEvent_listener1",
+                TriggerKind = FlowTriggerKind.NodeEvent,
+                SourceNodeId = "listener1"
+            });
+            var validListener = new FlowValidator(listenerRegistry).Validate(listenerFlow);
+            AssertEx.False(
+                validListener.Issues.Any(x => x.Code == FlowValidationIssueCodes.ChainStartEntryMissing),
+                "A NodeEvent entry should cover its listener chain start.");
+            return Task.FromResult(0);
+        }
+
         public static Task PublishRuntimeDoesNotContainViewState()
         {
             var document = CreateValidDesignDocument();

@@ -59,6 +59,8 @@
 - `TriggerKind = External`：由 PLC、MES、HTTP、相机 SDK 等外部宿主发起，从 `TargetNodeId` 开始执行。
 - `TriggerKind = NodeEvent`：由 `SourceNodeId` 指向的 `IFlowListenerNode` 发起。监听事件先写入源节点输出，再按该源节点的 `OutputPort` 沿出边继续执行；`TargetNodeId` 不参与此类入口。
 
+每条没有入边的链路起始节点都必须由入口覆盖，孤立节点同样按起始节点处理。普通起点需要 Manual 或 External 入口的 `TargetNodeId` 指向自身；监听起点必须由 NodeEvent 入口的 `SourceNodeId` 指向自身，Manual 入口不能替代监听订阅。校验失败返回稳定错误码 `ChainStartEntryMissing`。入口可以额外指向链路中间节点，但不能因此省略真正起点的入口。
+
 `Inputs` 中的每项由稳定键 `Name`、可选界面标签 `DisplayName`、`DataType`、`IsRequired`、`DefaultValue` 和 `Description` 组成。运行时拒绝未声明输入、缺少必填输入或无法转换到声明类型的输入。
 
 `ExecutionPolicy` 的默认值为 `MaxConcurrentRuns = 1`、`QueueCapacity = 64`、`QueueFullBehavior = Reject`。队列容量只统计等待请求；满载时返回 `Rejected`，不会创建无界任务。

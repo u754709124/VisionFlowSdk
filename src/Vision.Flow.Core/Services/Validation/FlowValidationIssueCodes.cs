@@ -31,6 +31,7 @@ namespace Vision.Flow.Core.Services.Validation
         public const string EdgeToPortUnknown = "EdgeToPortUnknown";
         public const string EdgeTargetPortUnknown = "EdgeTargetPortUnknown";
         public const string FlowCycleDetected = "FlowCycleDetected";
+        public const string ChainStartEntryMissing = "ChainStartEntryMissing";
         public const string EntriesMissing = "EntriesMissing";
         public const string EntryMissing = "EntryMissing";
         public const string EntryNameMissing = "EntryNameMissing";

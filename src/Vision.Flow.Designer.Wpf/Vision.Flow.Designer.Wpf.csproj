@@ -49,6 +49,7 @@
     <Compile Include="Controls\FlowDesignerControl.Canvas.cs" />
     <Compile Include="Controls\FlowDesignerControl.cs" />
     <Compile Include="Controls\FlowDesignerControl.Document.cs" />
+    <Compile Include="Controls\FlowDesignerControl.Entries.cs" />
     <Compile Include="Controls\FlowDesignerControl.Layout.cs" />
     <Compile Include="Controls\FlowDesignerControl.Properties.cs" />
     <Compile Include="Controls\FlowDesignerControl.Resources.cs" />

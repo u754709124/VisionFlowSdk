@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Vision.Flow.Core.Contracts.Devices;
 using Vision.Flow.Core.Contracts.Nodes;
 using Vision.Flow.Core.Domain.Flows;
@@ -10,6 +11,66 @@ namespace Vision.Flow.Core.Services.Validation
 {
     public sealed partial class FlowValidator
     {
+        private void ValidateChainStartEntries(
+            IList<NodeDefinition> nodes,
+            IList<EdgeDefinition> edges,
+            IList<FlowEntryDefinition> entries,
+            FlowValidationResult result)
+        {
+            var nodesWithIncomingEdges = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var edge in edges)
+            {
+                if (edge != null && !string.IsNullOrWhiteSpace(edge.ToNodeId))
+                {
+                    nodesWithIncomingEdges.Add(edge.ToNodeId);
+                }
+            }
+
+            foreach (var node in nodes)
+            {
+                if (node == null || string.IsNullOrWhiteSpace(node.Id) || nodesWithIncomingEdges.Contains(node.Id))
+                {
+                    continue;
+                }
+
+                INodeFactory factory;
+                var isListener = !string.IsNullOrWhiteSpace(node.Type) &&
+                    _nodeRegistry.TryGetFactory(node.Type, out factory) &&
+                    factory is IFlowListenerNodeFactory;
+                var hasEntry = entries.Any(entry => EntryCoversChainStart(entry, node.Id, isListener));
+                if (!hasEntry)
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.ChainStartEntryMissing,
+                        "Chain start node requires a matching entry. Node=" +
+                        (string.IsNullOrWhiteSpace(node.Name) ? node.Id : node.Name) +
+                        " (" + node.Id + ").",
+                        nodeId: node.Id,
+                        field: "Entries");
+                }
+            }
+        }
+
+        private static bool EntryCoversChainStart(
+            FlowEntryDefinition entry,
+            string nodeId,
+            bool isListener)
+        {
+            if (entry == null)
+            {
+                return false;
+            }
+
+            if (isListener)
+            {
+                return entry.TriggerKind == FlowTriggerKind.NodeEvent &&
+                    string.Equals(entry.SourceNodeId, nodeId, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return entry.TriggerKind != FlowTriggerKind.NodeEvent &&
+                string.Equals(entry.TargetNodeId, nodeId, StringComparison.OrdinalIgnoreCase);
+        }
+
         private void ValidateEntries(
             IList<FlowEntryDefinition> entries,
             IDictionary<string, NodeDefinition> nodeMap,

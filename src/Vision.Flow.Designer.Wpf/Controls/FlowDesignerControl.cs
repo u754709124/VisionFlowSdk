@@ -128,6 +128,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private Button _openButton;
         private Button _saveButton;
         private Button _publishButton;
+        private Button _entryListButton;
         private Button _debugRunButton;
         private Button _stopButton;
         private TextBlock _zoomText;

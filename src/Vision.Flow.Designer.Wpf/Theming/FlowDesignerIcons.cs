@@ -68,6 +68,8 @@ namespace Vision.Flow.Designer.Wpf.Theming
                     return "M3,3 L15,3 L18,6 L18,17 L3,17 Z M6,3 L6,8 L14,8 L14,3 M6,13 L15,13";
                 case "publish":
                     return "M10,15 L10,3 M6,7 L10,3 L14,7 M3,12 L3,17 L17,17 L17,12";
+                case "entries":
+                    return "M4,4 L7,4 M10,4 L17,4 M4,10 L7,10 M10,10 L17,10 M4,16 L7,16 M10,16 L17,16";
                 case "run":
                     return "M5,3 L17,10 L5,17 Z";
                 case "stop":

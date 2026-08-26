@@ -52,6 +52,7 @@
     <Compile Include="Contracts\Devices\VisionImageReference.cs" />
     <Compile Include="Contracts\Nodes\IFlowContinuationDispatcher.cs" />
     <Compile Include="Contracts\Nodes\IFlowListenerNode.cs" />
+    <Compile Include="Contracts\Nodes\IFlowListenerNodeFactory.cs" />
     <Compile Include="Contracts\Nodes\IFlowNode.cs" />
     <Compile Include="Contracts\Nodes\IFlowRunner.cs" />
     <Compile Include="Contracts\Nodes\IInstanceNodeDescriptorProvider.cs" />

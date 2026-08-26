@@ -75,9 +75,11 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - `CaptureDocument` 先同步已渲染节点坐标、缩放、画布尺寸和滚动偏移，再返回通过 `FlowDesignSerializer` 生成的深拷贝。
 - `PublishRuntimeFile` 只允许在编辑模式调用。它捕获当前文档，通过 `FlowPublishService` 完成 Schema v2 深拷贝和校验，并仅在成功时写入 `.flowruntime`；失败原因从返回值的 `Validation` 获取。
 - 宿主持有的输入文档和捕获结果都不会与控件内部文档共享可变对象。
-- `FlowDesignerOptions.ToolbarPlacement` 默认为 `Internal`。设为 `External` 后，`ToolbarView` 不再挂在设计器内部，宿主必须把这个单例元素放入自己的单层命令栏；关闭独立文件命令时，四个中文模式/运行命令可在 300 px 分配宽度内完成布局。
+- `FlowDesignerOptions.ToolbarPlacement` 默认为 `Internal`。设为 `External` 后，`ToolbarView` 不再挂在设计器内部，宿主必须把这个单例元素放入自己的单层命令栏；关闭独立文件命令时，模式、入口列表和运行命令可在 300 px 分配宽度内完成布局。
 
-独立设计器工具栏的 Publish 按钮调用同一个 `PublishRuntimeFile` 入口，不另行维护 UI 专用发布逻辑。
+独立设计器工具栏的 Publish 按钮调用同一个 `PublishRuntimeFile` 入口，不另行维护 UI 专用发布逻辑。工具栏同时提供“入口列表”：弹窗按当前内存文档顺序只读展示入口节点名称、Manual/External/NodeEvent 触发类型和节点 ID；不展示协议 `EntryName`，也不提供增删改入口的操作。无入口和失效节点引用都有明确只读状态。
+
+节点是否成为入口不依赖添加顺序。第一个普通节点不会自动生成 `ManualStart`；实现 `IFlowListenerNodeFactory` 的监听节点在新增或复制时自动生成唯一 `NodeEvent_<NodeId>` 入口，删除监听节点时同步删除关联 NodeEvent 入口。加载既有文档不会补齐或转换 Entry。
 
 ## 属性面板
 

@@ -78,7 +78,9 @@ namespace Vision.Flow.Core.Services.Validation
                 result);
             ValidateEdges(edges, nodeMap, descriptorsByNodeId, result);
             ValidateNoCycles(edges, nodeMap, result);
-            ValidateEntries(definition.Entries ?? new List<FlowEntryDefinition>(), nodeMap, result);
+            var entries = definition.Entries ?? new List<FlowEntryDefinition>();
+            ValidateEntries(entries, nodeMap, result);
+            ValidateChainStartEntries(nodes, edges, entries, result);
             ValidateRequiredSettings(nodes, descriptorsByNodeId, result);
             ValidateNodeExecutionPolicies(nodes, descriptorsByNodeId, result);
             ValidateSettingValues(
