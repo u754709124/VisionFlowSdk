@@ -34,7 +34,7 @@ namespace Vision.Flow.Tests
             var frame = new CameraFrameData
             {
                 CameraId = "camera-1",
-                FrameId = "frame-1",
+                CaptureFrameId = "frame-1",
                 Image = image
             };
             var runtimeEvent = new FlowRuntimeEvent

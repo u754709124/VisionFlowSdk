@@ -38,7 +38,7 @@
   "ConstantValue": 5000,
   "Selector": {
     "Scope": "NodeOutput",
-    "Path": ["camera_1", "FrameId"]
+    "Path": ["camera_1", "CaptureFrameId"]
   }
 }
 ```

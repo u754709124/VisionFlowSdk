@@ -17,7 +17,10 @@ namespace Vision.Flow.Core.Contracts.Devices
 
         public string TriggerId { get; set; }
 
-        public string FrameId { get; set; }
+        /// <summary>
+        /// 获取或设置由相机采集链路生成的单帧技术追踪标识；该值不表示待检品框架标识。
+        /// </summary>
+        public string CaptureFrameId { get; set; }
 
         public DateTime GrabTime { get; set; }
 

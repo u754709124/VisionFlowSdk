@@ -36,6 +36,9 @@ IReadOnlyList<CameraParameterDescriptor> GetParameterDescriptors();
 
 `GrabOneAsync` 可用于项目专属软触发节点单次采集。`FrameArrived` 可用于项目专属硬触发节点订阅外部硬触发图像回调。参数设置节点只允许写入 `CameraParameterDescriptor.IsWritable=true` 的参数。
 
+`CameraFrameData.CaptureFrameId` 是相机采集链路生成的单帧技术追踪标识，不得用于保存
+批号、载具码或待检品框架标识。待检品业务元数据应由具体项目在独立业务上下文中定义。
+
 ## IMotionAdapter
 
 `IMotionAdapter` 通过逻辑命令名发送命令并发布接收事件。具体项目的 Adapter 负责把逻辑命令转换为项目协议枚举和线缆消息：

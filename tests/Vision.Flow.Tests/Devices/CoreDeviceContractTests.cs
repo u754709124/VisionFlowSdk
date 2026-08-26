@@ -27,7 +27,7 @@ namespace Vision.Flow.Tests
         {
             var native = new DisposableProbe();
             var image = new VisionImageReference("image-001", 5, 6, "Mono8", new byte[] { 1, 2 }, native, true, "Raw");
-            image.Metadata[FlowMetadataKeys.FrameId] = "frame-001";
+            image.Metadata[FlowMetadataKeys.CaptureFrameId] = "frame-001";
 
             var clone = image.CloneReference();
             image.Dispose();
@@ -37,7 +37,7 @@ namespace Vision.Flow.Tests
             AssertEx.False(image.TryGetBytes(out bytes), "Disposed image should not expose bytes.");
             AssertEx.True(clone.TryGetBytes(out bytes), "Cloned image reference should keep byte data.");
             AssertEx.Equal(2, bytes.Length, "Cloned bytes length should match.");
-            AssertEx.Equal("frame-001", Convert.ToString(clone.Metadata[FlowMetadataKeys.FrameId]), "Clone should copy metadata.");
+            AssertEx.Equal("frame-001", Convert.ToString(clone.Metadata[FlowMetadataKeys.CaptureFrameId]), "Clone should copy metadata.");
             clone.Dispose();
             return Task.FromResult(0);
         }
@@ -145,7 +145,7 @@ namespace Vision.Flow.Tests
                 {
                     CameraId = CameraId,
                     TriggerId = "grab-one",
-                    FrameId = Guid.NewGuid().ToString("N"),
+                    CaptureFrameId = Guid.NewGuid().ToString("N"),
                     GrabTime = DateTime.UtcNow,
                     Image = new VisionImageReference("grab-one-image", 1, 1, "Mono8", new byte[] { 7 })
                 });
@@ -166,7 +166,7 @@ namespace Vision.Flow.Tests
                         {
                             CameraId = CameraId,
                             TriggerId = triggerId,
-                            FrameId = frameId,
+                            CaptureFrameId = frameId,
                             GrabTime = DateTime.UtcNow,
                             Image = new VisionImageReference(frameId, 1, 1, "Mono8", new byte[] { 7 })
                         }));

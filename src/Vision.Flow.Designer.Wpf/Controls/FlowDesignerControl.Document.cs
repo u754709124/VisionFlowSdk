@@ -960,7 +960,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             AddTokenVariableSuggestion(items, "ProductId", FlowDataType.String);
             AddTokenVariableSuggestion(items, "WorkpieceId", FlowDataType.String);
             AddTokenVariableSuggestion(items, "PositionId", FlowDataType.String);
-            AddTokenVariableSuggestion(items, "FrameId", FlowDataType.String);
+            AddTokenVariableSuggestion(items, "CaptureFrameId", FlowDataType.String);
             AddTokenVariableSuggestion(items, "Metadata", FlowDataType.Object);
             AddTokenVariableSuggestion(items, "Values", FlowDataType.Object);
         }

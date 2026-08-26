@@ -109,7 +109,7 @@ namespace Vision.Flow.Core.Runtime.Events
                 return new FlowRuntimeValueSummary
                 {
                     TypeName = value.GetType().FullName,
-                    Description = "CameraId=" + frame.CameraId + ", FrameId=" + frame.FrameId,
+                    Description = "CameraId=" + frame.CameraId + ", CaptureFrameId=" + frame.CaptureFrameId,
                     IsResource = frame.Image != null
                 };
             }

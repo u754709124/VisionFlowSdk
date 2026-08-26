@@ -15,7 +15,8 @@ namespace Vision.Flow.Core.Domain.Nodes
         public const string TokenId = "TokenId";
         public const string NodeId = "NodeId";
         public const string SourceImageId = "SourceImageId";
-        public const string FrameId = "FrameId";
+        /// <summary>相机采集帧技术追踪标识的稳定元数据键。</summary>
+        public const string CaptureFrameId = "CaptureFrameId";
         public const string GrabTime = "GrabTime";
         public const string ImageId = "ImageId";
         public const string ByteLength = "ByteLength";
