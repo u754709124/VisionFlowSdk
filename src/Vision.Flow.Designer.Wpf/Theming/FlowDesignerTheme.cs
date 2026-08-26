@@ -26,6 +26,7 @@ namespace Vision.Flow.Designer.Wpf.Theming
         public const string ToolbarButtonStyleKey = "FlowToolbarButtonStyle";
         public const string PrimaryButtonStyleKey = "FlowPrimaryButtonStyle";
         public const string SecondaryButtonStyleKey = "FlowSecondaryButtonStyle";
+        public const string DangerButtonStyleKey = "FlowDangerButtonStyle";
         public const string SegmentButtonStyleKey = "FlowSegmentButtonStyle";
         public const string VariableSelectorButtonStyleKey = "FlowVariableSelectorButtonStyle";
         public const string CardBorderStyleKey = "FlowCardBorderStyle";
@@ -363,6 +364,45 @@ namespace Vision.Flow.Designer.Wpf.Theming
            BasedOn=""{StaticResource FlowToolbarButtonStyle}"">
         <Setter Property=""Background"" Value=""White"" />
         <Setter Property=""BorderBrush"" Value=""{StaticResource FlowPanelBorder}"" />
+    </Style>
+
+    <Style x:Key=""FlowDangerButtonStyle"" TargetType=""{x:Type Button}"">
+        <Setter Property=""Padding"" Value=""0"" />
+        <Setter Property=""Background"" Value=""{StaticResource FlowError}"" />
+        <Setter Property=""Foreground"" Value=""White"" />
+        <Setter Property=""BorderBrush"" Value=""{StaticResource FlowError}"" />
+        <Setter Property=""BorderThickness"" Value=""1"" />
+        <Setter Property=""FontFamily"" Value=""{StaticResource FlowFontFamily}"" />
+        <Setter Property=""Cursor"" Value=""Hand"" />
+        <Setter Property=""Template"">
+            <Setter.Value>
+                <ControlTemplate TargetType=""{x:Type Button}"">
+                    <Border x:Name=""Chrome""
+                            Padding=""{TemplateBinding Padding}""
+                            Background=""{TemplateBinding Background}""
+                            BorderBrush=""{TemplateBinding BorderBrush}""
+                            BorderThickness=""{TemplateBinding BorderThickness}""
+                            CornerRadius=""5""
+                            SnapsToDevicePixels=""True"">
+                        <ContentPresenter HorizontalAlignment=""Center""
+                                          VerticalAlignment=""Center"" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property=""IsMouseOver"" Value=""True"">
+                            <Setter TargetName=""Chrome"" Property=""Background"" Value=""#B93636"" />
+                            <Setter TargetName=""Chrome"" Property=""BorderBrush"" Value=""#B93636"" />
+                        </Trigger>
+                        <Trigger Property=""IsPressed"" Value=""True"">
+                            <Setter TargetName=""Chrome"" Property=""Background"" Value=""#9E2E2E"" />
+                            <Setter TargetName=""Chrome"" Property=""BorderBrush"" Value=""#9E2E2E"" />
+                        </Trigger>
+                        <Trigger Property=""IsEnabled"" Value=""False"">
+                            <Setter TargetName=""Chrome"" Property=""Opacity"" Value=""0.42"" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key=""FlowSegmentButtonStyle"" TargetType=""{x:Type Button}"">

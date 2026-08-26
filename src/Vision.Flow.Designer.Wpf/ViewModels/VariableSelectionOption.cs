@@ -107,9 +107,9 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
         {
             get
             {
-                return string.IsNullOrWhiteSpace(SourceId)
+                return string.IsNullOrWhiteSpace(SourceName)
                     ? ValueName
-                    : SourceId + "." + ValueName;
+                    : SourceName + "." + ValueName;
             }
         }
 

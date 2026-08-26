@@ -108,7 +108,9 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - `ConstantOnly` 或 `ListenerStart` 配置不开放执行期节点输出变量；只读模式同时禁用模式切换、固定值编辑器和变量选择器。
 
 `NodeSettingEditorKind.VariableSelectorMappings` 使用专用表格式编辑器。每行编辑稳定
-Attribute 名称和一个结构化变量来源，并支持新增、删除及排序；空名称、大小写不敏感
+Attribute 名称和一个结构化变量来源，并支持新增和删除；映射顺序按新增顺序保存，
+界面不提供上下移动按钮。删除使用红色“×”按钮，变量选择按钮优先显示用户可读的来源名称，
+稳定 ID 仅保留在菜单和提示的诊断信息中。空名称、大小写不敏感
 重复名称、未选择来源、来源超出 Descriptor 范围或当前候选失效都会禁止应用。
 
 节点卡片只摘要显示变量模式的配置来源，不再摘要控制输入端口绑定。

@@ -4,6 +4,8 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Controls;
+using System.Windows.Media;
 using Vision.Flow.Core.Contracts.Nodes;
 using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Domain.Nodes;
@@ -204,6 +206,27 @@ namespace Vision.Flow.Tests
                             Source = VariableSelector.ForGlobalVariable("count")
                         }
                     });
+                    var rows = (StackPanel)typeof(VariableSelectorMappingsControl)
+                        .GetField("_rows", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .GetValue(mappingEditor);
+                    var firstRow = (Grid)rows.Children[0];
+                    var sourceEditor = firstRow.Children.OfType<VariableSelectorControl>().Single();
+                    AssertEx.Equal("全局变量.批次", Convert.ToString(sourceEditor.Content),
+                        "Mapping selectors should show readable source names instead of stable Ids.");
+                    var actionButtons = firstRow.Children.OfType<StackPanel>()
+                        .Single()
+                        .Children
+                        .OfType<Button>()
+                        .ToList();
+                    AssertEx.Equal(1, actionButtons.Count,
+                        "Mapping rows should no longer expose move-up or move-down buttons.");
+                    AssertEx.Equal("×", Convert.ToString(actionButtons[0].Content),
+                        "Mapping deletion should use the compact multiplication sign.");
+                    AssertEx.Equal(Colors.White, ((SolidColorBrush)actionButtons[0].Foreground).Color,
+                        "Mapping deletion should render its glyph in white.");
+                    AssertEx.Equal(Color.FromRgb(0xD1, 0x43, 0x43),
+                        ((SolidColorBrush)actionButtons[0].Background).Color,
+                        "Mapping deletion should use the theme error background.");
                     mappingEditor.MoveMapping(1, 0);
                     AssertEx.Equal("Count", mappingEditor.Mappings[0].AttributeName,
                         "Mapping rows should preserve explicit user ordering.");

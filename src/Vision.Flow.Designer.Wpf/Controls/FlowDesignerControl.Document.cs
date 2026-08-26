@@ -793,7 +793,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     "环境变量",
                     "环境变量",
                     definition.Id,
-                    definition.Name + " (" + definition.Id + ")",
+                    definition.Name,
                     definition.DataType));
             }
         }
@@ -822,7 +822,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     "全局变量",
                     "全局变量",
                     definition.Id,
-                    definition.Name + " (" + definition.Id + ")",
+                    definition.Name,
                     definition.DataType));
             }
         }

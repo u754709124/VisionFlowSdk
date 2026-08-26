@@ -36,7 +36,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var header = new Grid { Margin = new Thickness(0, 0, 0, 4) };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.35, GridUnitType.Star) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
             var nameHeader = new TextBlock { Text = "Attribute 名称", Margin = new Thickness(8, 0, 8, 0) };
             var sourceHeader = new TextBlock { Text = "变量来源", Margin = new Thickness(8, 0, 8, 0) };
             Grid.SetColumn(sourceHeader, 1);
@@ -186,7 +186,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             var row = new Grid { Margin = new Thickness(0, 0, 0, 6), Tag = "VariableMappingRow:" + index };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.35, GridUnitType.Star) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
 
             var nameEditor = new TextBox
             {
@@ -225,27 +225,27 @@ namespace Vision.Flow.Designer.Wpf.Controls
             row.Children.Add(sourceEditor);
 
             var actions = new StackPanel { Orientation = Orientation.Horizontal };
-            actions.Children.Add(CreateActionButton("↑", "VariableMappingUp:" + index, index > 0, delegate { MoveMapping(index, index - 1); }));
-            actions.Children.Add(CreateActionButton("↓", "VariableMappingDown:" + index, index < _mappings.Count - 1, delegate { MoveMapping(index, index + 1); }));
-            actions.Children.Add(CreateActionButton("删", "VariableMappingDelete:" + index, true, delegate { RemoveMapping(index); }));
+            actions.Children.Add(CreateDeleteButton(index));
             Grid.SetColumn(actions, 2);
             row.Children.Add(actions);
             return row;
         }
 
-        private Button CreateActionButton(string text, string tag, bool enabled, Action action)
+        private Button CreateDeleteButton(int index)
         {
             var button = new Button
             {
-                Content = text,
-                Tag = tag,
+                Content = "×",
+                Tag = "VariableMappingDelete:" + index,
                 Width = 34,
                 Height = 32,
                 Margin = new Thickness(0, 0, 3, 0),
-                IsEnabled = IsEnabled && enabled
+                FontSize = 17,
+                FontWeight = FontWeights.SemiBold,
+                IsEnabled = IsEnabled
             };
-            button.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.SecondaryButtonStyleKey);
-            button.Click += delegate { action(); };
+            button.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.DangerButtonStyleKey);
+            button.Click += delegate { RemoveMapping(index); };
             return button;
         }
 
