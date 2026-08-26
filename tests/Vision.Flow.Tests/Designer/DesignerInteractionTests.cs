@@ -2540,6 +2540,13 @@ namespace Vision.Flow.Tests
                     control,
                     "CreateVariableSuggestions",
                     source.Runtime.Nodes[1]);
+                AssertEx.SequenceEqual(
+                    new[] { "CaptureFrameId", "CreatedAtUtc", "Metadata", "TokenId", "Values" },
+                    suggestions
+                        .Where(x => x.Selector.Scope == VariableSelectorScope.Token)
+                        .Select(x => x.Selector.Path[0])
+                        .ToArray(),
+                    "Designer Token suggestions should expose only the fixed runtime context fields.");
                 AssertEx.True(suggestions.Any(x =>
                         x.Selector.Scope == VariableSelectorScope.NodeOutput &&
                         x.Selector.Path.Count >= 2 &&

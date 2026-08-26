@@ -299,6 +299,46 @@ namespace Vision.Flow.Tests
             AssertEx.True(exception.Message.IndexOf("MissingEntry", StringComparison.OrdinalIgnoreCase) >= 0, "Missing entry exception should include the entry name.");
         }
 
+        /// <summary>
+        /// 验证手动触发和监听续流都会修复外部传入的空 TokenId。
+        /// </summary>
+        public static async Task EntryPointsRepairMissingTokenIds()
+        {
+            var sink = new InMemoryFlowEventSink();
+            var runner = CreateRunner(CreateSingleNodeFlow(), new List<string>(), sink);
+            await runner.StartAsync().ConfigureAwait(false);
+
+            var manualToken = new FlowToken { TokenId = " " };
+            FlowRunResult manualResult = await runner.TriggerAsync(
+                CreateManualRequest("ManualStart", manualToken)).ConfigureAwait(false);
+            AssertEx.False(
+                string.IsNullOrWhiteSpace(manualResult.Token.TokenId),
+                "Manual entry should repair a blank TokenId.");
+
+            var continuationToken = new FlowToken { TokenId = null };
+            await ((IFlowContinuationDispatcher)runner).DispatchAsync(
+                new FlowContinuation
+                {
+                    FlowRunId = "token-id-continuation",
+                    SourceNodeId = "A",
+                    OutputPort = FlowPortNames.Next,
+                    Token = continuationToken,
+                    Outputs = new Dictionary<string, object>()
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            AssertEx.False(
+                string.IsNullOrWhiteSpace(continuationToken.TokenId),
+                "Listener continuation should repair a missing TokenId.");
+            AssertEx.True(
+                sink.Events.Any(x =>
+                    x.EventType == FlowRuntimeEventType.TokenCreated &&
+                    x.FlowRunId == "token-id-continuation" &&
+                    x.TokenId == continuationToken.TokenId),
+                "Continuation events should publish the repaired TokenId.");
+            await runner.StopAsync().ConfigureAwait(false);
+        }
+
         public static async Task RuntimeEventOrder()
         {
             var executionLog = new List<string>();

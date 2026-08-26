@@ -455,12 +455,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private FlowToken CreateDebugToken()
         {
-            return new FlowToken
-            {
-                ProductId = "DemoProduct",
-                WorkpieceId = "WP-" + DateTime.Now.ToString("HHmmss", CultureInfo.InvariantCulture),
-                PositionId = "P1"
-            };
+            return new FlowToken();
         }
 
         private void HandleRuntimeEvent(FlowRuntimeEvent runtimeEvent)

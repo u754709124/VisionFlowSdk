@@ -137,7 +137,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { FlowSettingNames.LeftBinding, NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { FlowSettingNames.LeftBinding, NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "GroupKey")) },
                     { FlowSettingNames.Operator, NodeSettingValue.ForConstant(ConditionOperator.Equal) },
                     { FlowSettingNames.RightValue, NodeSettingValue.ForConstant("P01") }
                 }
@@ -150,7 +150,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { FlowSettingNames.JoinKeyBinding, NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { FlowSettingNames.JoinKeyBinding, NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "GroupKey")) },
                     { FlowSettingNames.ExpectedInputCount, NodeSettingValue.ForConstant(2) },
                     { FlowSettingNames.TimeoutMs, NodeSettingValue.ForConstant(0) },
                     { FlowSettingNames.DuplicatePolicy, NodeSettingValue.ForConstant(FlowDuplicatePolicy.Ignore) }

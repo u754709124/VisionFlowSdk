@@ -198,14 +198,7 @@ namespace Vision.Flow.Demo.WinForms
 
         private FlowToken CreateProductionToken(string entryName)
         {
-            var token = new FlowToken
-            {
-                TokenId = Guid.NewGuid().ToString("N"),
-                ProductId = "DemoProduct",
-                WorkpieceId = DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
-                PositionId = entryName
-            };
-            return token;
+            return new FlowToken();
         }
 
         private async Task EnsureRunnerLoadedAsync()

@@ -105,6 +105,7 @@ namespace Vision.Flow.Tests
                 new TestCase("FlowRunner detects cycles on the current execution path", FlowRunnerTests.CycleRouteThrows),
                 new TestCase("Late continuation publishes a rejected FlowRun terminal", FlowRunnerTests.ContinuationAfterStopPublishesRejectedTerminal),
                 new TestCase("FlowRunner reports a clear missing entry exception", FlowRunnerTests.MissingEntryThrows),
+                new TestCase("FlowRunner repairs missing TokenId values at every ingress", FlowRunnerTests.EntryPointsRepairMissingTokenIds),
                 new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
                 new TestCase("In-memory sink preserves parameterless binary contract", FlowEventSinkTests.ParameterlessInMemorySinkPreservesBinaryContract),
                 new TestCase("Runtime event snapshots remove resource references", FlowEventSinkTests.SanitizerRemovesResourceReferences),

@@ -59,6 +59,11 @@ var result = await runner.TriggerAsync(new FlowTriggerRequest
 });
 ```
 
+`FlowToken` 的固定字段只保留 `TokenId`、`CreatedAtUtc` 和 `CaptureFrameId`；项目业务标识通过
+`Values` 或 `Metadata` 显式传递。构造器会生成 `TokenId`，统一入口和独立监听续流还会修复
+外部调用方显式传入的 null、空串或空白值，因此所有已接受 FlowRun 的生命周期事件都具有
+非空 `TokenId`。
+
 `FlowRunResult.Status` 为 `Succeeded`、`Failed`、`Cancelled` 或 `Rejected`。成功、失败和取消结果携带终态 `VariablePool.Snapshot()`；入口不匹配、输入无效或队列满导致的拒绝保持空变量字典。常规运行终态通过结果返回，不依赖异常推断。
 
 每次请求先发布 `TokenCreated`，进入执行槽后发布 `FlowRunStarted`，最后发布 `FlowRunCompleted`、`FlowRunFailed`、`FlowRunCancelled` 或 `FlowRunRejected`。同一次运行的事件共享 `FlowRunId`；Started 事件状态为 `Running`。生命周期事件只携带入口名、触发来源和有效 TriggerInputs，不复制全量变量池，避免图像等大对象放大事件负载。

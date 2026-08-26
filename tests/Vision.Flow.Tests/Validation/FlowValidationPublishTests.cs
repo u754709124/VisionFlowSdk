@@ -154,7 +154,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "JoinKeyBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { "JoinKeyBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "GroupKey")) },
                     { "ExpectedInputCount", NodeSettingValue.ForConstant(0) },
                     { "TimeoutMs", NodeSettingValue.ForConstant(-1) },
                     { "DuplicatePolicy", NodeSettingValue.ForConstant("KeepFirst") }
@@ -169,7 +169,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "LeftBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { "LeftBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "GroupKey")) },
                     { "Operator", NodeSettingValue.ForConstant("Bogus") }
                 }
             });

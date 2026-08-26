@@ -82,6 +82,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             string requestedFlowRunId,
             CancellationToken cancellationToken)
         {
+            EnsureTokenId(token);
             var result = new FlowRunResult
             {
                 FlowRunId = string.IsNullOrWhiteSpace(requestedFlowRunId) ? Guid.NewGuid().ToString("N") : requestedFlowRunId,
@@ -286,6 +287,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             CancellationToken cancellationToken)
         {
             var token = continuation.Token ?? new FlowToken();
+            EnsureTokenId(token);
             var variables = continuation.Variables ?? new VariablePool();
             var triggerInputs = continuation.TriggerInputs ?? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             var result = new FlowRunResult
@@ -392,6 +394,17 @@ namespace Vision.Flow.Core.Runtime.Engine
             {
                 throw dispatchError;
             }
+        }
+
+        /// <summary>
+        /// 修复外部调用方显式传入的空令牌标识，确保所有入口和续流事件都可稳定关联。
+        /// </summary>
+        private static void EnsureTokenId(FlowToken token)
+        {
+            if (token == null)
+                throw new ArgumentNullException("token");
+            if (string.IsNullOrWhiteSpace(token.TokenId))
+                token.TokenId = Guid.NewGuid().ToString("N");
         }
 
         private async Task ExecuteContinuationGraphAsync(

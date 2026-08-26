@@ -33,10 +33,10 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateAndJoinFlow("Ignore", includeErrorHandler: false), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "join-token-1", PositionId = "P01" })).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", CreateToken("join-token-1", "P01"))).ConfigureAwait(false);
             AssertEx.Equal(0, executionLog.Count, "First input should wait for another token with the same JoinKey.");
 
-            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "join-token-2", PositionId = "P01" })).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", CreateToken("join-token-2", "P01"))).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "Done" }, executionLog, "Second input with the same JoinKey should complete the join.");
             AssertEx.Equal(true, FindLastOutput(sink, "join1", "IsMatched"), "Completed join should output IsMatched=true.");
@@ -53,8 +53,8 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateAndJoinFlow("Ignore", includeErrorHandler: false), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "join-token-a", PositionId = "P01" })).ConfigureAwait(false);
-            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "join-token-b", PositionId = "P02" })).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", CreateToken("join-token-a", "P01"))).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", CreateToken("join-token-b", "P02"))).ConfigureAwait(false);
 
             AssertEx.Equal(0, executionLog.Count, "Different JoinKeys should remain in separate waiting buckets.");
             AssertEx.Equal(2, CountOutputValues(sink, "join1", "IsMatched", false), "Both different keys should report waiting outputs.");
@@ -65,7 +65,7 @@ namespace Vision.Flow.Tests
             var executionLog = new List<string>();
             var sink = new InMemoryFlowEventSink();
             var runner = CreateRunner(CreateAndJoinFlow("Error", includeErrorHandler: true), executionLog, sink);
-            var token = new FlowToken { TokenId = "duplicate-token", PositionId = "P01" };
+            var token = CreateToken("duplicate-token", "P01");
 
             await runner.StartAsync().ConfigureAwait(false);
             await runner.TriggerAsync(CreateManualRequest("ManualStart", token)).ConfigureAwait(false);
@@ -82,7 +82,7 @@ namespace Vision.Flow.Tests
             var executionLog = new List<string>();
             var sink = new InMemoryFlowEventSink();
             var runner = CreateRunner(CreateAndJoinFlow(FlowDuplicatePolicy.Error, includeErrorHandler: true), executionLog, sink);
-            var token = new FlowToken { TokenId = "duplicate-token-enum", PositionId = "P01" };
+            var token = CreateToken("duplicate-token-enum", "P01");
 
             await runner.StartAsync().ConfigureAwait(false);
             await runner.TriggerAsync(CreateManualRequest("ManualStart", token)).ConfigureAwait(false);
@@ -98,8 +98,8 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateConditionFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "condition-token-true", PositionId = "P01" })).ConfigureAwait(false);
-            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "condition-token-false", PositionId = "P02" })).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", CreateToken("condition-token-true", "P01"))).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", CreateToken("condition-token-false", "P02"))).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "TrueNode", "FalseNode" }, executionLog, "ConditionNode should route matching and non-matching tokens.");
             AssertEx.Equal(1, CountOutputValues(sink, "condition1", "IsMatched", true), "True branch should produce IsMatched=true once.");
@@ -117,7 +117,7 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateConditionFlow(ConditionOperator.Equal), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "condition-token-enum", PositionId = "P01" })).ConfigureAwait(false);
+            await runner.TriggerAsync(CreateManualRequest("ManualStart", CreateToken("condition-token-enum", "P01"))).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "TrueNode" }, executionLog, "Condition operator enum should route matching tokens.");
         }
@@ -157,7 +157,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "JoinKeyBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { "JoinKeyBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "GroupKey")) },
                     { "ExpectedInputCount", NodeSettingValue.ForConstant(2) },
                     { "TimeoutMs", NodeSettingValue.ForConstant(0) },
                     { "DuplicatePolicy", NodeSettingValue.ForConstant(duplicatePolicy) }
@@ -209,7 +209,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "LeftBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("PositionId")) },
+                    { "LeftBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "GroupKey")) },
                     { "Operator", NodeSettingValue.ForConstant(operatorName) },
                     { "RightValue", NodeSettingValue.ForConstant("P01") }
                 }
@@ -231,6 +231,13 @@ namespace Vision.Flow.Tests
                 Name = id,
                 Version = "1.0.0"
             };
+        }
+
+        private static FlowToken CreateToken(string tokenId, string groupKey)
+        {
+            var token = new FlowToken { TokenId = tokenId };
+            token.Set("GroupKey", groupKey);
+            return token;
         }
 
         private static EdgeDefinition CreateEdge(string fromNodeId, string fromPort, string toNodeId)

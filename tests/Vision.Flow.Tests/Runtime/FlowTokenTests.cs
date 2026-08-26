@@ -28,17 +28,14 @@ namespace Vision.Flow.Tests
     {
         public static async Task SetGetTryGet()
         {
-            var token = new FlowToken
-            {
-                ProductId = "P-001",
-                WorkpieceId = "W-001"
-            };
+            var token = new FlowToken();
+
+            AssertEx.False(string.IsNullOrWhiteSpace(token.TokenId), "A new token should receive an identifier.");
 
             token.Set("Score", 98);
             token.Set("Name", "part-a");
             token.Metadata["Line"] = "L1";
 
-            AssertEx.Equal("P-001", token.ProductId, "ProductId should be stored.");
             AssertEx.Equal(98, token.Get<int>("Score"), "Integer value should round-trip.");
             AssertEx.Equal("part-a", token.Get<string>("Name"), "String value should round-trip.");
             AssertEx.Equal("L1", Convert.ToString(token.Metadata["Line"]), "Metadata value should round-trip.");

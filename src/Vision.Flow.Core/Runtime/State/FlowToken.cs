@@ -25,12 +25,6 @@ namespace Vision.Flow.Core.Runtime.State
 
         public DateTime CreatedAtUtc { get; set; }
 
-        public string ProductId { get; set; }
-
-        public string WorkpieceId { get; set; }
-
-        public string PositionId { get; set; }
-
         /// <summary>
         /// 获取或设置当前流程令牌关联的相机采集帧技术追踪标识。
         /// </summary>
