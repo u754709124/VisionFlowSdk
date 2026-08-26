@@ -43,7 +43,6 @@ namespace Vision.Flow.Nodes
                         isMatched ? FlowPortNames.True : FlowPortNames.False,
                         new Dictionary<string, object>
                         {
-                            { FlowOutputNames.Result, isMatched },
                             { FlowOutputNames.IsMatched, isMatched },
                             { "Left", left },
                             { "Right", right },

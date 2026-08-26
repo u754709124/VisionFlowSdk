@@ -13,7 +13,7 @@ namespace Vision.Flow.Nodes
                 NodeType = AndJoinNodeFactory.TypeName,
                 DisplayName = "与汇合",
                 Category = "流程控制",
-                Version = "1.0.0",
+                Version = "2.0.0",
                 Description = "按汇合键收集多个输入，全部到达后继续执行。",
                 InputPorts =
                 {
@@ -33,7 +33,6 @@ namespace Vision.Flow.Nodes
                 },
                 Outputs =
                 {
-                    CreateOutput(FlowOutputNames.Result, "Result", FlowDataType.Boolean, "True when the join completes."),
                     CreateOutput(FlowOutputNames.IsMatched, "Is Matched", FlowDataType.Boolean, "True when all inputs are matched."),
                     CreateOutput(FlowOutputNames.JoinKey, "Join Key", FlowDataType.String, "Resolved join key."),
                     CreateOutput(FlowOutputNames.ActualInputCount, "Actual Inputs", FlowDataType.Int32, "Number of inputs currently collected."),

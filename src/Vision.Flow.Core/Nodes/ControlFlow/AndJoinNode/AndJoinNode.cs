@@ -93,7 +93,6 @@ namespace Vision.Flow.Nodes
                         FlowPortNames.Next,
                         new Dictionary<string, object>
                         {
-                            { FlowOutputNames.Result, true },
                             { FlowOutputNames.IsMatched, true },
                             { FlowOutputNames.JoinKey, joinKey },
                             { FlowOutputNames.ActualInputCount, bucket.Inputs.Count },
@@ -114,7 +113,6 @@ namespace Vision.Flow.Nodes
                 FlowPortNames.Waiting,
                 new Dictionary<string, object>
                 {
-                    { FlowOutputNames.Result, false },
                     { FlowOutputNames.IsMatched, false },
                     { FlowOutputNames.JoinKey, bucket.JoinKey },
                     { FlowOutputNames.ActualInputCount, bucket.Inputs.Count },

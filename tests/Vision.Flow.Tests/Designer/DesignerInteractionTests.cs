@@ -2635,7 +2635,7 @@ namespace Vision.Flow.Tests
 
                 var draft = GetPrivateField<NodeDefinition>(control, "_propertyDraftNode");
                 draft.Settings[FlowSettingNames.DelayMs] = NodeSettingValue.ForVariable(
-                    VariableSelector.ForNodeOutput("condition_1", FlowOutputNames.Result),
+                    VariableSelector.ForNodeOutput("condition_1", FlowOutputNames.IsMatched),
                     10);
                 InvokePrivate(control, "RenderProperties");
                 AssertEx.False(control.TryApplyPendingPropertyChanges(out error),

@@ -12,7 +12,7 @@ namespace Vision.Flow.Nodes
                 NodeType = ConditionNodeFactory.TypeName,
                 DisplayName = "条件判断",
                 Category = "流程控制",
-                Version = "1.0.0",
+                Version = "2.0.0",
                 Description = "根据配置的比较条件从真或假分支继续执行。",
                 InputPorts =
                 {
@@ -33,8 +33,7 @@ namespace Vision.Flow.Nodes
                 },
                 Outputs =
                 {
-                    CreateOutput(FlowOutputNames.Result, "Result", FlowDataType.Boolean, "Condition evaluation result."),
-                    CreateOutput(FlowOutputNames.IsMatched, "Is Matched", FlowDataType.Boolean, "Alias for Result."),
+                    CreateOutput(FlowOutputNames.IsMatched, "Is Matched", FlowDataType.Boolean, "Condition evaluation result."),
                     CreateOutput("Left", "Left", FlowDataType.Object, "Resolved left value."),
                     CreateOutput("Right", "Right", FlowDataType.Object, "Resolved right value."),
                     CreateOutput(FlowSettingNames.Operator, "Operator", FlowDataType.String, "Operator used for evaluation.", typeof(ConditionOperator))

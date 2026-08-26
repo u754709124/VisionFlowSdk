@@ -39,8 +39,11 @@ namespace Vision.Flow.Tests
             await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "join-token-2", PositionId = "P01" })).ConfigureAwait(false);
 
             AssertEx.SequenceEqual(new[] { "Done" }, executionLog, "Second input with the same JoinKey should complete the join.");
-            AssertEx.Equal(true, FindLastOutput(sink, "join1", "Result"), "Completed join should output Result=true.");
             AssertEx.Equal(true, FindLastOutput(sink, "join1", "IsMatched"), "Completed join should output IsMatched=true.");
+            AssertEx.False(
+                AndJoinNodeDescriptor.Create().Outputs.Any(x =>
+                    string.Equals(x.Name, FlowOutputNames.Result, StringComparison.Ordinal)),
+                "AND Join must not expose a duplicate Result alias.");
         }
 
         public static async Task AndJoinDifferentKeysDoNotMix()
@@ -101,6 +104,10 @@ namespace Vision.Flow.Tests
             AssertEx.SequenceEqual(new[] { "TrueNode", "FalseNode" }, executionLog, "ConditionNode should route matching and non-matching tokens.");
             AssertEx.Equal(1, CountOutputValues(sink, "condition1", "IsMatched", true), "True branch should produce IsMatched=true once.");
             AssertEx.Equal(1, CountOutputValues(sink, "condition1", "IsMatched", false), "False branch should produce IsMatched=false once.");
+            AssertEx.False(
+                ConditionNodeDescriptor.Create().Outputs.Any(x =>
+                    string.Equals(x.Name, FlowOutputNames.Result, StringComparison.Ordinal)),
+                "Condition must not expose a duplicate Result alias.");
         }
 
         public static async Task ConditionAcceptsStrongOperator()

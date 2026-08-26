@@ -158,6 +158,11 @@ Session 全局变量通过 `VariableSelector.ForGlobalVariable(variableId)` 绑�
 执行时从 `context.GlobalVariables` 读取当前值。需要一次读取多个全局值时应调用
 `CreateSnapshot(ids)`，不要逐项读取后自行假设一致性。
 
+节点输出必须代表节点新产生或修改后的值、执行状态、外部操作回执、诊断信息或明确的
+所有权转移。流程可以读取控制流拓扑中的任意前置节点输出，因此禁止仅为方便串联而原样
+透传输入业务对象，也禁止为同一个值声明两个同义输出名。诊断输出可以保留解析后的输入、
+实际执行参数或外部响应，但必须在 Description 中说明诊断语义，不能伪装成新的业务结果。
+
 ## 动态 Descriptor
 
 端口、命令参数或输出会随节点设置变化时，Factory 保持实现 `INodeFactory`，并额外实现可选接口：
