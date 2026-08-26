@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Vision.Flow.Core.Domain.Flows;
@@ -48,7 +49,42 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.String, FlowDataType.Object), "Concrete values should not bind to Object settings.");
             AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Control, FlowDataType.Object), "Control is never a setting value.");
             AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.IVisionImage, FlowDataType.String), "Vision images only bind to the same type or Object.");
+            AssertEx.True(
+                FlowDataTypeCompatibility.IsCompatible(
+                    FlowDataType.Object,
+                    null,
+                    typeof(TypedPayload),
+                    FlowDataType.Object,
+                    null,
+                    typeof(ITypedPayload)),
+                "A typed Object source should bind to an assignable Object contract.");
+            AssertEx.False(
+                FlowDataTypeCompatibility.IsCompatible(
+                    FlowDataType.Object,
+                    null,
+                    null,
+                    FlowDataType.Object,
+                    null,
+                    typeof(ITypedPayload)),
+                "An untyped Object source must not bypass a typed Object target.");
+            AssertEx.True(
+                FlowDataTypeCompatibility.IsCompatible(
+                    FlowDataType.Object,
+                    null,
+                    typeof(TypedPayload),
+                    FlowDataType.Object,
+                    null,
+                    null),
+                "A generic Object target should continue accepting typed Object sources.");
             return Task.FromResult(0);
+        }
+
+        private interface ITypedPayload
+        {
+        }
+
+        private sealed class TypedPayload : ITypedPayload
+        {
         }
     }
 }

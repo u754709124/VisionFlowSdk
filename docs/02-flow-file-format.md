@@ -136,6 +136,11 @@
 
 变量输出按 `NodeId.OutputName` 写入运行时变量池。NodeOutput 选择器只能引用控制流拓扑中的前置节点输出；TriggerInput 选择器只能引用可达入口声明的输入；`Control` 类型不能绑定到配置项。类型兼容规则由 `FlowDataTypeCompatibility` 统一提供给 Validator 和 Designer。
 
+Descriptor 可在 Object 类型的设置和输出上声明非序列化的 `ObjectType` CLR 元数据。
+流程文件仍只保存结构化 Selector：对象根路径为 `[NodeId, OutputName]`，首层成员路径为
+`[NodeId, OutputName, MemberName]`。协议只允许展开一层公开可读属性或公开字段，更深路径
+会在发布校验中被拒绝；`ObjectType` 本身不写入 `.flow` 或 `.flowruntime`。
+
 `FlowValidator` 按每个 `NodeDefinition` 解析当前实例 Descriptor，再校验必填配置、端口、输出绑定和 `DefaultOutputs`。动态 Descriptor 解析失败时返回 `NodeDescriptorResolutionFailed`，不会把提供程序异常直接抛出到发布调用方。
 
 固定策略值继续使用枚举公共 API，并在 JSON 的 `ConstantValue` 中序列化为稳定字符串，例如 `Equal`、`Ignore`、`Warning`。

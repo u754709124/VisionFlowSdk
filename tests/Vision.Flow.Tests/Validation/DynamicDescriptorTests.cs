@@ -140,6 +140,91 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task TypedObjectSelectorsValidateRootsAndFirstLayerMembers()
+        {
+            var registry = new NodeRegistry();
+            registry.Register(new TypedObjectSourceFactory());
+            registry.Register(new TypedObjectTargetFactory());
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "typed-object-selectors",
+                FlowName = "Typed Object Selectors",
+                Version = "1.0.0"
+            };
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "source",
+                Type = TypedObjectSourceFactory.TypeName,
+                Name = "Source",
+                Version = "1.0.0"
+            });
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "target",
+                Type = TypedObjectTargetFactory.TypeName,
+                Name = "Target",
+                Version = "1.0.0",
+                Settings =
+                {
+                    {
+                        "Payload",
+                        NodeSettingValue.ForVariable(
+                            VariableSelector.ForNodeOutput("source", "Payload"))
+                    },
+                    {
+                        "Name",
+                        NodeSettingValue.ForVariable(new VariableSelector
+                        {
+                            Scope = VariableSelectorScope.NodeOutput,
+                            Path = new System.Collections.Generic.List<string>
+                            {
+                                "source",
+                                "Payload",
+                                "Name"
+                            }
+                        })
+                    }
+                }
+            });
+            flow.Edges.Add(new EdgeDefinition
+            {
+                FromNodeId = "source",
+                FromPort = FlowPortNames.Next,
+                ToNodeId = "target",
+                ToPort = FlowPortNames.In
+            });
+            flow.Entries.Add(new FlowEntryDefinition
+            {
+                EntryName = "ManualStart",
+                TargetNodeId = "source"
+            });
+
+            var validator = new FlowValidator(registry);
+            FlowValidationResult valid = validator.Validate(flow);
+            AssertEx.True(valid.IsValid,
+                "Typed root and first-level property selectors should validate. Issues: " +
+                string.Join(", ", valid.Issues.Select(x => x.Code)));
+
+            flow.Nodes[1].Settings["Name"] =
+                NodeSettingValue.ForVariable(new VariableSelector
+                {
+                    Scope = VariableSelectorScope.NodeOutput,
+                    Path = new System.Collections.Generic.List<string>
+                    {
+                        "source",
+                        "Payload",
+                        "Nested",
+                        "Code"
+                    }
+                });
+            FlowValidationResult nested = validator.Validate(flow);
+            AssertHasIssue(
+                nested,
+                FlowValidationIssueCodes.VariableSelectorInvalid,
+                "Typed Object selectors must stop after one member segment.");
+            return Task.FromResult(0);
+        }
+
         private static NodeRegistry CreateRegistry()
         {
             var registry = new NodeRegistry();
@@ -334,6 +419,98 @@ namespace Vision.Flow.Tests
             {
                 return null;
             }
+        }
+
+        private sealed class TypedObjectPayload
+        {
+            public string Name { get; set; }
+
+            public TypedObjectNestedPayload Nested { get; set; }
+        }
+
+        private sealed class TypedObjectNestedPayload
+        {
+            public string Code { get; set; }
+        }
+
+        private sealed class TypedObjectSourceFactory : INodeFactory
+        {
+            public const string TypeName = "test.typed-object-source";
+
+            public string NodeType { get { return TypeName; } }
+
+            public NodeDescriptor Descriptor
+            {
+                get
+                {
+                    return new NodeDescriptor
+                    {
+                        NodeType = TypeName,
+                        DisplayName = "类型化对象来源",
+                        Category = "测试",
+                        Version = "1.0.0",
+                        OutputPorts =
+                        {
+                            new NodePortDescriptor { Name = FlowPortNames.Next, Direction = FlowPortDirection.Output, DataType = FlowDataType.Control }
+                        },
+                        Outputs =
+                        {
+                            new NodeOutputDescriptor { Name = "Payload", DataType = FlowDataType.Object, ObjectType = typeof(TypedObjectPayload) }
+                        }
+                    };
+                }
+            }
+
+            public IFlowNode Create(NodeDefinition definition) { return null; }
+        }
+
+        private sealed class TypedObjectTargetFactory : INodeFactory
+        {
+            public const string TypeName = "test.typed-object-target";
+
+            public string NodeType { get { return TypeName; } }
+
+            public NodeDescriptor Descriptor
+            {
+                get
+                {
+                    return new NodeDescriptor
+                    {
+                        NodeType = TypeName,
+                        DisplayName = "类型化对象目标",
+                        Category = "测试",
+                        Version = "1.0.0",
+                        InputPorts =
+                        {
+                            new NodePortDescriptor { Name = FlowPortNames.In, Direction = FlowPortDirection.Input, DataType = FlowDataType.Control, IsRequired = true }
+                        },
+                        Settings =
+                        {
+                            new NodeSettingDescriptor
+                            {
+                                Name = "Payload",
+                                DataType = FlowDataType.Object,
+                                ObjectType = typeof(TypedObjectPayload),
+                                IsRequired = true,
+                                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                                EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput
+                            },
+                            new NodeSettingDescriptor
+                            {
+                                Name = "Name",
+                                DataType = FlowDataType.String,
+                                IsRequired = true,
+                                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                                EvaluationPhase = NodeSettingEvaluationPhase.Execution,
+                                AllowedVariableSources = VariableSelectorScopeFlags.NodeOutput
+                            }
+                        }
+                    };
+                }
+            }
+
+            public IFlowNode Create(NodeDefinition definition) { return null; }
         }
     }
 }

@@ -19,6 +19,12 @@ namespace Vision.Flow.Core.Domain.Nodes
         /// </summary>
         public Type EnumType { get; set; }
 
+        /// <summary>
+        /// 获取或设置 Object 输出承载的 CLR 契约类型；为空表示类型未知。
+        /// 设计器据此生成最多一层公开成员候选，该元数据不写入流程文件。
+        /// </summary>
+        public Type ObjectType { get; set; }
+
         public string Description { get; set; }
     }
 }

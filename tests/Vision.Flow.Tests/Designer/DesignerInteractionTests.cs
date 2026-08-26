@@ -32,6 +32,58 @@ namespace Vision.Flow.Tests
     // Designer 控件测试在 STA 线程运行，覆盖调试只读模式和节点运行状态摘要。
     internal static class DesignerInteractionTests
     {
+        public static Task TypedObjectMenuSelectsRootAndFirstLayerMembers()
+        {
+            RunOnSta(delegate
+            {
+                var rootSelector = VariableSelector.ForNodeOutput("source", "Payload");
+                var rootOption = new VariableSelectionOption(
+                    rootSelector,
+                    "Source [source] / Payload",
+                    "Source [source]",
+                    "source",
+                    "Payload",
+                    FlowDataType.Object,
+                    null,
+                    typeof(DesignerTypedObjectPayload));
+                var options = new List<VariableSelectionOption> { rootOption };
+                var addMembers = typeof(FlowDesignerControl).GetMethod(
+                    "AddFirstLayerMemberSuggestions",
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                AssertEx.NotNull(addMembers, "The designer should expose its first-layer member suggestion builder internally.");
+                addMembers.Invoke(null, new object[] { options, rootOption, typeof(DesignerTypedObjectPayload) });
+
+                AssertEx.True(options.Any(x => x.Selector.Path.SequenceEqual(new[] { "source", "Payload", "Name" })),
+                    "A readable public property should become a first-layer variable option.");
+                AssertEx.True(options.Any(x => x.Selector.Path.SequenceEqual(new[] { "source", "Payload", "Count" })),
+                    "A public field should become a first-layer variable option.");
+                AssertEx.True(options.Any(x => x.Selector.Path.SequenceEqual(new[] { "source", "Payload", "Nested" })),
+                    "An object-valued first-layer property should remain selectable.");
+                AssertEx.False(options.Any(x => x.Selector.Path.Count > 3),
+                    "The designer must not recursively expose members below the first layer.");
+
+                var selected = new List<VariableSelectionOption>();
+                var selector = new VariableSelectorControl(options, delegate { return true; });
+                selector.VariableSelected += delegate(VariableSelectionOption option) { selected.Add(option); };
+                selector.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, selector));
+                var sourceGroup = selector.ContextMenu.Items.OfType<MenuItem>().Single();
+                var rootItem = sourceGroup.Items.OfType<MenuItem>().Single();
+                AssertEx.Equal(3, rootItem.Items.Count,
+                    "Hovering the typed root item should expose all first-layer members as submenu items.");
+
+                rootItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, rootItem));
+                AssertEx.Equal(1, selected.Count, "The typed root menu item should itself remain selectable.");
+                AssertEx.Equal(2, selected[0].Selector.Path.Count, "Selecting the root should preserve the root selector path.");
+
+                var nameItem = rootItem.Items.OfType<MenuItem>()
+                    .Single(x => Convert.ToString(x.Header, CultureInfo.InvariantCulture).IndexOf("Name", StringComparison.Ordinal) >= 0);
+                nameItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, nameItem));
+                AssertEx.Equal(2, selected.Count, "A first-layer submenu item should be selectable.");
+                AssertEx.Equal("Name", selected[1].Selector.Path[2], "The selected submenu should retain its member path.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyPanelAppliesCustomConstantValidation()
         {
             RunOnSta(delegate
@@ -3606,6 +3658,20 @@ namespace Vision.Flow.Tests
             {
                 throw new InvalidOperationException("STA designer test failed.", error);
             }
+        }
+
+        private sealed class DesignerTypedObjectPayload
+        {
+            public string Name { get; set; }
+
+            public int Count = 1;
+
+            public DesignerTypedNestedPayload Nested { get; set; }
+        }
+
+        private sealed class DesignerTypedNestedPayload
+        {
+            public string Code { get; set; }
         }
     }
 }
