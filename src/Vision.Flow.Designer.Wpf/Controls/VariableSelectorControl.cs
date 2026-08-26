@@ -15,6 +15,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
     public sealed class VariableSelectorControl : Button
     {
         private readonly IList<VariableSelectionOption> _variables;
+        private readonly Func<VariableSelectionOption, bool> _isSelectable;
 
         /// <summary>
         /// 创建没有候选项的变量选择按钮。
@@ -28,6 +29,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
         /// 使用可用候选创建结构化变量选择按钮。
         /// </summary>
         public VariableSelectorControl(IEnumerable<VariableSelectionOption> variables)
+            : this(variables, null)
+        {
+        }
+
+        /// <summary>
+        /// 使用完整候选树和选择谓词创建变量选择按钮；不可选择的父项仍可悬停展开成员。
+        /// </summary>
+        public VariableSelectorControl(
+            IEnumerable<VariableSelectionOption> variables,
+            Func<VariableSelectionOption, bool> isSelectable)
         {
             _variables = variables == null
                 ? new List<VariableSelectionOption>()
@@ -36,6 +47,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     .GroupBy(x => VariableSelectionOption.FormatSelector(x.Selector), StringComparer.OrdinalIgnoreCase)
                     .Select(x => x.First())
                     .ToList();
+            _isSelectable = isSelectable ?? delegate { return true; };
             Content = "选择变量";
             MinWidth = 96;
             FlowDesignerTheme.ApplyTo(this);
@@ -83,31 +95,72 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 {
                     Header = group.Key
                 };
-                foreach (var variable in group.OrderBy(x => x.ValueName, StringComparer.OrdinalIgnoreCase))
+                var roots = group
+                    .Where(x => x.ParentSelector == null)
+                    .OrderBy(x => x.ValueName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                foreach (VariableSelectionOption variable in roots)
                 {
-                    var item = new MenuItem
+                    var children = group
+                        .Where(x => x.ParentSelector != null &&
+                            variable.Matches(x.ParentSelector) &&
+                            _isSelectable(x))
+                        .OrderBy(x => x.ValueName, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    bool rootSelectable = _isSelectable(variable);
+                    if (!rootSelectable && children.Count == 0)
                     {
-                        Header = variable.DisplayText,
-                        ToolTip = VariableSelectionOption.FormatSelector(variable.Selector),
-                        Tag = variable
-                    };
-                    item.Click += delegate(object itemSender, RoutedEventArgs args)
+                        continue;
+                    }
+
+                    var item = CreateMenuItem(variable, rootSelectable);
+                    foreach (VariableSelectionOption child in children)
                     {
-                        var selected = ((MenuItem)itemSender).Tag as VariableSelectionOption;
-                        if (selected != null)
-                        {
-                            ShowSelector(selected.Selector);
-                            RaiseVariableSelected(selected);
-                        }
-                    };
+                        item.Items.Add(CreateMenuItem(child, true));
+                    }
+                    item.IsEnabled = rootSelectable || item.Items.Count > 0;
                     groupItem.Items.Add(item);
                 }
 
-                menu.Items.Add(groupItem);
+                if (groupItem.Items.Count > 0)
+                {
+                    menu.Items.Add(groupItem);
+                }
             }
 
             ContextMenu = menu;
             menu.IsOpen = true;
+        }
+
+        private MenuItem CreateMenuItem(
+            VariableSelectionOption variable,
+            bool selectable)
+        {
+            var item = new MenuItem
+            {
+                Header = variable.DisplayText,
+                ToolTip = VariableSelectionOption.FormatSelector(
+                    variable.Selector),
+                Tag = variable,
+                IsEnabled = selectable
+            };
+            if (selectable)
+            {
+                item.Click += delegate(object itemSender, RoutedEventArgs args)
+                {
+                    if (args.Handled)
+                        return;
+                    var selected = ((MenuItem)itemSender).Tag as
+                        VariableSelectionOption;
+                    if (selected != null)
+                    {
+                        ShowSelector(selected.Selector);
+                        RaiseVariableSelected(selected);
+                        args.Handled = true;
+                    }
+                };
+            }
+            return item;
         }
 
         private void RaiseVariableSelected(VariableSelectionOption variable)

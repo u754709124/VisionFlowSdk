@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -668,14 +669,23 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     {
                         var displayName = string.IsNullOrWhiteSpace(node.Name) ? node.Id : node.Name;
                         var outputDisplayName = string.IsNullOrWhiteSpace(output.DisplayName) ? output.Name : output.DisplayName;
-                        items.Add(new VariableSelectionOption(
-                            VariableSelector.ForNodeOutput(node.Id, output.Name),
+                        var rootSelector = VariableSelector.ForNodeOutput(
+                            node.Id,
+                            output.Name);
+                        var rootOption = new VariableSelectionOption(
+                            rootSelector,
                             displayName + " [" + node.Id + "]",
                             displayName,
                             node.Id,
                             outputDisplayName + " (" + output.Name + ")",
                             output.DataType,
-                            output.EnumType));
+                            output.EnumType,
+                            output.ObjectType);
+                        items.Add(rootOption);
+                        AddFirstLayerMemberSuggestions(
+                            items,
+                            rootOption,
+                            output.ObjectType);
                     }
                 }
             }
@@ -695,6 +705,68 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 .ThenBy(x => x.GroupName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(x => x.ValueName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        /// <summary>
+        /// 为声明了 CLR 契约类型的 Object 根候选生成一层公开字段和可读属性。
+        /// 子成员不再递归展开，避免变量协议与运行时对象图无限耦合。
+        /// </summary>
+        private static void AddFirstLayerMemberSuggestions(
+            ICollection<VariableSelectionOption> items,
+            VariableSelectionOption root,
+            Type objectType)
+        {
+            if (items == null || root == null || root.Selector == null ||
+                objectType == null)
+            {
+                return;
+            }
+
+            var members = new Dictionary<string, Type>(
+                StringComparer.OrdinalIgnoreCase);
+            foreach (PropertyInfo property in objectType.GetProperties(
+                BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (property.CanRead && property.GetIndexParameters().Length == 0)
+                    members[property.Name] = property.PropertyType;
+            }
+            foreach (FieldInfo field in objectType.GetFields(
+                BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (!members.ContainsKey(field.Name))
+                    members[field.Name] = field.FieldType;
+            }
+
+            foreach (KeyValuePair<string, Type> member in members.OrderBy(
+                x => x.Key,
+                StringComparer.OrdinalIgnoreCase))
+            {
+                FlowTypeMetadata metadata =
+                    FlowTypeMetadata.FromClrType(member.Value);
+                items.Add(new VariableSelectionOption(
+                    AppendSelector(root.Selector, member.Key),
+                    root.GroupName,
+                    root.SourceName,
+                    root.SourceId,
+                    member.Key,
+                    metadata.DataType,
+                    metadata.EnumType,
+                    metadata.ObjectType,
+                    root.Selector));
+            }
+        }
+
+        private static VariableSelector AppendSelector(
+            VariableSelector selector,
+            string segment)
+        {
+            return new VariableSelector
+            {
+                Scope = selector.Scope,
+                Path = (selector.Path ?? new List<string>())
+                    .Concat(new[] { segment })
+                    .ToList()
+            };
         }
 
         private void AddEnvironmentVariableSuggestions(

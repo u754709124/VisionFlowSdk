@@ -24,6 +24,12 @@ namespace Vision.Flow.Core.Domain.Nodes
         /// </summary>
         public Type EnumType { get; set; }
 
+        /// <summary>
+        /// 获取或设置 Object 配置项要求的 CLR 契约类型；为空表示接受任意 Object。
+        /// 该元数据只参与设计器候选与发布校验，不写入流程文件。
+        /// </summary>
+        public Type ObjectType { get; set; }
+
         public object DefaultValue { get; set; }
 
         public bool IsRequired { get; set; }

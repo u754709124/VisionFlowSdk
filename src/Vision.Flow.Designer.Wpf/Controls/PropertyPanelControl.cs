@@ -536,12 +536,17 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 .Where(x => FlowDataTypeCompatibility.IsCompatible(
                     x.DataType,
                     x.EnumType,
+                    x.ObjectType,
                     setting.DataType,
-                    setting.EnumType))
+                    setting.EnumType,
+                    setting.ObjectType))
                 .ToList();
 
             var layout = new StackPanel();
-            var selector = new VariableSelectorControl(compatibleOptions)
+            var selector = new VariableSelectorControl(
+                allowedOptions,
+                option => compatibleOptions.Any(x => x.Matches(
+                    option.Selector)))
             {
                 IsEnabled = !_isReadOnly
             };
@@ -850,12 +855,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             if (!compatibleOptions.Any(x => x.Matches(selector)))
             {
-                var sourceType = source.EnumType == null
-                    ? FlowEnumConverter.ToWireValue(source.DataType)
-                    : source.EnumType.Name;
-                var targetType = setting.EnumType == null
-                    ? FlowEnumConverter.ToWireValue(setting.DataType)
-                    : setting.EnumType.Name;
+                var sourceType = GetTypeDisplayName(
+                    source.DataType,
+                    source.EnumType,
+                    source.ObjectType);
+                var targetType = GetTypeDisplayName(
+                    setting.DataType,
+                    setting.EnumType,
+                    setting.ObjectType);
                 return CreateInvalidText("变量类型 " + sourceType +
                     " 不能赋给 " + targetType + "。");
             }
@@ -998,7 +1005,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
                             .Where(x => IsSourceAllowed(setting.AllowedVariableSources, x.Selector.Scope))
                             .ToList();
                         var compatible = allowed
-                            .Where(x => FlowDataTypeCompatibility.IsCompatible(x.DataType, setting.DataType))
+                            .Where(x => FlowDataTypeCompatibility.IsCompatible(
+                                x.DataType,
+                                x.EnumType,
+                                x.ObjectType,
+                                setting.DataType,
+                                setting.EnumType,
+                                setting.ObjectType))
                             .ToList();
                         var variableError = GetVariableValidationError(setting, value.Selector, allowed, compatible);
                         if (!string.IsNullOrWhiteSpace(variableError))
@@ -1506,7 +1519,22 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             return compatibleOptions.Any(x => x.Matches(selector))
                 ? null
-                : "变量类型不能赋给 " + FlowEnumConverter.ToWireValue(setting.DataType) + "。";
+                : "变量类型不能赋给 " + GetTypeDisplayName(
+                    setting.DataType,
+                    setting.EnumType,
+                    setting.ObjectType) + "。";
+        }
+
+        private static string GetTypeDisplayName(
+            FlowDataType dataType,
+            Type enumType,
+            Type objectType)
+        {
+            if (enumType != null)
+                return enumType.Name;
+            return objectType == null
+                ? FlowEnumConverter.ToWireValue(dataType)
+                : objectType.Name;
         }
 
         private static TextBlock CreateLabel(string label)

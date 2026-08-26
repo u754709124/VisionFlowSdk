@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Domain.Nodes;
 
@@ -663,21 +664,99 @@ namespace Vision.Flow.Core.Services.Validation
                 return;
             }
 
-            var compatibility = FlowDataTypeCompatibility.GetCompatibility(output.DataType, targetSetting.DataType);
-            if (!FlowDataTypeCompatibility.IsCompatible(
-                output.DataType,
-                output.EnumType,
-                targetSetting.DataType,
-                targetSetting.EnumType))
+            FlowDataType sourceDataType = output.DataType;
+            Type sourceEnumType = output.EnumType;
+            Type sourceObjectType = output.ObjectType;
+            if (selector.Path.Count > 2)
             {
-                var sourceType = output.EnumType == null ? output.DataType.ToString() : output.EnumType.Name;
-                var targetType = targetSetting.EnumType == null ? targetSetting.DataType.ToString() : targetSetting.EnumType.Name;
+                if (selector.Path.Count != 3 ||
+                    output.DataType != FlowDataType.Object ||
+                    output.ObjectType == null)
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.VariableSelectorInvalid,
+                        "只有声明 CLR 契约类型的 Object 输出支持选择第一层成员。",
+                        nodeId: node.Id,
+                        field: field + ".Selector.Path");
+                    return;
+                }
+
+                Type memberType;
+                if (!TryGetFirstLayerMemberType(
+                    output.ObjectType,
+                    selector.Path[2],
+                    out memberType))
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.VariableSelectorInvalid,
+                        "Object 输出不存在公开可读成员：" + selector.Path[2],
+                        nodeId: node.Id,
+                        field: field + ".Selector.Path");
+                    return;
+                }
+
+                FlowTypeMetadata memberMetadata =
+                    FlowTypeMetadata.FromClrType(memberType);
+                sourceDataType = memberMetadata.DataType;
+                sourceEnumType = memberMetadata.EnumType;
+                sourceObjectType = memberMetadata.ObjectType;
+            }
+
+            var compatibility = FlowDataTypeCompatibility.GetCompatibility(
+                sourceDataType,
+                targetSetting.DataType);
+            if (!FlowDataTypeCompatibility.IsCompatible(
+                sourceDataType,
+                sourceEnumType,
+                sourceObjectType,
+                targetSetting.DataType,
+                targetSetting.EnumType,
+                targetSetting.ObjectType))
+            {
+                var sourceType = sourceEnumType != null
+                    ? sourceEnumType.Name
+                    : sourceObjectType != null
+                        ? sourceObjectType.Name
+                        : sourceDataType.ToString();
+                var targetType = targetSetting.EnumType != null
+                    ? targetSetting.EnumType.Name
+                    : targetSetting.ObjectType != null
+                        ? targetSetting.ObjectType.Name
+                        : targetSetting.DataType.ToString();
                 result.AddError(FlowValidationIssueCodes.VariableTypeIncompatible, "Variable output type " + sourceType + " cannot be assigned to setting type " + targetType + ".", nodeId: node.Id, field: field);
             }
             else if (compatibility == FlowDataTypeCompatibilityResult.Warning)
             {
                 result.AddWarning(FlowValidationIssueCodes.VariableTypeWarning, "Variable output type Object will be checked against " + targetSetting.DataType + " at runtime.", nodeId: node.Id, field: field);
             }
+        }
+
+        private static bool TryGetFirstLayerMemberType(
+            Type objectType,
+            string memberName,
+            out Type memberType)
+        {
+            memberType = null;
+            PropertyInfo property = objectType.GetProperty(
+                memberName,
+                BindingFlags.Instance | BindingFlags.Public |
+                BindingFlags.IgnoreCase);
+            if (property != null && property.CanRead &&
+                property.GetIndexParameters().Length == 0)
+            {
+                memberType = property.PropertyType;
+                return true;
+            }
+
+            FieldInfo field = objectType.GetField(
+                memberName,
+                BindingFlags.Instance | BindingFlags.Public |
+                BindingFlags.IgnoreCase);
+            if (field == null)
+                return false;
+
+            memberType = field.FieldType;
+            return true;
         }
 
         private static NodeSettingDescriptor FindSetting(NodeDescriptor descriptor, string name)

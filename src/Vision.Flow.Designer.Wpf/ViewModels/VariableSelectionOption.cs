@@ -21,7 +21,9 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
             string sourceId,
             string valueName,
             FlowDataType dataType,
-            Type enumType = null)
+            Type enumType = null,
+            Type objectType = null,
+            VariableSelector parentSelector = null)
         {
             Selector = selector;
             GroupName = groupName;
@@ -30,6 +32,8 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
             ValueName = valueName;
             DataType = dataType;
             EnumType = enumType;
+            ObjectType = objectType;
+            ParentSelector = parentSelector;
         }
 
         /// <summary>
@@ -68,6 +72,16 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
         public Type EnumType { get; private set; }
 
         /// <summary>
+        /// 获取 Object 候选的 CLR 契约类型；为空表示未声明或候选不是 Object。
+        /// </summary>
+        public Type ObjectType { get; private set; }
+
+        /// <summary>
+        /// 获取第一层成员候选所属的根选择器；为空表示当前候选是根项。
+        /// </summary>
+        public VariableSelector ParentSelector { get; private set; }
+
+        /// <summary>
         /// 返回包含来源、字段与类型的完整展示文本。
         /// </summary>
         public string DisplayText
@@ -77,9 +91,11 @@ namespace Vision.Flow.Designer.Wpf.ViewModels
                 var source = string.IsNullOrWhiteSpace(SourceId) || string.Equals(SourceName, SourceId, StringComparison.OrdinalIgnoreCase)
                     ? SourceName
                     : SourceName + " [" + SourceId + "]";
-                var typeName = EnumType == null
-                    ? FlowEnumConverter.ToWireValue(DataType)
-                    : EnumType.Name;
+                var typeName = EnumType != null
+                    ? EnumType.Name
+                    : ObjectType != null
+                        ? ObjectType.Name
+                        : FlowEnumConverter.ToWireValue(DataType);
                 return source + " / " + ValueName + " (" + typeName + ")";
             }
         }

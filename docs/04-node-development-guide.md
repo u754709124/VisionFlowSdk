@@ -98,6 +98,13 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 或字符串隐式转换。需要范围、格式或枚举成员等业务约束时，可以声明同步单项
 `Validator`：
 
+当 `DataType = FlowDataType.Object` 且协议实际承载类型已知时，设置和输出必须通过
+`ObjectType` 声明 CLR 类型。类型化 Object 按 `IsAssignableFrom` 校验：具体来源可绑定
+到相同类型或其接口/基类目标，未声明 `ObjectType` 的来源不能绑定到类型化目标；未声明
+`ObjectType` 的目标仍作为确有必要的通用 Object 接受任意 Object 来源。Designer 会让
+输出对象本身保持可选，并从其公开可读实例属性和公开实例字段生成一层成员候选，不递归
+展开成员的成员；发布校验也只接受这一层路径。
+
 字符串协议承载枚举值时，设置与输出应同时通过 `EnumType` 声明具体枚举类型。
 Designer 会为常量自动生成枚举成员下拉框，并且变量选择和发布校验只接受
 `DataType` 与 `EnumType` 都一致的来源；流程文件仍保存原有字符串 wire value：
