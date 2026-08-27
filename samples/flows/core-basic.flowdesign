@@ -29,9 +29,9 @@
         "id": "condition_1",
         "type": "condition.if",
         "name": "判断检测结果",
-        "version": "1.0.0",
+        "version": "3.0.0",
         "settings": {
-          "LeftBinding": { "Mode": "Variable", "ConstantValue": null, "Selector": { "Scope": "NodeOutput", "Path": ["set_result", "Value"] } },
+          "LeftValue": { "Mode": "Variable", "ConstantValue": null, "Selector": { "Scope": "TriggerInput", "Path": ["inspectionResult"] } },
           "Operator": { "Mode": "Constant", "ConstantValue": "Equal", "Selector": null },
           "RightValue": { "Mode": "Constant", "ConstantValue": "OK", "Selector": null }
         },
@@ -89,7 +89,16 @@
         "targetNodeId": "set_result",
         "sourceNodeId": null,
         "triggerKind": "Manual",
-        "inputs": [],
+        "inputs": [
+          {
+            "name": "inspectionResult",
+            "displayName": "检测结果",
+            "dataType": "String",
+            "isRequired": false,
+            "defaultValue": "OK",
+            "description": "用于演示强类型字符串条件判断。"
+          }
+        ],
         "executionPolicy": {
           "maxConcurrentRuns": 1,
           "queueCapacity": 64,

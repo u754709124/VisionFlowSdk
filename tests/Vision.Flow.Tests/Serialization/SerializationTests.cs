@@ -137,7 +137,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { FlowSettingNames.LeftBinding, NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "GroupKey")) },
+                    { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(VariableSelector.ForToken("CaptureFrameId")) },
                     { FlowSettingNames.Operator, NodeSettingValue.ForConstant(ConditionOperator.Equal) },
                     { FlowSettingNames.RightValue, NodeSettingValue.ForConstant("P01") }
                 }

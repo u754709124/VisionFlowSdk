@@ -6,13 +6,16 @@ namespace Vision.Flow.Nodes
 {
     public sealed class ConditionNodeFactory : BaseNodeFactory<ConditionNodeConfig>
     {
+        /// <summary>条件判断节点的稳定类型协议值。</summary>
         public const string TypeName = FlowNodeTypes.ConditionIf;
 
+        /// <summary>获取条件判断节点的稳定类型协议值。</summary>
         public override string NodeType
         {
             get { return TypeName; }
         }
 
+        /// <summary>获取条件判断节点的设计态和校验契约。</summary>
         public override NodeDescriptor Descriptor
         {
             get { return ConditionNodeDescriptor.Create(); }
@@ -22,10 +25,9 @@ namespace Vision.Flow.Nodes
         {
             return new ConditionNodeConfig
             {
-                LeftBinding = GetStringSetting(definition, FlowSettingNames.LeftBinding, null),
+                LeftValue = GetSetting(definition, FlowSettingNames.LeftValue, null),
                 Operator = GetEnumSetting(definition, FlowSettingNames.Operator, ConditionOperator.Equal),
-                RightValue = GetSetting(definition, FlowSettingNames.RightValue, null),
-                RightBinding = GetStringSetting(definition, FlowSettingNames.RightBinding, null)
+                RightValue = GetSetting(definition, FlowSettingNames.RightValue, null)
             };
         }
 

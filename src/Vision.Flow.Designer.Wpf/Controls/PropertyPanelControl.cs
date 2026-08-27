@@ -275,7 +275,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 }
             }
 
-            if (descriptor != null)
+            if (descriptor != null && string.Equals(
+                descriptor.NodeType,
+                FlowNodeTypes.ConditionIf,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                AddConditionSettings(settingFields, node, descriptor);
+            }
+            else if (descriptor != null)
             {
                 foreach (var setting in descriptor.Settings)
                 {
@@ -320,6 +327,257 @@ namespace Vision.Flow.Designer.Wpf.Controls
             EstablishEditorStateBaselineIfRequested();
         }
 
+        private void AddConditionSettings(
+            Panel layout,
+            NodeDefinition node,
+            NodeDescriptor descriptor)
+        {
+            var leftDescriptor = descriptor.Settings.FirstOrDefault(x =>
+                x != null && string.Equals(
+                    x.Name,
+                    FlowSettingNames.LeftValue,
+                    StringComparison.OrdinalIgnoreCase));
+            var operatorDescriptor = descriptor.Settings.FirstOrDefault(x =>
+                x != null && string.Equals(
+                    x.Name,
+                    FlowSettingNames.Operator,
+                    StringComparison.OrdinalIgnoreCase));
+            var rightDescriptor = descriptor.Settings.FirstOrDefault(x =>
+                x != null && string.Equals(
+                    x.Name,
+                    FlowSettingNames.RightValue,
+                    StringComparison.OrdinalIgnoreCase));
+            if (leftDescriptor == null || operatorDescriptor == null ||
+                rightDescriptor == null)
+            {
+                layout.Children.Add(CreateInvalidText(
+                    "条件节点 Descriptor 缺少 LeftValue、Operator 或 RightValue。"));
+                return;
+            }
+
+            var fields = new StackPanel();
+            layout.Children.Add(fields);
+            Action render = null;
+            render = delegate
+            {
+                ClearConditionEditorState();
+                fields.Children.Clear();
+
+                NodeSettingValue leftValue;
+                if (!node.Settings.TryGetValue(
+                    FlowSettingNames.LeftValue,
+                    out leftValue) || leftValue == null)
+                {
+                    leftValue = NodeSettingValue.ForConstant(null);
+                }
+                AddSettingField(
+                    fields,
+                    leftDescriptor,
+                    leftValue,
+                    delegate(NodeSettingValue value)
+                    {
+                        node.Settings[FlowSettingNames.LeftValue] = value;
+                        render();
+                    });
+
+                VariableSelectionOption leftOption = leftValue.Mode ==
+                        NodeSettingValueMode.Variable
+                    ? _variableOptions.FirstOrDefault(x =>
+                        x.Matches(leftValue.Selector) &&
+                        IsVariableTypeCompatible(leftDescriptor, x))
+                    : null;
+
+                NodeSettingValue operatorValue;
+                if (!node.Settings.TryGetValue(
+                    FlowSettingNames.Operator,
+                    out operatorValue) || operatorValue == null)
+                {
+                    operatorValue = NodeSettingValue.ForConstant(
+                        operatorDescriptor.DefaultValue);
+                }
+                AddConditionOperatorField(
+                    fields,
+                    operatorDescriptor,
+                    operatorValue,
+                    leftOption != null && IsNumericType(leftOption.DataType),
+                    delegate(NodeSettingValue value)
+                    {
+                        node.Settings[FlowSettingNames.Operator] = value;
+                    });
+
+                if (leftOption == null)
+                {
+                    fields.Children.Add(CreateInvalidText(
+                        "请先绑定有效的左值，设计器才能确定右值类型。"));
+                    return;
+                }
+
+                NodeSettingDescriptor effectiveRight =
+                    CreateConditionRightDescriptor(
+                        rightDescriptor,
+                        leftOption);
+                NodeSettingValue rightValue;
+                if (!node.Settings.TryGetValue(
+                    FlowSettingNames.RightValue,
+                    out rightValue) || rightValue == null)
+                {
+                    rightValue = NodeSettingValue.ForConstant(null);
+                }
+                AddSettingField(
+                    fields,
+                    effectiveRight,
+                    rightValue,
+                    delegate(NodeSettingValue value)
+                    {
+                        node.Settings[FlowSettingNames.RightValue] = value;
+                    });
+            };
+            render();
+        }
+
+        private void AddConditionOperatorField(
+            Panel layout,
+            NodeSettingDescriptor descriptor,
+            NodeSettingValue value,
+            bool numeric,
+            Action<NodeSettingValue> setter)
+        {
+            layout.Children.Add(CreateLabel(
+                descriptor.DisplayName + " * (" + descriptor.Name + ")"));
+            var options = CreateConditionOperatorOptions(numeric);
+            string current = value != null &&
+                    value.Mode == NodeSettingValueMode.Constant
+                ? Convert.ToString(
+                    value.ConstantValue,
+                    CultureInfo.InvariantCulture)
+                : string.Empty;
+            var selected = options.FirstOrDefault(x => string.Equals(
+                x.Value,
+                current,
+                StringComparison.Ordinal));
+            var comboBox = new ComboBox
+            {
+                Height = 40,
+                IsEditable = false,
+                IsEnabled = !_isReadOnly,
+                Tag = "Setting:" + FlowSettingNames.Operator
+            };
+            comboBox.SetResourceReference(
+                FrameworkElement.StyleProperty,
+                FlowDesignerTheme.FieldComboBoxStyleKey);
+            foreach (NodeSettingConstantOption option in options)
+                comboBox.Items.Add(option);
+            comboBox.SelectedItem = selected;
+            _editorControls["Setting:" + FlowSettingNames.Operator] = comboBox;
+            if (selected == null)
+            {
+                SetEditorError(
+                    "Setting:" + FlowSettingNames.Operator,
+                    string.IsNullOrWhiteSpace(current)
+                        ? "请选择操作符。"
+                        : "当前操作符与左值类型不兼容：" + current,
+                    comboBox);
+            }
+            comboBox.SelectionChanged += delegate
+            {
+                var option = comboBox.SelectedItem as
+                    NodeSettingConstantOption;
+                if (_isReadOnly || option == null)
+                    return;
+                ClearEditorError(
+                    "Setting:" + FlowSettingNames.Operator,
+                    comboBox);
+                ApplySetting(
+                    setter,
+                    NodeSettingValue.ForConstant(option.Value));
+            };
+            layout.Children.Add(WrapEditorWithError(
+                "Setting:" + FlowSettingNames.Operator,
+                comboBox));
+        }
+
+        private static IList<NodeSettingConstantOption>
+            CreateConditionOperatorOptions(bool numeric)
+        {
+            var result = new List<NodeSettingConstantOption>
+            {
+                new NodeSettingConstantOption("Equal", "等于"),
+                new NodeSettingConstantOption("NotEqual", "不等于")
+            };
+            if (!numeric)
+                return result;
+            result.Insert(0, new NodeSettingConstantOption("LessThan", "小于"));
+            result.Insert(1, new NodeSettingConstantOption(
+                "LessThanOrEqual",
+                "小于等于"));
+            result.Add(new NodeSettingConstantOption(
+                "GreaterThanOrEqual",
+                "大于等于"));
+            result.Add(new NodeSettingConstantOption("GreaterThan", "大于"));
+            return result;
+        }
+
+        private static NodeSettingDescriptor CreateConditionRightDescriptor(
+            NodeSettingDescriptor source,
+            VariableSelectionOption left)
+        {
+            return new NodeSettingDescriptor
+            {
+                Name = source.Name,
+                DisplayName = source.DisplayName,
+                DataType = left.DataType,
+                EnumType = left.EnumType,
+                ObjectType = left.ObjectType,
+                DefaultValue = source.DefaultValue,
+                IsRequired = source.IsRequired,
+                Description = source.Description,
+                BindingMode = source.BindingMode,
+                EvaluationPhase = source.EvaluationPhase,
+                AllowedVariableSources = source.AllowedVariableSources,
+                VariableTypeValidator = IsNumericType(left.DataType)
+                    ? new NodeSettingVariableTypeValidator(
+                        ValidateNumericVariableType)
+                    : null
+            };
+        }
+
+        private static string ValidateNumericVariableType(
+            FlowDataType dataType,
+            Type enumType,
+            Type objectType)
+        {
+            return IsNumericType(dataType) && enumType == null &&
+                objectType == null
+                    ? null
+                    : "右值变量必须是数值类型。";
+        }
+
+        private static bool IsNumericType(FlowDataType dataType)
+        {
+            return dataType == FlowDataType.Int32 ||
+                dataType == FlowDataType.Int64 ||
+                dataType == FlowDataType.Double;
+        }
+
+        private void ClearConditionEditorState()
+        {
+            string[] keys =
+            {
+                "Variable:" + FlowSettingNames.LeftValue,
+                "Setting:" + FlowSettingNames.LeftValue,
+                "Setting:" + FlowSettingNames.Operator,
+                "Variable:" + FlowSettingNames.RightValue,
+                "Setting:" + FlowSettingNames.RightValue
+            };
+            foreach (string key in keys)
+            {
+                _editorErrors.Remove(key);
+                _editorControls.Remove(key);
+                _editorErrorBlocks.Remove(key);
+                _editorErrorOutlines.Remove(key);
+            }
+        }
+
         private void AddSettingField(
             Panel layout,
             NodeSettingDescriptor setting,
@@ -344,6 +602,24 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 {
                     ApplySetting(setter, NodeSettingValue.ForConstant(constantValue));
                 }));
+                return;
+            }
+
+            if (setting.BindingMode == NodeSettingBindingMode.VariableOnly)
+            {
+                if (current.Mode != NodeSettingValueMode.Variable)
+                {
+                    layout.Children.Add(CreateInvalidText(
+                        "该配置项必须绑定变量，不能使用固定值。"));
+                }
+
+                layout.Children.Add(CreateVariableEditor(
+                    setting,
+                    current,
+                    delegate(NodeSettingValue newValue)
+                    {
+                        ApplySetting(setter, newValue);
+                    }));
                 return;
             }
 
@@ -533,13 +809,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 .Where(x => IsSourceAllowed(setting.AllowedVariableSources, x.Selector.Scope))
                 .ToList();
             var compatibleOptions = allowedOptions
-                .Where(x => FlowDataTypeCompatibility.IsCompatible(
-                    x.DataType,
-                    x.EnumType,
-                    x.ObjectType,
-                    setting.DataType,
-                    setting.EnumType,
-                    setting.ObjectType))
+                .Where(x => IsVariableTypeCompatible(setting, x))
                 .ToList();
 
             var layout = new StackPanel();
@@ -1005,13 +1275,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                             .Where(x => IsSourceAllowed(setting.AllowedVariableSources, x.Selector.Scope))
                             .ToList();
                         var compatible = allowed
-                            .Where(x => FlowDataTypeCompatibility.IsCompatible(
-                                x.DataType,
-                                x.EnumType,
-                                x.ObjectType,
-                                setting.DataType,
-                                setting.EnumType,
-                                setting.ObjectType))
+                            .Where(x => IsVariableTypeCompatible(setting, x))
                             .ToList();
                         var variableError = GetVariableValidationError(setting, value.Selector, allowed, compatible);
                         if (!string.IsNullOrWhiteSpace(variableError))
@@ -1023,6 +1287,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                         }
 
                         continue;
+                    }
+
+                    if (setting.BindingMode == NodeSettingBindingMode.VariableOnly)
+                    {
+                        error = setting.DisplayName + " 必须绑定变量。";
+                        SetEditorError("Variable:" + setting.Name, error, null);
+                        FocusFirstEditorError();
+                        return false;
                     }
 
                     if (setting.IsRequired &&
@@ -1523,6 +1795,21 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     setting.DataType,
                     setting.EnumType,
                     setting.ObjectType) + "。";
+        }
+
+        private static bool IsVariableTypeCompatible(
+            NodeSettingDescriptor setting,
+            VariableSelectionOption option)
+        {
+            if (setting == null || option == null)
+                return false;
+            string error;
+            return NodeSettingValueValidation.TryValidateVariableType(
+                setting,
+                option.DataType,
+                option.EnumType,
+                option.ObjectType,
+                out error);
         }
 
         private static string GetTypeDisplayName(

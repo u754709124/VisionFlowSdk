@@ -35,13 +35,18 @@ namespace Vision.Flow.Core.Domain.Nodes
     /// </summary>
     public enum ConditionOperator
     {
+        /// <summary>判断左右值相等。</summary>
         Equal = 0,
+        /// <summary>判断左右值不相等。</summary>
         NotEqual = 1,
-        GreaterThan = 2,
-        LessThan = 3,
-        Contains = 4,
-        IsNull = 5,
-        IsNotNull = 6
+        /// <summary>判断左侧数值小于右侧数值。</summary>
+        LessThan = 2,
+        /// <summary>判断左侧数值小于或等于右侧数值。</summary>
+        LessThanOrEqual = 3,
+        /// <summary>判断左侧数值大于或等于右侧数值。</summary>
+        GreaterThanOrEqual = 4,
+        /// <summary>判断左侧数值大于右侧数值。</summary>
+        GreaterThan = 5
     }
 
     /// <summary>

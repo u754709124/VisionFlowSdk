@@ -5,6 +5,7 @@ namespace Vision.Flow.Nodes
 {
     public static class ConditionNodeDescriptor
     {
+        /// <summary>创建 3.0 强类型条件判断节点描述符。</summary>
         public static NodeDescriptor Create()
         {
             return new NodeDescriptor
@@ -12,31 +13,30 @@ namespace Vision.Flow.Nodes
                 NodeType = ConditionNodeFactory.TypeName,
                 DisplayName = "条件判断",
                 Category = "流程控制",
-                Version = "2.0.0",
+                Version = "3.0.0",
                 Description = "根据配置的比较条件从真或假分支继续执行。",
                 InputPorts =
                 {
-                    CreatePort(FlowPortNames.In, FlowPortNames.In, FlowPortDirection.Input, "Execution input.")
+                    CreatePort(FlowPortNames.In, "输入", FlowPortDirection.Input, "接收控制流输入。")
                 },
                 OutputPorts =
                 {
-                    CreatePort(FlowPortNames.True, FlowPortNames.True, FlowPortDirection.Output, "Condition matched."),
-                    CreatePort(FlowPortNames.False, FlowPortNames.False, FlowPortDirection.Output, "Condition did not match."),
-                    CreatePort(FlowPortNames.Error, FlowPortNames.Error, FlowPortDirection.Output, "Condition evaluation failed.")
+                    CreatePort(FlowPortNames.True, "真", FlowPortDirection.Output, "条件成立时继续执行。"),
+                    CreatePort(FlowPortNames.False, "假", FlowPortDirection.Output, "条件不成立时继续执行。"),
+                    CreatePort(FlowPortNames.Error, "错误", FlowPortDirection.Output, "操作数或操作符无效时继续执行。")
                 },
                 Settings =
                 {
-                    CreateObjectSetting(FlowSettingNames.LeftBinding, "Left Value", null, true, "Left comparison value or variable selector."),
-                    CreateStringSetting(FlowSettingNames.Operator, "Operator", FlowEnumConverter.ToWireValue(ConditionOperator.Equal), true, "Equal, NotEqual, GreaterThan, LessThan, Contains, IsNull, or IsNotNull.", typeof(ConditionOperator)),
-                    CreateObjectSetting(FlowSettingNames.RightValue, "Right Value", null, false, "Constant right value."),
-                    CreateObjectSetting(FlowSettingNames.RightBinding, "Right Variable", null, false, "Optional right comparison variable selector.")
+                    CreateOperandSetting(FlowSettingNames.LeftValue, "左值", NodeSettingBindingMode.VariableOnly, "必须绑定数值、字符串或枚举变量。"),
+                    CreateOperatorSetting(),
+                    CreateOperandSetting(FlowSettingNames.RightValue, "右值", NodeSettingBindingMode.ConstantOrVariable, "输入固定值或绑定与左值兼容的变量。")
                 },
                 Outputs =
                 {
-                    CreateOutput(FlowOutputNames.IsMatched, "Is Matched", FlowDataType.Boolean, "Condition evaluation result."),
-                    CreateOutput("Left", "Left", FlowDataType.Object, "Resolved left value."),
-                    CreateOutput("Right", "Right", FlowDataType.Object, "Resolved right value."),
-                    CreateOutput(FlowSettingNames.Operator, "Operator", FlowDataType.String, "Operator used for evaluation.", typeof(ConditionOperator))
+                    CreateOutput(FlowOutputNames.IsMatched, "是否匹配", FlowDataType.Boolean, "条件判断结果。"),
+                    CreateOutput("Left", "左值", FlowDataType.Object, "本次执行解析后的左操作数，仅用于诊断。"),
+                    CreateOutput("Right", "右值", FlowDataType.Object, "本次执行解析后的右操作数，仅用于诊断。"),
+                    CreateOutput(FlowSettingNames.Operator, "操作符", FlowDataType.String, "本次执行使用的操作符，仅用于诊断。", typeof(ConditionOperator))
                 }
             };
         }
@@ -54,37 +54,60 @@ namespace Vision.Flow.Nodes
             };
         }
 
-        private static NodeSettingDescriptor CreateStringSetting(string name, string displayName, string defaultValue, bool isRequired, string description, Type enumType = null)
+        private static NodeSettingDescriptor CreateOperatorSetting()
         {
             return new NodeSettingDescriptor
             {
-                Name = name,
-                DisplayName = displayName,
+                Name = FlowSettingNames.Operator,
+                DisplayName = "操作符",
                 DataType = FlowDataType.String,
-                EnumType = enumType,
-                DefaultValue = defaultValue,
-                IsRequired = isRequired,
-                Description = description,
-                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                EnumType = typeof(ConditionOperator),
+                DefaultValue = FlowEnumConverter.ToWireValue(ConditionOperator.Equal),
+                IsRequired = true,
+                Description = "数值支持六种关系操作符；字符串和枚举仅支持等于与不等于。",
+                BindingMode = NodeSettingBindingMode.ConstantOnly,
                 EvaluationPhase = NodeSettingEvaluationPhase.Execution,
-                AllowedVariableSources = VariableSelectorScopeFlags.All
+                AllowedVariableSources = VariableSelectorScopeFlags.None
             };
         }
 
-        private static NodeSettingDescriptor CreateObjectSetting(string name, string displayName, object defaultValue, bool isRequired, string description)
+        private static NodeSettingDescriptor CreateOperandSetting(
+            string name,
+            string displayName,
+            NodeSettingBindingMode bindingMode,
+            string description)
         {
             return new NodeSettingDescriptor
             {
                 Name = name,
                 DisplayName = displayName,
                 DataType = FlowDataType.Object,
-                DefaultValue = defaultValue,
-                IsRequired = isRequired,
+                DefaultValue = null,
+                IsRequired = true,
                 Description = description,
-                BindingMode = NodeSettingBindingMode.ConstantOrVariable,
+                BindingMode = bindingMode,
                 EvaluationPhase = NodeSettingEvaluationPhase.Execution,
-                AllowedVariableSources = VariableSelectorScopeFlags.All
+                AllowedVariableSources = VariableSelectorScopeFlags.All,
+                VariableTypeValidator = ValidateComparableVariableType
             };
+        }
+
+        private static string ValidateComparableVariableType(
+            FlowDataType dataType,
+            Type enumType,
+            Type objectType)
+        {
+            if (dataType == FlowDataType.Int32 ||
+                dataType == FlowDataType.Int64 ||
+                dataType == FlowDataType.Double)
+            {
+                return null;
+            }
+
+            if (dataType == FlowDataType.String && objectType == null)
+                return null;
+
+            return "条件操作数只支持数值、字符串或枚举类型。";
         }
 
         private static NodeOutputDescriptor CreateOutput(string name, string displayName, FlowDataType dataType, string description, Type enumType = null)

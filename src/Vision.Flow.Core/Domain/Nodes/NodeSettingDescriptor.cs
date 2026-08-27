@@ -8,6 +8,14 @@ namespace Vision.Flow.Core.Domain.Nodes
     public delegate string NodeSettingValueValidator(object value);
 
     /// <summary>
+    /// 校验变量来源的类型元数据；返回空字符串表示该变量类型可用于当前配置项。
+    /// </summary>
+    public delegate string NodeSettingVariableTypeValidator(
+        FlowDataType dataType,
+        Type enumType,
+        Type objectType);
+
+    /// <summary>
     /// 节点配置项描述，驱动设计器属性编辑和运行前校验。
     /// </summary>
     public sealed class NodeSettingDescriptor
@@ -54,6 +62,12 @@ namespace Vision.Flow.Core.Domain.Nodes
         public NodeSettingValueValidator Validator { get; set; }
 
         /// <summary>
+        /// 获取或设置变量来源类型校验器；用于操作数等由所选变量决定实际类型的配置项。
+        /// </summary>
+        /// <remarks>该委托属于 Descriptor 元数据，不写入流程文件。</remarks>
+        public NodeSettingVariableTypeValidator VariableTypeValidator { get; set; }
+
+        /// <summary>
         /// 指示常量值变化后是否需要重新解析节点实例 Descriptor。
         /// </summary>
         /// <remarks>
@@ -69,7 +83,10 @@ namespace Vision.Flow.Core.Domain.Nodes
     public enum NodeSettingBindingMode
     {
         ConstantOnly = 0,
-        ConstantOrVariable = 1
+        ConstantOrVariable = 1,
+
+        /// <summary>配置项必须绑定执行期变量，不能使用固定值。</summary>
+        VariableOnly = 2
     }
 
     /// <summary>

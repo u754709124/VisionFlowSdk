@@ -216,7 +216,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             });
             AddTemplateNode("condition_1", FlowNodeTypes.ConditionIf, "判断检测结果", 380, 120, new Dictionary<string, object>
             {
-                { FlowSettingNames.LeftBinding, NodeSettingValue.ForVariable(VariableSelector.ForNodeOutput("set_result", "Value")) },
+                { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(VariableSelector.ForTriggerInput("inspectionResult")) },
                 { FlowSettingNames.Operator, "Equal" },
                 { FlowSettingNames.RightValue, "OK" }
             });
@@ -231,7 +231,21 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 { FlowSettingNames.Message, "Inspection result is not OK." }
             });
 
-            flow.Entries.Add(new FlowEntryDefinition { EntryName = DefaultEntryName, TargetNodeId = "set_result" });
+            var entry = new FlowEntryDefinition
+            {
+                EntryName = DefaultEntryName,
+                TargetNodeId = "set_result"
+            };
+            entry.Inputs.Add(new TriggerInputDescriptor
+            {
+                Name = "inspectionResult",
+                DisplayName = "检测结果",
+                DataType = FlowDataType.String,
+                IsRequired = false,
+                DefaultValue = "OK",
+                Description = "用于演示强类型字符串条件判断。"
+            });
+            flow.Entries.Add(entry);
             AddEdge("set_result", "condition_1");
             AddEdge("condition_1", FlowPortNames.True, "log_ok", FlowPortNames.In);
             AddEdge("condition_1", FlowPortNames.False, "log_ng", FlowPortNames.In);

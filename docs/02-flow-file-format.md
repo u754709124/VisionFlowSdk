@@ -147,6 +147,15 @@ Descriptor 可在 Object 类型的设置和输出上声明非序列化的 `Objec
 
 固定策略值继续使用枚举公共 API，并在 JSON 的 `ConstantValue` 中序列化为稳定字符串，例如 `Equal`、`Ignore`、`Warning`。
 
+### IF 条件节点 v3
+
+`condition.if` v3 使用 `LeftValue`、`Operator`、`RightValue` 三个稳定设置键。`LeftValue` 必须是结构化变量选择器；`RightValue` 可以是固定值或变量。旧版 `LeftBinding`、`RightBinding` 设置键以及 `Contains`、`IsNull`、`IsNotNull` 操作符不再兼容，旧流程必须在设计器中重新配置后发布。
+
+- `Int32`、`Int64`、`Double` 属于同一个数值兼容族，支持 `<`、`<=`、`==`、`!=`、`>=`、`>`。
+- 普通字符串仅支持区分大小写的 `==`、`!=`。
+- 枚举在线路协议中仍以字符串成员名保存，但两侧必须携带同一个 `EnumType`；右侧固定值使用该枚举的成员下拉框。
+- 左值重新绑定到其他类型后，已有操作符和右值会保留并显示校验错误，不会静默改写用户配置。
+
 ## 环境变量
 
 Schema v2 的 `Runtime` 可包含 `EnvironmentVariables`。每项使用不可变 `Id`

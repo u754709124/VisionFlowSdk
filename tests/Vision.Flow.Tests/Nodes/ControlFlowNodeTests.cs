@@ -122,6 +122,42 @@ namespace Vision.Flow.Tests
             AssertEx.SequenceEqual(new[] { "TrueNode" }, executionLog, "Condition operator enum should route matching tokens.");
         }
 
+        public static async Task ConditionSupportsTypedComparisons()
+        {
+            var numericCases = new[]
+            {
+                new ConditionCase(1, ConditionOperator.LessThan, 2L),
+                new ConditionCase(2, ConditionOperator.LessThanOrEqual, 2.0d),
+                new ConditionCase(2L, ConditionOperator.Equal, 2.0d),
+                new ConditionCase(2.0d, ConditionOperator.NotEqual, 3),
+                new ConditionCase(3, ConditionOperator.GreaterThanOrEqual, 3L),
+                new ConditionCase(4L, ConditionOperator.GreaterThan, 3.0d)
+            };
+
+            foreach (var testCase in numericCases)
+            {
+                var executionLog = new List<string>();
+                var runner = CreateRunner(CreateTypedConditionFlow(testCase.Operator, testCase.Right), executionLog, new InMemoryFlowEventSink());
+                var token = CreateToken("condition-typed", "P01");
+                token.Set("Left", testCase.Left);
+
+                await runner.StartAsync().ConfigureAwait(false);
+                await runner.TriggerAsync(CreateManualRequest("ManualStart", token)).ConfigureAwait(false);
+
+                AssertEx.SequenceEqual(new[] { "TrueNode" }, executionLog,
+                    "Every numeric operator should support compatible Int32, Int64, and Double operands.");
+            }
+
+            var stringLog = new List<string>();
+            var stringRunner = CreateRunner(CreateTypedConditionFlow(ConditionOperator.Equal, "first"), stringLog, new InMemoryFlowEventSink());
+            var stringToken = CreateToken("condition-string", "P01");
+            stringToken.Set("Left", "First");
+            await stringRunner.StartAsync().ConfigureAwait(false);
+            await stringRunner.TriggerAsync(CreateManualRequest("ManualStart", stringToken)).ConfigureAwait(false);
+            AssertEx.SequenceEqual(new[] { "FalseNode" }, stringLog,
+                "String equality should use an ordinal case-sensitive comparison.");
+        }
+
         private static IFlowRunner CreateRunner(RuntimeFlowDefinition flow, IList<string> executionLog, InMemoryFlowEventSink sink)
         {
             var registry = new NodeRegistry();
@@ -209,7 +245,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "LeftBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "GroupKey")) },
+                    { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(VariableSelector.ForToken("CaptureFrameId")) },
                     { "Operator", NodeSettingValue.ForConstant(operatorName) },
                     { "RightValue", NodeSettingValue.ForConstant("P01") }
                 }
@@ -220,6 +256,30 @@ namespace Vision.Flow.Tests
             flow.Edges.Add(CreateEdge("condition1", "False", "FalseNode"));
             flow.Entries.Add(new FlowEntryDefinition { EntryName = "ManualStart", TargetNodeId = "condition1" });
             return flow;
+        }
+
+        private static RuntimeFlowDefinition CreateTypedConditionFlow(ConditionOperator operatorName, object rightValue)
+        {
+            var flow = CreateConditionFlow(operatorName);
+            flow.Nodes[0].Settings[FlowSettingNames.LeftValue] = NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "Left"));
+            flow.Nodes[0].Settings[FlowSettingNames.RightValue] = NodeSettingValue.ForConstant(rightValue);
+            return flow;
+        }
+
+        private sealed class ConditionCase
+        {
+            public ConditionCase(object left, ConditionOperator conditionOperator, object right)
+            {
+                Left = left;
+                Operator = conditionOperator;
+                Right = right;
+            }
+
+            public object Left { get; private set; }
+
+            public ConditionOperator Operator { get; private set; }
+
+            public object Right { get; private set; }
         }
 
         private static NodeDefinition CreateRecordNode(string id)
@@ -236,6 +296,7 @@ namespace Vision.Flow.Tests
         private static FlowToken CreateToken(string tokenId, string groupKey)
         {
             var token = new FlowToken { TokenId = tokenId };
+            token.CaptureFrameId = groupKey;
             token.Set("GroupKey", groupKey);
             return token;
         }

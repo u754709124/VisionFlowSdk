@@ -438,10 +438,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 right != null &&
                 left.DataType == right.DataType &&
                 left.EnumType == right.EnumType &&
+                left.ObjectType == right.ObjectType &&
                 left.BindingMode == right.BindingMode &&
                 left.EvaluationPhase == right.EvaluationPhase &&
                 left.AllowedVariableSources == right.AllowedVariableSources &&
-                left.AffectsDescriptor == right.AffectsDescriptor;
+                left.AffectsDescriptor == right.AffectsDescriptor &&
+                Equals(left.VariableTypeValidator, right.VariableTypeValidator);
         }
 
         private static bool TryCreateDefaultOutputValue(FlowDataType dataType, out object value)
@@ -517,6 +519,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     setting.EnumType == null
                         ? null
                         : setting.EnumType.AssemblyQualifiedName);
+                AppendDescriptorValue(
+                    result,
+                    setting.ObjectType == null
+                        ? null
+                        : setting.ObjectType.AssemblyQualifiedName);
                 AppendDescriptorValue(result, setting.DefaultValue);
                 AppendDescriptorValue(result, setting.IsRequired);
                 AppendDescriptorValue(result, setting.Description);
@@ -524,6 +531,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 AppendDescriptorValue(result, setting.EvaluationPhase);
                 AppendDescriptorValue(result, setting.AllowedVariableSources);
                 AppendDescriptorValue(result, setting.AffectsDescriptor);
+                AppendDescriptorValue(
+                    result,
+                    setting.VariableTypeValidator == null
+                        ? null
+                        : setting.VariableTypeValidator.Method.DeclaringType.FullName + "." + setting.VariableTypeValidator.Method.Name);
                 if (setting.AffectsDescriptor)
                 {
                     NodeSettingValue value;

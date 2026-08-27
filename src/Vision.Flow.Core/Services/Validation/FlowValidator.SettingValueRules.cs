@@ -69,6 +69,16 @@ namespace Vision.Flow.Core.Services.Validation
                     return;
                 }
 
+                if (descriptor.BindingMode == NodeSettingBindingMode.VariableOnly)
+                {
+                    result.AddError(
+                        FlowValidationIssueCodes.VariableSelectorNotAllowed,
+                        "This setting requires a variable selector.",
+                        nodeId: node.Id,
+                        field: field);
+                    return;
+                }
+
                 object normalizedValue;
                 string validationError;
                 if (!NodeSettingValueValidation.TryValidateConstant(
@@ -117,7 +127,7 @@ namespace Vision.Flow.Core.Services.Validation
                 return;
             }
 
-            if (descriptor.BindingMode != NodeSettingBindingMode.ConstantOrVariable)
+            if (descriptor.BindingMode == NodeSettingBindingMode.ConstantOnly)
             {
                 result.AddError(FlowValidationIssueCodes.VariableSelectorNotAllowed, "This setting only accepts a constant value.", nodeId: node.Id, field: field);
                 return;
@@ -212,17 +222,17 @@ namespace Vision.Flow.Core.Services.Validation
                 return;
             }
 
-            if (!FlowDataTypeCompatibility.IsCompatible(
+            string typeError;
+            if (!NodeSettingValueValidation.TryValidateVariableType(
+                targetSetting,
                 definition.DataType,
                 null,
-                targetSetting.DataType,
-                targetSetting.EnumType))
+                null,
+                out typeError))
             {
                 result.AddError(
                     FlowValidationIssueCodes.VariableTypeIncompatible,
-                    "Global variable type " + definition.DataType +
-                    " cannot be assigned to setting type " +
-                    targetSetting.DataType + ".",
+                    typeError,
                     nodeId: node.Id,
                     field: field);
             }
@@ -470,17 +480,17 @@ namespace Vision.Flow.Core.Services.Validation
             var compatibility = FlowDataTypeCompatibility.GetCompatibility(
                 definition.DataType,
                 targetSetting.DataType);
-            if (!FlowDataTypeCompatibility.IsCompatible(
+            string typeError;
+            if (!NodeSettingValueValidation.TryValidateVariableType(
+                targetSetting,
                 definition.DataType,
                 null,
-                targetSetting.DataType,
-                targetSetting.EnumType))
+                null,
+                out typeError))
             {
                 result.AddError(
                     FlowValidationIssueCodes.VariableTypeIncompatible,
-                    "Environment variable type " + definition.DataType +
-                    " cannot be assigned to setting type " +
-                    targetSetting.DataType + ".",
+                    typeError,
                     nodeId: node.Id,
                     field: field);
             }
@@ -578,15 +588,17 @@ namespace Vision.Flow.Core.Services.Validation
             }
 
             var compatibility = FlowDataTypeCompatibility.GetCompatibility(sourceType, targetSetting.DataType);
-            if (!FlowDataTypeCompatibility.IsCompatible(
+            string typeError;
+            if (!NodeSettingValueValidation.TryValidateVariableType(
+                targetSetting,
                 sourceType,
                 null,
-                targetSetting.DataType,
-                targetSetting.EnumType))
+                null,
+                out typeError))
             {
                 result.AddError(
                     FlowValidationIssueCodes.VariableTypeIncompatible,
-                    "Trigger input type " + sourceType + " cannot be assigned to setting type " + targetSetting.DataType + ".",
+                    typeError,
                     nodeId: node.Id,
                     field: field);
             }
@@ -705,13 +717,13 @@ namespace Vision.Flow.Core.Services.Validation
             var compatibility = FlowDataTypeCompatibility.GetCompatibility(
                 sourceDataType,
                 targetSetting.DataType);
-            if (!FlowDataTypeCompatibility.IsCompatible(
+            string typeError;
+            if (!NodeSettingValueValidation.TryValidateVariableType(
+                targetSetting,
                 sourceDataType,
                 sourceEnumType,
                 sourceObjectType,
-                targetSetting.DataType,
-                targetSetting.EnumType,
-                targetSetting.ObjectType))
+                out typeError))
             {
                 var sourceType = sourceEnumType != null
                     ? sourceEnumType.Name
@@ -723,7 +735,13 @@ namespace Vision.Flow.Core.Services.Validation
                     : targetSetting.ObjectType != null
                         ? targetSetting.ObjectType.Name
                         : targetSetting.DataType.ToString();
-                result.AddError(FlowValidationIssueCodes.VariableTypeIncompatible, "Variable output type " + sourceType + " cannot be assigned to setting type " + targetType + ".", nodeId: node.Id, field: field);
+                result.AddError(
+                    FlowValidationIssueCodes.VariableTypeIncompatible,
+                    string.IsNullOrWhiteSpace(typeError)
+                        ? "Variable output type " + sourceType + " cannot be assigned to setting type " + targetType + "."
+                        : typeError,
+                    nodeId: node.Id,
+                    field: field);
             }
             else if (compatibility == FlowDataTypeCompatibilityResult.Warning)
             {

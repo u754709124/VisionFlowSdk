@@ -93,7 +93,14 @@ namespace Vision.Flow.Core.Services.Validation
                 descriptorsByNodeId,
                 result);
             ValidateNoDesignerState(definition, result);
-            ValidateNodeSpecificRules(nodes, result);
+            ValidateNodeSpecificRules(
+                nodes,
+                edges,
+                entries,
+                environmentVariables,
+                globalVariables,
+                descriptorsByNodeId,
+                result);
 
             return result;
         }

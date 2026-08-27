@@ -296,9 +296,9 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { FlowSettingNames.LeftBinding, NodeSettingValue.ForConstant("selected") },
+                    { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(VariableSelector.ForToken("TokenId")) },
                     { FlowSettingNames.Operator, NodeSettingValue.ForConstant(ConditionOperator.Equal) },
-                    { FlowSettingNames.RightValue, NodeSettingValue.ForConstant("selected") }
+                    { FlowSettingNames.RightValue, NodeSettingValue.ForVariable(VariableSelector.ForToken("TokenId")) }
                 }
             });
             flow.Nodes.Add(CreateRecordingNode("Selected"));

@@ -169,8 +169,9 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { "LeftBinding", NodeSettingValue.ForVariable(VariableSelector.ForToken("Values", "GroupKey")) },
-                    { "Operator", NodeSettingValue.ForConstant("Bogus") }
+                    { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(VariableSelector.ForToken("TokenId")) },
+                    { FlowSettingNames.Operator, NodeSettingValue.ForConstant("Bogus") },
+                    { FlowSettingNames.RightValue, NodeSettingValue.ForConstant("P01") }
                 }
             });
             flow.Nodes[2].ExecutionPolicy.FailureStrategy = FailureStrategy.DefaultOutputs;
@@ -198,6 +199,49 @@ namespace Vision.Flow.Tests
             AssertEx.True(
                 result.Issues.Count(x => string.Equals(x.Code, FlowValidationIssueCodes.SettingValueInvalid, StringComparison.OrdinalIgnoreCase)) >= 4,
                 "Invalid core node numeric/operator settings should be reported.");
+            return Task.FromResult(0);
+        }
+
+        public static Task ConditionRequiresCompatibleTypedOperands()
+        {
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "typed-condition-validation",
+                FlowName = "Typed Condition Validation",
+                Version = "1.0.0"
+            };
+            flow.Nodes.Add(new NodeDefinition
+            {
+                Id = "condition1",
+                Type = ConditionNodeFactory.TypeName,
+                Name = "Condition",
+                Version = "3.0.0",
+                Settings =
+                {
+                    { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(VariableSelector.ForTriggerInput("Left")) },
+                    { FlowSettingNames.Operator, NodeSettingValue.ForConstant(ConditionOperator.Equal) },
+                    { FlowSettingNames.RightValue, NodeSettingValue.ForVariable(VariableSelector.ForTriggerInput("Right")) }
+                }
+            });
+            flow.Entries.Add(new FlowEntryDefinition
+            {
+                EntryName = "ManualStart",
+                TargetNodeId = "condition1",
+                Inputs =
+                {
+                    new TriggerInputDescriptor { Name = "Left", DataType = FlowDataType.String },
+                    new TriggerInputDescriptor { Name = "Right", DataType = FlowDataType.Int32 }
+                }
+            });
+
+            var incompatibleResult = CreateValidator().Validate(flow);
+            AssertHasIssue(incompatibleResult, FlowValidationIssueCodes.SettingValueInvalid,
+                "Condition operands with incompatible types should be rejected.");
+
+            flow.Nodes[0].Settings[FlowSettingNames.LeftValue] = NodeSettingValue.ForConstant("fixed-left");
+            var constantLeftResult = CreateValidator().Validate(flow);
+            AssertHasIssue(constantLeftResult, FlowValidationIssueCodes.SettingValueInvalid,
+                "Condition left operands should require variable binding.");
             return Task.FromResult(0);
         }
 

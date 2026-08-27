@@ -9,10 +9,12 @@ namespace Vision.Flow.Core.Domain.Nodes
         public const string JoinKeyBinding = "JoinKeyBinding";
         public const string ExpectedInputCount = "ExpectedInputCount";
         public const string DuplicatePolicy = "DuplicatePolicy";
-        public const string LeftBinding = "LeftBinding";
+        /// <summary>
+        /// 条件判断节点左值设置键；该值必须保存为结构化变量绑定。
+        /// </summary>
+        public const string LeftValue = "LeftValue";
         public const string Operator = "Operator";
         public const string RightValue = "RightValue";
-        public const string RightBinding = "RightBinding";
         public const string DelayMs = "DelayMs";
         public const string Message = "Message";
         public const string Level = "Level";

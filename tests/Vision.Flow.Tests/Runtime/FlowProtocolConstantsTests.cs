@@ -29,7 +29,7 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("ElapsedMs", FlowOutputNames.ElapsedMs, "elapsed output wire value");
             AssertEx.Equal("DelayMs", FlowSettingNames.DelayMs, "delay setting wire value");
             AssertEx.Equal("VariableName", FlowSettingNames.VariableName, "variable setting wire value");
-            AssertEx.Equal("LeftBinding", FlowSettingNames.LeftBinding, "condition left binding wire value");
+            AssertEx.Equal("LeftValue", FlowSettingNames.LeftValue, "condition left value wire value");
 
             AssertEx.Equal("VariableName", FlowRuntimeDataKeys.VariableName, "runtime event variable data key");
             AssertEx.Equal("ElapsedMs", FlowRuntimeDataKeys.ElapsedMs, "runtime elapsed data key");
@@ -56,7 +56,7 @@ namespace Vision.Flow.Tests
             AssertEx.True(FlowEnumConverter.TryParse("replace", out duplicatePolicy), "Duplicate policy should parse case-insensitively.");
             AssertEx.Equal(FlowDuplicatePolicy.Replace, duplicatePolicy, "Parsed duplicate policy should match.");
             AssertEx.SequenceEqual(
-                new[] { "Equal", "NotEqual", "GreaterThan", "LessThan", "Contains", "IsNull", "IsNotNull" },
+                new[] { "Equal", "NotEqual", "LessThan", "LessThanOrEqual", "GreaterThanOrEqual", "GreaterThan" },
                 FlowEnumConverter.GetWireValues<ConditionOperator>(),
                 "Condition operator wire value list should be stable.");
             return Task.FromResult(0);

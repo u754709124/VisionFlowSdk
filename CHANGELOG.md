@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Unreleased
+
+- 将 `condition.if` 升级到 v3 强类型比较协议：左值必须绑定变量，右值支持固定值或变量。
+- 数值类型支持六种顺序/相等比较，字符串和枚举支持相等与不相等；枚举固定值由绑定输出的 `EnumType` 生成下拉项。
+- Designer 与发布校验器共享变量类型约束，失效配置保留原值并显示错误。
+
 ## 0.2.0 - Core Node Consolidation
 
 - 将 SDK 内置节点收缩为 Core 基础流程节点。

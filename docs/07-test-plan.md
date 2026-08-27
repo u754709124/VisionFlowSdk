@@ -65,6 +65,7 @@ Runtime 测试至少覆盖：
 - 并行分支发生 `StopFlow` 失败时，Runtime 取消并等待协作式兄弟分支退出。
 - 多分支 fan-in 只有在所有入边都由 `Unknown` 解析为 `Taken` 或 `Skipped` 后才就绪，并且每次激活只执行一次。
 - 条件节点未选中的输出端口标记为 `Skipped`；skip 可以穿过未执行节点继续传播，使下游汇聚不被永久阻塞。
+- IF 条件节点覆盖六种数值比较操作符、`Int32` / `Int64` / `Double` 混合比较、区分大小写字符串比较、左值强制变量绑定、两侧类型校验以及枚举固定值下拉候选。
 - 所有入边均为 `Skipped` 的节点不执行、不发布 `NodeStarted`，其出边继续传播 `Skipped`。
 - Manual / External 入口可以从流程中间节点直接开始，不执行该入口上游节点。
 - NodeEvent continuation 从监听源的输出端口进入同一套就绪队列；其 fan-out/fan-in 结果与手动入口一致。

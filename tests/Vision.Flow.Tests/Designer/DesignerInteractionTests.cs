@@ -620,6 +620,58 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task ConditionEditorFollowsBoundOperandType()
+        {
+            RunOnSta(delegate
+            {
+                var descriptor = ConditionNodeDescriptor.Create();
+                var enumOption = new VariableSelectionOption(
+                    VariableSelector.ForNodeOutput("motion", "CaptureSequencePosition"),
+                    "运控开始拍照 [motion] / 拍照位置",
+                    "运控开始拍照",
+                    "motion",
+                    "CaptureSequencePosition",
+                    FlowDataType.String,
+                    typeof(TestCaptureSequencePosition));
+                var node = new NodeDefinition
+                {
+                    Id = "condition1",
+                    Type = ConditionNodeFactory.TypeName,
+                    Name = "IF",
+                    Version = "3.0.0",
+                    Settings =
+                    {
+                        { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(enumOption.Selector) },
+                        { FlowSettingNames.Operator, NodeSettingValue.ForConstant(ConditionOperator.Equal) },
+                        { FlowSettingNames.RightValue, NodeSettingValue.ForConstant("First") }
+                    }
+                };
+                var panel = new PropertyPanelControl();
+                panel.ShowNode(node, descriptor, new[] { enumOption }, delegate { }, false);
+
+                AssertEx.False(FindChildren<ComboBox>(panel).Any(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        FlowSettingNames.LeftValue + ":Mode",
+                        StringComparison.Ordinal)),
+                    "The condition left operand should be variable-only and must not expose a fixed-value mode.");
+                var operatorSelector = FindChildren<ComboBox>(panel).First(x => string.Equals(
+                    Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                    "Setting:" + FlowSettingNames.Operator,
+                    StringComparison.Ordinal));
+                AssertEx.Equal(2, operatorSelector.Items.Count,
+                    "Enum operands should expose only equality and inequality operators.");
+                var rightSelector = FindChildren<ComboBox>(panel).First(x => string.Equals(
+                    Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                    "Setting:" + FlowSettingNames.RightValue,
+                    StringComparison.Ordinal));
+                AssertEx.SequenceEqual(
+                    Enum.GetNames(typeof(TestCaptureSequencePosition)),
+                    rightSelector.Items.Cast<object>().Select(x => Convert.ToString(x, CultureInfo.InvariantCulture)),
+                    "A fixed enum right operand should list all members from the bound left output's enum type.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyPanelUsesModernEditorTypesAndSeparatedSegments()
         {
             RunOnSta(delegate
@@ -765,6 +817,13 @@ namespace Vision.Flow.Tests
         {
             Stop = 0,
             Continue = 1
+        }
+
+        private enum TestCaptureSequencePosition
+        {
+            Intermediate = 0,
+            First = 1,
+            Last = 2
         }
 
         public static Task PropertyTextEditorsKeepSingleAndMultilineLayoutRules()
@@ -2607,10 +2666,10 @@ namespace Vision.Flow.Tests
                 InvokePrivate(control, "LoadCoreBasicTemplate");
                 var sample = control.CaptureDocument();
                 var condition = sample.Runtime.Nodes.First(x => x.Id == "condition_1");
-                AssertEx.Equal(NodeSettingValueMode.Variable, condition.Settings[FlowSettingNames.LeftBinding].Mode,
+                AssertEx.Equal(NodeSettingValueMode.Variable, condition.Settings[FlowSettingNames.LeftValue].Mode,
                     "The built-in sample should store its condition source as a structured variable setting.");
-                AssertEx.True(condition.Settings[FlowSettingNames.LeftBinding].Selector.Path.SequenceEqual(new[] { "set_result", "Value" }),
-                    "The built-in sample should select set_result.Value without a legacy expression string.");
+                AssertEx.True(condition.Settings[FlowSettingNames.LeftValue].Selector.Path.SequenceEqual(new[] { "inspectionResult" }),
+                    "The built-in sample should select the typed trigger input without a legacy expression string.");
             });
             return Task.FromResult(0);
         }
@@ -2902,7 +2961,7 @@ namespace Vision.Flow.Tests
                 Version = "1.0.0",
                 Settings =
                 {
-                    { FlowSettingNames.LeftBinding, NodeSettingValue.ForConstant("x") },
+                    { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(VariableSelector.ForToken("TokenId")) },
                     { FlowSettingNames.Operator, NodeSettingValue.ForConstant("Equal") },
                     { FlowSettingNames.RightValue, NodeSettingValue.ForConstant("x") }
                 }

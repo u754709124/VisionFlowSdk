@@ -107,6 +107,8 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - 嵌入式宿主在配方变量变化后调用 `UpdateEnvironmentVariables`，设计器会原位更新流程定义和候选并保留当前属性草稿。
 - `ConstantOnly` 或 `ListenerStart` 配置不开放执行期节点输出变量；只读模式同时禁用模式切换、固定值编辑器和变量选择器。
 
+`condition.if` 使用专用的强类型编辑方式：左值只显示变量选择器；选中左值后，操作符和右值编辑器按该变量的 `DataType`、`EnumType` 动态收窄。数值变量显示六种比较操作符，普通字符串和枚举仅显示等于、不等于；枚举右侧选择固定值时自动列出左值枚举类型的全部成员。右侧切换为变量时，数值允许 `Int32` / `Int64` / `Double` 互相比较，枚举只允许同一个具体枚举类型。来源、类型或操作符失效时保留原值并在原位置提示错误。
+
 `NodeSettingEditorKind.VariableSelectorMappings` 使用专用表格式编辑器。每行编辑稳定
 Attribute 名称和一个结构化变量来源，并支持新增和删除；映射顺序按新增顺序保存，
 界面不提供上下移动按钮。删除使用红色“×”按钮，变量选择按钮优先显示用户可读的来源名称，
@@ -171,4 +173,4 @@ Validator 只处理设计期常量，不读取其他配置项，也不在调试�
 
 Designer 根据 `FlowDataType` 选择属性编辑控件：`Boolean` 使用绿色开关，`Int32` / `Double` 使用手工输入及数字文本转换，其它普通类型使用手工输入文本框。`NodeSettingDescriptor.EnumType` 指向有效枚举类型时，设计器自动使用枚举成员下拉框；宿主也可以通过 `SettingConstantOptionsProvider` 为具体 Descriptor 提供优先级更高的明确选项数据源。
 
-端口连线规则使用 `FlowPortDirection` 判断输入/输出方向。条件操作符、AND Join 重复策略和日志等级仍写回既有字符串协议值，并由既有校验器检查；若宿主希望把这些值限制为下拉候选，应通过 `SettingConstantOptionsProvider` 返回对应 wire values，不修改 `.flowdesign` / `.flowruntime` 协议。
+端口连线规则使用 `FlowPortDirection` 判断输入/输出方向。IF 条件操作符由专用编辑器按左值类型生成候选；AND Join 重复策略和日志等级仍写回字符串协议值，并由校验器检查。宿主的业务枚举输出只需在 Descriptor 上同时声明 `DataType=String` 和具体 `EnumType`，IF 固定右值即可使用该枚举成员下拉框。

@@ -9,6 +9,55 @@ namespace Vision.Flow.Core.Domain.Nodes
     /// </summary>
     public static class NodeSettingValueValidation
     {
+        /// <summary>
+        /// 校验变量来源类型是否满足配置项的固定类型或自定义类型约束。
+        /// </summary>
+        public static bool TryValidateVariableType(
+            NodeSettingDescriptor descriptor,
+            FlowDataType dataType,
+            Type enumType,
+            Type objectType,
+            out string error)
+        {
+            error = null;
+            if (descriptor == null)
+            {
+                error = "Setting descriptor is required.";
+                return false;
+            }
+
+            if (descriptor.VariableTypeValidator != null)
+            {
+                try
+                {
+                    error = descriptor.VariableTypeValidator(
+                        dataType,
+                        enumType,
+                        objectType);
+                    return string.IsNullOrWhiteSpace(error);
+                }
+                catch (Exception ex)
+                {
+                    error = "Custom variable type validator failed: " + ex.Message;
+                    return false;
+                }
+            }
+
+            if (FlowDataTypeCompatibility.IsCompatible(
+                dataType,
+                enumType,
+                objectType,
+                descriptor.DataType,
+                descriptor.EnumType,
+                descriptor.ObjectType))
+            {
+                return true;
+            }
+
+            error = "Variable type is incompatible with setting type.";
+            return false;
+        }
+
         public static bool TryValidateConstant(
             NodeSettingDescriptor descriptor,
             object value,
