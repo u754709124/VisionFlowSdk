@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Linq;
 using Vision.Flow.Core.Domain.Flows;
 using Vision.Flow.Core.Domain.Nodes;
@@ -13,6 +12,7 @@ namespace Vision.Flow.Core.Runtime.Execution
     /// </summary>
     public static class EnvironmentVariableValues
     {
+        /// <summary>使用定义默认值和可选强类型覆盖值创建只读运行快照，不执行跨类型转换。</summary>
         public static IDictionary<string, object> CreateSnapshot(
             IEnumerable<EnvironmentVariableDefinition> definitions,
             IDictionary<string, object> overrides = null)
@@ -66,6 +66,7 @@ namespace Vision.Flow.Core.Runtime.Execution
             return new ReadOnlyDictionary<string, object>(values);
         }
 
+        /// <summary>验证值与声明类型完全一致并返回原始强类型值。</summary>
         public static object ConvertValue(object value, FlowDataType dataType)
         {
             if (value == null)
@@ -78,30 +79,20 @@ namespace Vision.Flow.Core.Runtime.Execution
             switch (dataType)
             {
                 case FlowDataType.String:
-                    return Convert.ToString(value, CultureInfo.InvariantCulture);
+                    if (value is string)
+                        return value;
+                    break;
                 case FlowDataType.Int32:
                     if (value is int)
                         return value;
-                    int intValue;
-                    if (int.TryParse(
-                        Convert.ToString(value, CultureInfo.InvariantCulture),
-                        NumberStyles.Integer,
-                        CultureInfo.InvariantCulture,
-                        out intValue))
-                    {
-                        return intValue;
-                    }
                     break;
                 case FlowDataType.Boolean:
                     if (value is bool)
                         return value;
-                    bool boolValue;
-                    if (bool.TryParse(
-                        Convert.ToString(value, CultureInfo.InvariantCulture),
-                        out boolValue))
-                    {
-                        return boolValue;
-                    }
+                    break;
+                case FlowDataType.DateTime:
+                    if (value is DateTime)
+                        return value;
                     break;
                 default:
                     throw new ArgumentException(
@@ -110,7 +101,7 @@ namespace Vision.Flow.Core.Runtime.Execution
             }
 
             throw new ArgumentException(
-                "Environment variable value cannot be converted to " + dataType + ".",
+                "Environment variable value must match " + dataType + " exactly.",
                 "value");
         }
 

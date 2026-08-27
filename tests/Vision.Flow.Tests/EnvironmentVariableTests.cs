@@ -26,7 +26,7 @@ namespace Vision.Flow.Tests
             var document = CreateDocument();
             var json = FlowDesignSerializer.Serialize(document);
             var restored = FlowDesignSerializer.Deserialize(json);
-            AssertEx.Equal(3, restored.Runtime.EnvironmentVariables.Count,
+            AssertEx.Equal(4, restored.Runtime.EnvironmentVariables.Count,
                 "All supported environment variable types should round-trip.");
             AssertEx.Equal(FlowDataType.Boolean,
                 restored.Runtime.EnvironmentVariables[1].DataType,
@@ -38,7 +38,7 @@ namespace Vision.Flow.Tests
             var result = new FlowPublishService(CreateRegistry()).Publish(restored);
             AssertEx.True(result.IsSuccess,
                 "A valid environment variable flow should publish.");
-            AssertEx.Equal(3, result.Runtime.EnvironmentVariables.Count,
+            AssertEx.Equal(4, result.Runtime.EnvironmentVariables.Count,
                 "Published runtime should retain environment definitions.");
             AssertEx.False(object.ReferenceEquals(
                     restored.Runtime.EnvironmentVariables[0],
@@ -57,15 +57,23 @@ namespace Vision.Flow.Tests
 
             var overrides = new Dictionary<string, object>
             {
-                { "timeout", "350" },
+                { "timeout", 350 },
                 { "enabled", false },
-                { "label", "override" }
+                { "label", "override" },
+                { "started", new DateTime(2026, 8, 27, 9, 2, 3, DateTimeKind.Local) }
             };
             IDictionary<string, object> values =
                 EnvironmentVariableValues.CreateSnapshot(definitions, overrides);
             overrides["timeout"] = 999;
             AssertEx.Equal(350, values["timeout"],
-                "Environment values should be converted and isolated from caller mutation.");
+                "Environment values should retain their declared type and be isolated from caller mutation.");
+            AssertEx.Equal(DateTimeKind.Local, ((DateTime)values["started"]).Kind,
+                "DateTime environment values should remain strongly typed local times.");
+            AssertEx.Throws<ArgumentException>(() =>
+                    EnvironmentVariableValues.CreateSnapshot(
+                        definitions,
+                        new Dictionary<string, object> { { "timeout", "350" } }),
+                "Environment values should not coerce text into another declared type.");
             AssertEx.Throws<NotSupportedException>(
                 () => values["timeout"] = 1,
                 "The runtime environment snapshot should be read-only.");
@@ -221,6 +229,14 @@ namespace Vision.Flow.Tests
                     Name = "标签",
                     DataType = FlowDataType.String,
                     DefaultValue = "default"
+                },
+                new EnvironmentVariableDefinition
+                {
+                    Id = "started",
+                    Name = "开始时间",
+                    DataType = FlowDataType.DateTime,
+                    DefaultValue = new DateTime(
+                        2026, 8, 27, 9, 2, 3, DateTimeKind.Local)
                 }
             };
         }

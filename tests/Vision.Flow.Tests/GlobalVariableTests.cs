@@ -55,8 +55,8 @@ namespace Vision.Flow.Tests
                 "Global values must never be null.");
             store.Set("lot", "LOT-1");
             store.Set("count", 2);
-            DateTime startedUtc = new DateTime(2026, 8, 27, 1, 2, 3, DateTimeKind.Utc);
-            store.Set("started", startedUtc);
+            DateTime startedLocal = new DateTime(2026, 8, 27, 9, 2, 3, DateTimeKind.Local);
+            store.Set("started", startedLocal);
             var snapshot = store.CreateSnapshot(new[] { "lot", "count", "lot" });
             AssertEx.Equal(2, snapshot.Count,
                 "A snapshot should atomically capture each requested Id once.");
@@ -65,9 +65,11 @@ namespace Vision.Flow.Tests
             AssertEx.Throws<NotSupportedException>(() =>
                 ((IDictionary<string, object>)snapshot)["lot"] = "changed",
                 "Atomic snapshots should be immutable to callers.");
-            AssertEx.Equal(startedUtc, store.Get("started"),
-                "DateTime globals should retain the configured CLR value and Kind.");
-            AssertEx.Throws<ArgumentException>(() => store.Set("started", startedUtc.ToString("O")),
+            AssertEx.Equal(startedLocal, store.Get("started"),
+                "DateTime globals should retain the configured local CLR value and Kind.");
+            AssertEx.Equal(DateTimeKind.Local, ((DateTime)store.Get("started")).Kind,
+                "DateTime globals should use local-time semantics.");
+            AssertEx.Throws<ArgumentException>(() => store.Set("started", startedLocal.ToString("O")),
                 "DateTime global writes must reject string coercion.");
 
             var runtime = CreateRuntime();
@@ -350,7 +352,7 @@ namespace Vision.Flow.Tests
                 StringVariable("lot", "批次"),
                 new GlobalVariableDefinition { Id = "enabled", Name = "启用", DataType = FlowDataType.Boolean, DefaultValue = false },
                 new GlobalVariableDefinition { Id = "count", Name = "计数", DataType = FlowDataType.Int32, DefaultValue = 0 },
-                new GlobalVariableDefinition { Id = "started", Name = "开始时间", DataType = FlowDataType.DateTime, DefaultValue = DateTime.MinValue }
+                new GlobalVariableDefinition { Id = "started", Name = "开始时间", DataType = FlowDataType.DateTime, DefaultValue = DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Local) }
             };
         }
 
