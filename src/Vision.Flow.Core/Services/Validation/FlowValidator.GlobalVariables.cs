@@ -54,11 +54,12 @@ namespace Vision.Flow.Core.Services.Validation
 
                 if (definition.DataType != FlowDataType.Int32 &&
                     definition.DataType != FlowDataType.Boolean &&
-                    definition.DataType != FlowDataType.String)
+                    definition.DataType != FlowDataType.String &&
+                    definition.DataType != FlowDataType.DateTime)
                 {
                     result.AddError(
                         FlowValidationIssueCodes.GlobalVariableTypeInvalid,
-                        "Global variable type must be Int32, Boolean or String.",
+                        "Global variable type must be Int32, Boolean, String or DateTime.",
                         field: field + ".DataType");
                     continue;
                 }

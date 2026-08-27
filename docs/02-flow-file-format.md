@@ -160,7 +160,8 @@ Schema v2 的 `Runtime` 可包含 `EnvironmentVariables`。每项使用不可变
 
 Schema v2 的 `Runtime.GlobalVariables` 是独立于只读环境变量的可变 Session 状态。
 每项包含稳定且唯一的 `Id`、唯一显示名 `Name`、`DataType` 和非空
-`DefaultValue`；类型只允许 `String`、`Int32`、`Boolean`，其中 String 允许空字符串。
+`DefaultValue`；类型只允许 `String`、`Int32`、`Boolean`、`DateTime`，其中 String 允许空字符串，
+DateTime 使用 JSON ISO 8601 表示并在运行时恢复为强类型 `System.DateTime`。
 流程文件只保存定义和默认值，不保存运行值。
 
 节点通过 `VariableSelectorScope.GlobalVariable` 和单段 `Path: [variableId]` 引用。

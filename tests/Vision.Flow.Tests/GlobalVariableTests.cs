@@ -30,13 +30,16 @@ namespace Vision.Flow.Tests
 
             AssertEx.True(json.Contains("\"GlobalVariables\""),
                 "Runtime JSON should contain the global variable protocol field.");
-            AssertEx.Equal(3, restored.GlobalVariables.Count,
+            AssertEx.Equal(4, restored.GlobalVariables.Count,
                 "All global variable definitions should round-trip.");
             AssertEx.Equal(string.Empty, restored.GlobalVariables[0].DefaultValue,
                 "String global variables should preserve an empty default value.");
             AssertEx.Equal(VariableSelectorScope.GlobalVariable,
                 restored.Nodes[0].Settings[FlowSettingNames.DelayMs].Selector.Scope,
                 "Global variable selectors should round-trip by stable Id.");
+            AssertEx.Equal(DateTime.MinValue,
+                restored.GlobalVariables.Single(x => x.Id == "started").DefaultValue,
+                "DateTime global defaults should round-trip as strong CLR values.");
             return Task.FromResult(0);
         }
 
@@ -52,6 +55,8 @@ namespace Vision.Flow.Tests
                 "Global values must never be null.");
             store.Set("lot", "LOT-1");
             store.Set("count", 2);
+            DateTime startedUtc = new DateTime(2026, 8, 27, 1, 2, 3, DateTimeKind.Utc);
+            store.Set("started", startedUtc);
             var snapshot = store.CreateSnapshot(new[] { "lot", "count", "lot" });
             AssertEx.Equal(2, snapshot.Count,
                 "A snapshot should atomically capture each requested Id once.");
@@ -60,6 +65,10 @@ namespace Vision.Flow.Tests
             AssertEx.Throws<NotSupportedException>(() =>
                 ((IDictionary<string, object>)snapshot)["lot"] = "changed",
                 "Atomic snapshots should be immutable to callers.");
+            AssertEx.Equal(startedUtc, store.Get("started"),
+                "DateTime globals should retain the configured CLR value and Kind.");
+            AssertEx.Throws<ArgumentException>(() => store.Set("started", startedUtc.ToString("O")),
+                "DateTime global writes must reject string coercion.");
 
             var runtime = CreateRuntime();
             var registry = CreateRegistry();
@@ -340,7 +349,8 @@ namespace Vision.Flow.Tests
             {
                 StringVariable("lot", "批次"),
                 new GlobalVariableDefinition { Id = "enabled", Name = "启用", DataType = FlowDataType.Boolean, DefaultValue = false },
-                new GlobalVariableDefinition { Id = "count", Name = "计数", DataType = FlowDataType.Int32, DefaultValue = 0 }
+                new GlobalVariableDefinition { Id = "count", Name = "计数", DataType = FlowDataType.Int32, DefaultValue = 0 },
+                new GlobalVariableDefinition { Id = "started", Name = "开始时间", DataType = FlowDataType.DateTime, DefaultValue = DateTime.MinValue }
             };
         }
 
