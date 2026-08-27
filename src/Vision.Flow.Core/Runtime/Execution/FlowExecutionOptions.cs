@@ -20,6 +20,11 @@ namespace Vision.Flow.Core.Runtime.Execution
         public int DefaultNodeTimeoutMs { get; set; }
 
         /// <summary>
+        /// 获取或设置由宿主持有的动态诊断开关；为 null 或关闭时不创建输入采集对象。
+        /// </summary>
+        public IFlowRuntimeDiagnosticsGate DiagnosticsGate { get; set; }
+
+        /// <summary>
         /// 按环境变量稳定 Id 提供的运行值；FlowRunner 构造时会制作只读快照。
         /// 未提供的变量使用流程定义中的默认值。
         /// </summary>

@@ -80,14 +80,28 @@ namespace Vision.Flow.Core.Runtime.Engine
                     startedEvent.Data[FlowRuntimeDataKeys.FailureStrategy] = policy.FailureStrategy.ToString();
                     await PublishAsync(startedEvent, cancellationToken).ConfigureAwait(false);
 
-                    result = await ExecuteNodeAttemptAsync(
-                        node,
-                        token,
-                        variables,
-                        triggerInputs,
-                        cancellationToken,
-                        flowRunId,
-                        timeoutMs).ConfigureAwait(false);
+                    NodeInputCaptureSession inputCapture = CreateNodeInputCaptureSession();
+                    try
+                    {
+                        result = await ExecuteNodeAttemptAsync(
+                            node,
+                            token,
+                            variables,
+                            triggerInputs,
+                            cancellationToken,
+                            flowRunId,
+                            timeoutMs,
+                            inputCapture).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        await PublishNodeInputsAsync(
+                            node,
+                            token,
+                            flowRunId,
+                            attempt,
+                            inputCapture).ConfigureAwait(false);
+                    }
 
                     if (result.IsSuccess)
                     {
@@ -232,7 +246,8 @@ namespace Vision.Flow.Core.Runtime.Engine
             IDictionary<string, object> triggerInputs,
             CancellationToken cancellationToken,
             string flowRunId,
-            int timeoutMs)
+            int timeoutMs,
+            NodeInputCaptureSession inputCapture)
         {
             try
             {
@@ -256,7 +271,8 @@ namespace Vision.Flow.Core.Runtime.Engine
                     flowRunId,
                     triggerInputs,
                     _options.EnvironmentVariableValues,
-                    _globalVariables);
+                    _globalVariables,
+                    inputCapture);
 
                 using (var attemptCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
@@ -303,6 +319,50 @@ namespace Vision.Flow.Core.Runtime.Engine
             {
                 return NodeExecutionResult.Failure(ex.Message, FlowPortNames.Error, NodeFailureKind.Execution);
             }
+        }
+
+        private NodeInputCaptureSession CreateNodeInputCaptureSession()
+        {
+            IFlowRuntimeDiagnosticsGate diagnosticsGate = _options.DiagnosticsGate;
+            if (diagnosticsGate == null)
+                return null;
+
+            try
+            {
+                // 宿主开关只在每次 Attempt 开始时读取一次，关闭状态不产生采集对象和集合分配。
+                return diagnosticsGate.IsNodeInputCaptureEnabled
+                    ? new NodeInputCaptureSession()
+                    : null;
+            }
+            catch
+            {
+                // 诊断开关属于旁路能力，宿主实现异常不得改变节点业务执行结果。
+                return null;
+            }
+        }
+
+        private Task PublishNodeInputsAsync(
+            NodeDefinition node,
+            FlowToken token,
+            string flowRunId,
+            int attempt,
+            NodeInputCaptureSession inputCapture)
+        {
+            if (inputCapture == null || !inputCapture.HasEntries)
+                return Task.FromResult(0);
+
+            var runtimeEvent = CreateRuntimeEvent(
+                FlowRuntimeEventType.NodeInputsCaptured,
+                token,
+                node,
+                NodeRuntimeState.Running,
+                null,
+                null,
+                flowRunId,
+                0);
+            runtimeEvent.Data[FlowRuntimeDataKeys.Attempt] = Math.Max(1, attempt);
+            runtimeEvent.Data[FlowRuntimeDataKeys.Inputs] = inputCapture.CreateSnapshot();
+            return PublishAsync(runtimeEvent, CancellationToken.None);
         }
 
         private static async Task DrainTimedOutAttemptAsync(Task<NodeExecutionResult> executionTask)

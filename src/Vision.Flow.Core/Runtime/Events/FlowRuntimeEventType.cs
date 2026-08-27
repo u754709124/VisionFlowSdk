@@ -23,6 +23,11 @@ namespace Vision.Flow.Core.Runtime.Events
         NodeRetrying = 15,
         NodeRecovered = 16,
         NodeCancelled = 17,
-        NodeSkipped = 18
+        NodeSkipped = 18,
+
+        /// <summary>
+        /// 节点一次执行尝试实际读取的设置输入已经形成安全快照。
+        /// </summary>
+        NodeInputsCaptured = 19
     }
 }

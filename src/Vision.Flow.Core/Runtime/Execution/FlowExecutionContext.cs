@@ -14,6 +14,8 @@ namespace Vision.Flow.Core.Runtime.Execution
     /// </summary>
     public sealed class FlowExecutionContext
     {
+        private readonly NodeInputCaptureSession _inputCapture;
+
         public FlowExecutionContext(
             RuntimeFlowDefinition flow,
             NodeDefinition node,
@@ -113,6 +115,35 @@ namespace Vision.Flow.Core.Runtime.Execution
             IDictionary<string, object> triggerInputs,
             IDictionary<string, object> environmentVariableValues,
             IGlobalVariableStore globalVariables)
+            : this(
+                flow,
+                node,
+                token,
+                variables,
+                events,
+                devices,
+                continuations,
+                flowRunId,
+                triggerInputs,
+                environmentVariableValues,
+                globalVariables,
+                null)
+        {
+        }
+
+        internal FlowExecutionContext(
+            RuntimeFlowDefinition flow,
+            NodeDefinition node,
+            FlowToken token,
+            IVariablePool variables,
+            IFlowEventSink events,
+            IDeviceRegistry devices,
+            IFlowContinuationDispatcher continuations,
+            string flowRunId,
+            IDictionary<string, object> triggerInputs,
+            IDictionary<string, object> environmentVariableValues,
+            IGlobalVariableStore globalVariables,
+            NodeInputCaptureSession inputCapture)
         {
             if (flow == null)
             {
@@ -157,6 +188,7 @@ namespace Vision.Flow.Core.Runtime.Execution
                     StringComparer.OrdinalIgnoreCase);
             GlobalVariables = globalVariables ?? EmptyGlobalVariableStore.Instance;
             SettingValueResolver = DefaultSettingValueResolver.Instance;
+            _inputCapture = inputCapture;
         }
 
         public RuntimeFlowDefinition Flow { get; private set; }
@@ -199,40 +231,61 @@ namespace Vision.Flow.Core.Runtime.Execution
             NodeSettingValue setting;
             if (!TryGetSettingValue(settingName, out setting))
             {
+                if (_inputCapture != null)
+                    _inputCapture.RecordValue(settingName, null, null);
                 return null;
             }
 
             if (setting == null)
             {
-                throw new NodeConfigurationException("Setting '" + settingName + "' must not be null.");
-            }
-
-            if (setting.Mode == NodeSettingValueMode.Constant)
-            {
-                return setting.ConstantValue;
-            }
-
-            if (setting.Mode != NodeSettingValueMode.Variable || setting.Selector == null)
-            {
-                if (setting.Mode == NodeSettingValueMode.Variable)
-                {
-                    throw new SettingBindingException("Setting '" + settingName + "' does not contain a valid variable selector.");
-                }
-
-                throw new NodeConfigurationException("Setting '" + settingName + "' mode is invalid: " + setting.Mode + ".");
+                var error = new NodeConfigurationException("Setting '" + settingName + "' must not be null.");
+                if (_inputCapture != null)
+                    _inputCapture.RecordFailure(settingName, setting, error);
+                throw error;
             }
 
             try
             {
-                return SettingValueResolver.Resolve(setting.Selector, this);
-            }
-            catch (SettingBindingException)
-            {
-                throw;
+                object value;
+                if (setting.Mode == NodeSettingValueMode.Constant)
+                {
+                    value = setting.ConstantValue;
+                }
+                else
+                {
+                    if (setting.Mode != NodeSettingValueMode.Variable || setting.Selector == null)
+                    {
+                        if (setting.Mode == NodeSettingValueMode.Variable)
+                        {
+                            throw new SettingBindingException("Setting '" + settingName + "' does not contain a valid variable selector.");
+                        }
+
+                        throw new NodeConfigurationException("Setting '" + settingName + "' mode is invalid: " + setting.Mode + ".");
+                    }
+
+                    try
+                    {
+                        value = SettingValueResolver.Resolve(setting.Selector, this);
+                    }
+                    catch (SettingBindingException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new SettingBindingException("Setting '" + settingName + "' variable binding could not be resolved.", ex);
+                    }
+                }
+
+                if (_inputCapture != null)
+                    _inputCapture.RecordValue(settingName, setting, value);
+                return value;
             }
             catch (Exception ex)
             {
-                throw new SettingBindingException("Setting '" + settingName + "' variable binding could not be resolved.", ex);
+                if (_inputCapture != null)
+                    _inputCapture.RecordFailure(settingName, setting, ex);
+                throw;
             }
         }
 

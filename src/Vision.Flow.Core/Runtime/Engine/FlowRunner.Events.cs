@@ -52,6 +52,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                 FanOutMode = source.FanOutMode,
                 MaxDegreeOfParallelism = source.MaxDegreeOfParallelism <= 0 ? 1 : source.MaxDegreeOfParallelism,
                 DefaultNodeTimeoutMs = source.DefaultNodeTimeoutMs,
+                DiagnosticsGate = source.DiagnosticsGate,
                 EnvironmentVariableValues = source.EnvironmentVariableValues == null
                     ? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                     : new Dictionary<string, object>(
