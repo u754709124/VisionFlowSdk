@@ -18,7 +18,6 @@ namespace Vision.Flow.Demo.DesignerWpf
             FlowDesignerTheme.ApplyTo(this);
             _designer = new FlowDesignerControl(
                 null,
-                null,
                 new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = true

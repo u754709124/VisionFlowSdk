@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -14,7 +14,6 @@ using Microsoft.Win32;
 using Vision.Flow.Nodes;
 using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
@@ -23,7 +22,6 @@ using Vision.Flow.Core.Services.Publishing;
 using Vision.Flow.Core.Contracts.Nodes;
 using Vision.Flow.Core.Runtime.Engine;
 using Vision.Flow.Core.Runtime.Execution;
-using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
 using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
@@ -38,16 +36,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private readonly StackPanel _summaryRows;
         private readonly Border _cardBody;
         private readonly Border _cardShadowHost;
-        private readonly TextBlock _runtimeSummary;
-        private readonly Border _stateChip;
-        private readonly TextBlock _stateText;
         private readonly System.Windows.Media.Effects.DropShadowEffect _cardShadow;
         private bool _isDisabled;
         private bool _isSelected;
-        private bool _hasRuntimeState;
-        private NodeRuntimeState _runtimeState;
-        private FlowRuntimeEventType? _runtimeEventType;
-        private int? _runtimeAttempt;
 
         public NodeCardControl(NodeViewModel viewModel)
         {
@@ -73,17 +64,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             Child = outer;
 
-            _runtimeSummary = new TextBlock
-            {
-                MinHeight = 18,
-                Margin = new Thickness(0, 7, 0, 0),
-                FontSize = 10.5,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = FlowDesignerControl.BrushFromRgb(71, 85, 105),
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                VerticalAlignment = VerticalAlignment.Center,
-                Visibility = Visibility.Collapsed
-            };
             _cardShadow = new System.Windows.Media.Effects.DropShadowEffect
             {
                 BlurRadius = 8,
@@ -147,23 +127,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             DockPanel.SetDock(icon, Dock.Left);
             header.Children.Add(icon);
 
-            _stateChip = new Border
-            {
-                Width = 10,
-                Height = 10,
-                CornerRadius = new CornerRadius(5),
-                Margin = new Thickness(8, 6, 0, 0),
-                Background = FlowDesignerControl.BrushFromRgb(16, 185, 129),
-                ToolTip = "Ready",
-                Child = _stateText = new TextBlock
-                {
-                    Text = string.Empty,
-                    FontSize = 1
-                }
-            };
-            DockPanel.SetDock(_stateChip, Dock.Right);
-            header.Children.Add(_stateChip);
-
             var text = new StackPanel
             {
                 Margin = new Thickness(7, 0, 6, 0),
@@ -194,8 +157,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             {
                 Margin = new Thickness(0, 0, 0, 1)
             };
-            DockPanel.SetDock(_runtimeSummary, Dock.Bottom);
-            root.Children.Add(_runtimeSummary);
             root.Children.Add(_summaryRows);
             UpdateSummary();
         }
@@ -329,7 +290,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public void SetDisabled(bool isDisabled)
         {
             _isDisabled = isDisabled;
-            UpdateRuntimeVisual(null);
             UpdateCardChrome();
         }
 
@@ -362,195 +322,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             TextOptions.SetTextHintingMode(this, TextHintingMode.Fixed);
         }
 
-        public void SetRuntimeState(NodeRuntimeState state)
-        {
-            SetRuntimeState(state, null, null);
-        }
-
-        public void SetRuntimeState(NodeRuntimeState state, TimeSpan? elapsed, string message)
-        {
-            ApplyRuntimeState(state, elapsed, message, null, null);
-        }
-
-        /// <summary>
-        /// 应用完整运行事件，使重试、恢复、取消等共享状态枚举的事件仍能展示各自语义。
-        /// </summary>
-        public void SetRuntimeEvent(FlowRuntimeEvent runtimeEvent, TimeSpan? elapsed)
-        {
-            if (runtimeEvent == null)
-            {
-                return;
-            }
-
-            var eventType = runtimeEvent.EventType;
-            var attempt = ReadAttempt(runtimeEvent);
-            if (eventType == FlowRuntimeEventType.NodeCompleted &&
-                _runtimeEventType == FlowRuntimeEventType.NodeRecovered)
-            {
-                // NodeRecovered 后会紧接 NodeCompleted；保留恢复结果，避免最终卡片退化为普通成功。
-                eventType = FlowRuntimeEventType.NodeRecovered;
-                attempt = _runtimeAttempt;
-            }
-
-            ApplyRuntimeState(runtimeEvent.State, elapsed, runtimeEvent.Message, eventType, attempt);
-        }
-
-        private void ApplyRuntimeState(
-            NodeRuntimeState state,
-            TimeSpan? elapsed,
-            string message,
-            FlowRuntimeEventType? eventType,
-            int? attempt)
-        {
-            _hasRuntimeState = true;
-            _runtimeState = state;
-            _runtimeEventType = eventType;
-            _runtimeAttempt = attempt;
-            ToolTip = string.IsNullOrWhiteSpace(message) ? null : message;
-            UpdateRuntimeVisual(elapsed);
-            UpdateCardChrome();
-            _runtimeSummary.ToolTip = string.IsNullOrWhiteSpace(message) ? _runtimeSummary.Text : message;
-        }
-
-        public void StopRunningRuntimeState(TimeSpan? elapsed, string message)
-        {
-            if (!_hasRuntimeState ||
-                (_runtimeState != NodeRuntimeState.Running && _runtimeEventType != FlowRuntimeEventType.NodeRetrying))
-            {
-                return;
-            }
-
-            SetRuntimeState(NodeRuntimeState.Stopped, elapsed, message);
-        }
-
-        public void ClearRuntimeState()
-        {
-            _hasRuntimeState = false;
-            _runtimeState = NodeRuntimeState.Waiting;
-            _runtimeEventType = null;
-            _runtimeAttempt = null;
-            ToolTip = null;
-            _runtimeSummary.ToolTip = null;
-            _runtimeSummary.Visibility = Visibility.Collapsed;
-            UpdateRuntimeVisual(null);
-            UpdateCardChrome();
-        }
-
-        private void UpdateRuntimeVisual(TimeSpan? elapsed)
-        {
-            if (!_hasRuntimeState)
-            {
-                _stateChip.Background = _isDisabled
-                    ? FlowDesignerControl.BrushFromRgb(226, 232, 240)
-                    : FlowDesignerControl.BrushFromRgb(16, 185, 129);
-                _stateChip.ToolTip = _isDisabled ? "Disabled" : "Ready";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            _runtimeSummary.Visibility = Visibility.Visible;
-            if (_isDisabled &&
-                _runtimeState == NodeRuntimeState.Waiting &&
-                _runtimeEventType != FlowRuntimeEventType.NodeRetrying)
-            {
-                ApplyRuntimeSummary("禁用", FlowDesignerControl.BrushFromRgb(100, 116, 139));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(226, 232, 240);
-                _stateChip.ToolTip = "Disabled";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            if (_runtimeEventType == FlowRuntimeEventType.NodeRetrying)
-            {
-                ApplyRuntimeSummary(
-                    "重试中" + FormatAttemptSuffix(_runtimeAttempt) + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip),
-                    FlowDesignerControl.BrushFromRgb(146, 64, 14));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(245, 158, 11);
-                _stateChip.ToolTip = "Retrying";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            if (_runtimeState == NodeRuntimeState.Running)
-            {
-                ApplyRuntimeSummary("运行中", FlowDesignerControl.BrushFromRgb(146, 64, 14));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(245, 158, 11);
-                _stateChip.ToolTip = "Running";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            if (_runtimeEventType == FlowRuntimeEventType.NodeRecovered)
-            {
-                ApplyRuntimeSummary(
-                    "已恢复" + FormatAttemptSuffix(_runtimeAttempt) + FormatElapsedSuffix(elapsed),
-                    FlowDesignerControl.BrushFromRgb(21, 128, 61));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(16, 185, 129);
-                _stateChip.ToolTip = elapsed.HasValue ? "Recovered " + FormatElapsed(elapsed.Value) : "Recovered";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            if (_runtimeState == NodeRuntimeState.Completed)
-            {
-                ApplyRuntimeSummary("成功" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(21, 128, 61));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(16, 185, 129);
-                _stateChip.ToolTip = elapsed.HasValue ? "Done " + FormatElapsed(elapsed.Value) : "Done";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            if (_runtimeEventType == FlowRuntimeEventType.NodeCancelled)
-            {
-                ApplyRuntimeSummary("已取消" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(71, 85, 105));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(100, 116, 139);
-                _stateChip.ToolTip = elapsed.HasValue ? "Cancelled " + FormatElapsed(elapsed.Value) : "Cancelled";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            if (_runtimeState == NodeRuntimeState.Skipped || _runtimeEventType == FlowRuntimeEventType.NodeSkipped)
-            {
-                ApplyRuntimeSummary("已跳过", FlowDesignerControl.BrushFromRgb(71, 85, 105));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(148, 163, 184);
-                _stateChip.ToolTip = "Skipped";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            if (_runtimeState == NodeRuntimeState.Failed)
-            {
-                ApplyRuntimeSummary("失败" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(153, 27, 27));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(239, 68, 68);
-                _stateChip.ToolTip = elapsed.HasValue ? "Failed " + FormatElapsed(elapsed.Value) : "Failed";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            if (_runtimeState == NodeRuntimeState.Timeout)
-            {
-                ApplyRuntimeSummary("超时" + FormatElapsedSuffix(elapsed) + FormatMessageSuffix(ToolTip), FlowDesignerControl.BrushFromRgb(154, 52, 18));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(249, 115, 22);
-                _stateChip.ToolTip = elapsed.HasValue ? "Timeout " + FormatElapsed(elapsed.Value) : "Timeout";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            if (_runtimeState == NodeRuntimeState.Stopped)
-            {
-                ApplyRuntimeSummary("已停止" + FormatElapsedSuffix(elapsed), FlowDesignerControl.BrushFromRgb(71, 85, 105));
-                _stateChip.Background = FlowDesignerControl.BrushFromRgb(100, 116, 139);
-                _stateChip.ToolTip = elapsed.HasValue ? "Stopped " + FormatElapsed(elapsed.Value) : "Stopped";
-                _stateText.Text = string.Empty;
-                return;
-            }
-
-            ApplyRuntimeSummary("未运行", FlowDesignerControl.BrushFromRgb(100, 116, 139));
-            _stateChip.Background = FlowDesignerControl.BrushFromRgb(148, 163, 184);
-            _stateChip.ToolTip = "Waiting";
-            _stateText.Text = string.Empty;
-        }
-
         private void UpdateCardChrome()
         {
             var border = FlowDesignerControl.BrushFromRgb(221, 229, 239);
@@ -563,58 +334,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 border = FlowDesignerControl.BrushFromRgb(203, 213, 225);
                 opacity = 0.58;
             }
-            else if (_hasRuntimeState &&
-                _runtimeState == NodeRuntimeState.Waiting &&
-                _runtimeEventType != FlowRuntimeEventType.NodeRetrying)
-            {
-                border = FlowDesignerControl.BrushFromRgb(203, 213, 225);
-                opacity = 0.68;
-            }
-
-            if (_hasRuntimeState && _runtimeEventType == FlowRuntimeEventType.NodeRetrying)
-            {
-                border = FlowDesignerControl.BrushFromRgb(245, 158, 11);
-                thickness = 1.8;
-                opacity = 1.0;
-                shadowOpacity = 0.14;
-            }
-            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Running)
-            {
-                border = FlowDesignerControl.BrushFromRgb(245, 158, 11);
-                thickness = 2.2;
-                opacity = 1.0;
-                shadowOpacity = 0.18;
-            }
-            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Completed)
-            {
-                border = FlowDesignerControl.BrushFromRgb(34, 197, 94);
-                thickness = 1.6;
-                opacity = 1.0;
-            }
-            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Failed)
-            {
-                border = FlowDesignerControl.BrushFromRgb(239, 68, 68);
-                thickness = 1.8;
-                opacity = 1.0;
-            }
-            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Timeout)
-            {
-                border = FlowDesignerControl.BrushFromRgb(249, 115, 22);
-                thickness = 1.8;
-                opacity = 1.0;
-            }
-            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Stopped)
-            {
-                border = FlowDesignerControl.BrushFromRgb(100, 116, 139);
-                thickness = 1.4;
-                opacity = 0.78;
-            }
-            else if (_hasRuntimeState && _runtimeState == NodeRuntimeState.Skipped)
-            {
-                border = FlowDesignerControl.BrushFromRgb(148, 163, 184);
-                thickness = 1.2;
-                opacity = 0.68;
-            }
             else if (_isSelected)
             {
                 border = FlowDesignerControl.BrushFromRgb(47, 128, 237);
@@ -626,13 +345,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _cardBody.BorderThickness = new Thickness(thickness);
             _cardBody.Opacity = opacity;
             _cardShadow.Opacity = shadowOpacity;
-        }
-
-        private void ApplyRuntimeSummary(string text, Brush foreground)
-        {
-            _runtimeSummary.Text = text;
-            _runtimeSummary.Foreground = foreground;
-            _runtimeSummary.ToolTip = text;
         }
 
         private UIElement CreatePortRow(NodeViewModel viewModel)
@@ -694,43 +406,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             row.Children.Add(output);
             return row;
-        }
-
-        private static string FormatElapsed(TimeSpan elapsed)
-        {
-            return elapsed.TotalMilliseconds < 1000
-                ? Math.Max(1, (int)elapsed.TotalMilliseconds).ToString(CultureInfo.InvariantCulture) + "ms"
-                : elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture) + "s";
-        }
-
-        private static string FormatElapsedSuffix(TimeSpan? elapsed)
-        {
-            return elapsed.HasValue ? " · " + FormatElapsed(elapsed.Value) : string.Empty;
-        }
-
-        private static string FormatAttemptSuffix(int? attempt)
-        {
-            return attempt.HasValue && attempt.Value > 0
-                ? " · 第 " + attempt.Value.ToString(CultureInfo.InvariantCulture) + " 次"
-                : string.Empty;
-        }
-
-        private static int? ReadAttempt(FlowRuntimeEvent runtimeEvent)
-        {
-            object value;
-            int attempt;
-            return runtimeEvent.Data != null &&
-                runtimeEvent.Data.TryGetValue(FlowRuntimeDataKeys.Attempt, out value) &&
-                int.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out attempt) &&
-                attempt > 0
-                    ? (int?)attempt
-                    : null;
-        }
-
-        private static string FormatMessageSuffix(object message)
-        {
-            var text = Convert.ToString(message, CultureInfo.InvariantCulture);
-            return string.IsNullOrWhiteSpace(text) ? string.Empty : " · " + ToShortText(text);
         }
 
         private static Brush GetNodeAccentBrush(string nodeType)

@@ -166,8 +166,6 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer node palette single click selects only", DesignerInteractionTests.NodePaletteSingleClickSelectsOnly),
                 new TestCase("Designer node palette double click requests node once", DesignerInteractionTests.NodePaletteDoubleClickRequestsNodeOnce),
                 new TestCase("Designer node palette drag request carries descriptor", DesignerInteractionTests.NodePaletteDragRequestCarriesDescriptor),
-                new TestCase("Designer stop marks running cards stopped", DesignerInteractionTests.StopMarksRunningCardsStopped),
-                new TestCase("Designer debug buttons recover after stop", DesignerInteractionTests.DebugButtonsRecoverAfterStop),
                 new TestCase("Designer embedded toolbar hides standalone document commands", DesignerInteractionTests.EmbeddedToolbarHidesStandaloneDocumentCommands),
                 new TestCase("Designer manages listener entries and exposes a read-only entry list", DesignerInteractionTests.ListenerEntriesAndReadOnlyListFollowDocumentState),
                 new TestCase("Designer modern theme and external toolbar are self-contained", DesignerInteractionTests.ModernThemeAndExternalToolbarAreSelfContained),
@@ -176,7 +174,6 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer canvas mini-map tracks viewport and clamps navigation", DesignerInteractionTests.CanvasMiniMapTracksViewportAndClampsNavigation),
                 new TestCase("Designer canvas pan aligns offsets to device pixels", DesignerInteractionTests.CanvasPanAlignsOffsetsToDevicePixels),
                 new TestCase("Designer canvas interaction coalesces high frequency updates", DesignerInteractionTests.CanvasInteractionCoalescesHighFrequencyUpdates),
-                new TestCase("Designer debug drawer honors auto open and user preference", DesignerInteractionTests.DebugDrawerHonorsAutoOpenAndUserPreference),
                 new TestCase("Designer property draft applies resets and resolves decisions", DesignerInteractionTests.PropertyDraftAppliesResetsAndResolvesDecisions),
                 new TestCase("Designer property draft prompt releases the original node click", DesignerInteractionTests.PropertyDraftPromptDoesNotCaptureReleasedNodeClick),
                 new TestCase("Designer property draft discard restores an invalid baseline once", DesignerInteractionTests.PropertyDraftDiscardRestoresInvalidBaselineOnce),
@@ -184,7 +181,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer property draft apply button tracks validation state", DesignerInteractionTests.PropertyDraftApplyButtonTracksValidationState),
                 new TestCase("Designer property panel keeps fields and footer separated", DesignerInteractionTests.PropertyPanelLayoutKeepsFieldsAndFooterSeparated),
                 new TestCase("Designer required property errors fit above the footer", DesignerInteractionTests.PropertyPanelRequiredErrorFitsAboveFooterAtMinimumSize),
-                new TestCase("Designer property draft guards load and debug mode", DesignerInteractionTests.PropertyDraftGuardsLoadAndDebugMode),
+                new TestCase("Designer property draft guards document load", DesignerInteractionTests.PropertyDraftGuardsLoad),
                 new TestCase("Designer property draft preserves invalid dynamic candidates", DesignerInteractionTests.PropertyDraftPreservesInvalidDynamicCandidates),
                 new TestCase("Designer dynamic descriptor draft refreshes and reconciles fields", DesignerInteractionTests.DynamicDescriptorDraftRefreshesAndReconcilesFields),
                 new TestCase("Designer property draft validates variables and node switch decisions", DesignerInteractionTests.PropertyDraftValidatesVariablesAndNodeSwitchDecisions),
@@ -194,8 +191,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer palette default add uses viewport center", DesignerInteractionTests.PaletteDefaultAddUsesViewportCenter),
                 new TestCase("Designer canvas zoom keeps viewport anchor stable", DesignerInteractionTests.CanvasZoomKeepsViewportAnchorStable),
                 new TestCase("Designer node card uses sharp text rendering options", DesignerInteractionTests.NodeCardUsesSharpTextRenderingOptions),
-                new TestCase("Designer palette and node card show descriptor descriptions", DesignerInteractionTests.PaletteAndNodeCardShowDescriptorDescription),
-                new TestCase("Designer node card shows runtime summary inside card", DesignerInteractionTests.NodeCardShowsRuntimeSummaryAboveCard)
+                new TestCase("Designer palette and node card show descriptor descriptions", DesignerInteractionTests.PaletteAndNodeCardShowDescriptorDescription)
             };
 
             var failed = 0;

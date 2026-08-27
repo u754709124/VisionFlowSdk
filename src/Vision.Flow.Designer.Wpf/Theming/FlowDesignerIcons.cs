@@ -22,7 +22,7 @@ namespace Vision.Flow.Designer.Wpf.Theming
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
                 StrokeLineJoin = PenLineJoin.Round,
-                Fill = name == "stop" ? stroke : Brushes.Transparent,
+                Fill = Brushes.Transparent,
                 Stretch = Stretch.Uniform,
                 Width = size,
                 Height = size,
@@ -56,8 +56,6 @@ namespace Vision.Flow.Designer.Wpf.Theming
                     return "M3,3 A5,5 0 1 0 13,13 A5,5 0 1 0 3,3 M11.5,11.5 L17,17";
                 case "edit":
                     return "M3,14 L3,17 L6,17 L16,7 L13,4 Z M11.8,5.2 L14.8,8.2";
-                case "debug":
-                    return "M6,6 L15,11 L6,16 Z M2,3 L2,19 M18,5 L18,17";
                 case "new":
                     return "M10,3 L10,17 M3,10 L17,10";
                 case "sample":
@@ -70,10 +68,6 @@ namespace Vision.Flow.Designer.Wpf.Theming
                     return "M10,15 L10,3 M6,7 L10,3 L14,7 M3,12 L3,17 L17,17 L17,12";
                 case "entries":
                     return "M4,4 L7,4 M10,4 L17,4 M4,10 L7,10 M10,10 L17,10 M4,16 L7,16 M10,16 L17,16";
-                case "run":
-                    return "M5,3 L17,10 L5,17 Z";
-                case "stop":
-                    return "M5,5 L15,5 L15,15 L5,15 Z";
                 case "chevron":
                     return "M4,7 L10,13 L16,7";
                 case "clock":

@@ -120,7 +120,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public void SetReadOnly(bool isReadOnly)
         {
             _isReadOnly = isReadOnly;
-            ToolTip = isReadOnly ? "调试运行模式下不可新增节点。" : null;
+            ToolTip = isReadOnly ? "当前为只读模式，不能新增节点。" : null;
             foreach (var button in _descriptorButtons)
             {
                 button.IsEnabled = !isReadOnly;

@@ -5,7 +5,7 @@
 上位机加载 `.flowruntime` 后枚举 `RuntimeFlowDefinition.EnvironmentVariables`，
 将每项用户输入初始化为 `DefaultValue` 并要求用户提供完整有效值；启动流程时按
 稳定 `Id` 组装字典赋给 `FlowExecutionOptions.EnvironmentVariableValues`。
-运行层在缺少覆盖时回退默认值，以支持设计器调试和通用宿主。
+运行层在缺少覆盖时回退默认值，以支持通用宿主。
 
 `RuntimeFlowDefinition.GlobalVariables` 不走环境覆盖。宿主创建 `FlowRunner` 时，SDK
 仅按流程定义默认值建立 Session 存储；运行值不会写回流程文件或跨 Runner 继承。
@@ -30,7 +30,7 @@ artifacts/samples/flows
 Vision.Flow.Core.dll
 ```
 
-需要嵌入设计器或调试工具时再引用：
+需要嵌入设计器时再引用：
 
 ```text
 Vision.Flow.Designer.Wpf.dll
@@ -110,7 +110,7 @@ var runner = new FlowEngine(nodes, eventSink, devices).CreateRunner(flow);
 
 ## Flow Files
 
-`.flowdesign` 只用于设计器编辑和调试发布。生产部署 `.flowruntime`，并确保其中不含节点坐标、画布缩放、WPF 样式或设计器状态。
+`.flowdesign` 只用于设计器编辑和发布。生产部署 `.flowruntime`，并确保其中不含节点坐标、画布缩放、WPF 样式或设计器状态。
 
 示例流程：
 

@@ -526,7 +526,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void OnPaletteNodeDragRequested(object sender, NodePaletteDragEventArgs e)
         {
-            if (!CanEditDocument || e == null || e.Descriptor == null || e.DragSource == null)
+            if (e == null || e.Descriptor == null || e.DragSource == null)
             {
                 return;
             }
@@ -539,7 +539,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void OnPaletteNodeDragOver(object sender, DragEventArgs e)
         {
-            e.Effects = CanEditDocument && GetPaletteDragDescriptor(e.Data) != null
+            e.Effects = GetPaletteDragDescriptor(e.Data) != null
                 ? DragDropEffects.Copy
                 : DragDropEffects.None;
             e.Handled = true;
@@ -548,7 +548,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private void OnPaletteNodeDrop(object sender, DragEventArgs e)
         {
             var descriptor = GetPaletteDragDescriptor(e.Data);
-            if (!CanEditDocument || descriptor == null || _nodeLayer == null)
+            if (descriptor == null || _nodeLayer == null)
             {
                 e.Effects = DragDropEffects.None;
                 e.Handled = true;
@@ -618,7 +618,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void OnSurfaceMouseMove(object sender, MouseEventArgs e)
         {
-            if (_isConnecting && CanEditDocument)
+            if (_isConnecting)
             {
                 _edges.SetPreview(_connectionStartPoint, e.GetPosition(_nodeLayer));
             }
@@ -760,7 +760,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void OnPreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (CanEditDocument && (e.Key == Key.Delete || e.Key == Key.Back) && !IsTextEditorFocused())
+            if ((e.Key == Key.Delete || e.Key == Key.Back) && !IsTextEditorFocused())
             {
                 DeleteSelection();
                 e.Handled = true;
@@ -865,11 +865,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void OnOutputPortDragStarted(object sender, PortConnectionEventArgs e)
         {
-            if (!CanEditDocument)
-            {
-                return;
-            }
-
             var card = sender as NodeCardControl;
             if (card == null || e == null || e.Port == null || e.PortControl == null)
             {
@@ -895,11 +890,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void OnInputPortDragCompleted(object sender, PortConnectionEventArgs e)
         {
-            if (!CanEditDocument)
-            {
-                return;
-            }
-
             var card = sender as NodeCardControl;
             if (!_isConnecting || card == null || e == null || e.Port == null || _connectionSourceNode == null)
             {
@@ -911,12 +901,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void CompleteConnectionAt(Point point)
         {
-            if (!CanEditDocument)
-            {
-                CancelConnectionPreview();
-                return;
-            }
-
             var target = FindInputPortNear(point);
             if (target == null)
             {
@@ -929,12 +913,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void CompleteConnection(NodeDefinition targetNode, string targetPort)
         {
-            if (!CanEditDocument)
-            {
-                CancelConnectionPreview();
-                return;
-            }
-
             if (!_isConnecting || _connectionSourceNode == null)
             {
                 return;
@@ -947,7 +925,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             AddEdge(_connectionSourceNode.Id, _connectionSourcePort, targetNode.Id, targetPort);
-            AddDebugMessage("Connected " + _connectionSourceNode.Id + "." + _connectionSourcePort + " -> " + targetNode.Id + "." + targetPort + ".");
+            UpdateStatusMessage("Connected " + _connectionSourceNode.Id + "." + _connectionSourcePort + " -> " + targetNode.Id + "." + targetPort + ".");
             CancelConnectionPreview();
             RenderCanvas();
             RenderProperties();
@@ -1047,12 +1025,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
-            if (!CanEditDocument)
-            {
-                e.Handled = true;
-                return;
-            }
-
             if (e.ClickCount == 2)
             {
                 RenameNode(card.ViewModel.Node);
@@ -1076,11 +1048,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void OnNodeMouseMove(object sender, MouseEventArgs e)
         {
-            if (!CanEditDocument)
-            {
-                return;
-            }
-
             if (_dragCard == null || !_dragCard.IsMouseCaptured || e.LeftButton != MouseButtonState.Pressed)
             {
                 return;

@@ -14,16 +14,11 @@ using Microsoft.Win32;
 using Vision.Flow.Nodes;
 using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
-using Vision.Flow.Core.Contracts.Devices;
 using Vision.Flow.Core.Services.Publishing;
 using Vision.Flow.Core.Contracts.Nodes;
-using Vision.Flow.Core.Runtime.Engine;
-using Vision.Flow.Core.Runtime.Execution;
-using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
 using Vision.Flow.Designer.Wpf.Theming;
 using Vision.Flow.Designer.Wpf.ViewModels;
@@ -31,19 +26,6 @@ using Vision.Flow.Designer.Wpf.ViewModels;
 namespace Vision.Flow.Designer.Wpf.Controls
 {
     // 设计器核心状态、构造逻辑和公开集成点保留在根文件。
-    internal enum DesignerInteractionMode
-    {
-        Edit = 0,
-        DebugRun = 1
-    }
-
-    internal enum DebugDrawerPreference
-    {
-        Auto = 0,
-        Open = 1,
-        Closed = 2
-    }
-
     /// <summary>
     /// 指定设计器命令栏由控件内部承载，还是交由业务宿主承载。
     /// </summary>
@@ -85,8 +67,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
         /// </summary>
         public FlowDesignerToolbarPlacement ToolbarPlacement { get; set; }
 
-        public IDeviceRegistry DebugDevices { get; set; }
-
         /// <summary>
         /// 由嵌入式宿主提供显示文本与稳定协议值分离的固定值候选项。
         /// </summary>
@@ -110,33 +90,22 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private readonly NodeRegistry _nodeRegistry;
         private readonly Dictionary<string, NodeCardControl> _nodeCards;
-        private readonly Dictionary<string, DateTime> _nodeStartTimes;
         private readonly NodePaletteControl _palette;
         private readonly PropertyPanelControl _properties;
-        private readonly EntryTriggerPanelControl _entryTriggerPanel;
-        private readonly RuntimeDebugPanelControl _debug;
         private readonly EdgeLayerControl _edges;
         private readonly FlowMiniMapControl _miniMap;
         private readonly FlowDesignerOptions _options;
         private readonly Canvas _nodeLayer;
         private readonly TextBlock _statusText;
         private readonly FrameworkElement _toolbarView;
-        private Button _editModeButton;
-        private Button _debugModeButton;
         private Button _newButton;
         private Button _sampleButton;
         private Button _openButton;
         private Button _saveButton;
         private Button _publishButton;
         private Button _entryListButton;
-        private Button _debugRunButton;
-        private Button _stopButton;
         private TextBlock _zoomText;
         private Rectangle _gridLayer;
-        private RowDefinition _debugRowDefinition;
-        private DebugDrawerPreference _debugDrawerPreference;
-
-        private DesignerInteractionMode _interactionMode;
         private FlowDesignDocument _document;
         private NodeDefinition _selectedNode;
         private NodeDefinition _propertyDraftNode;
@@ -145,7 +114,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private string _propertyDraftDescriptorState;
         private bool _isReconcilingPropertyDescriptor;
         private EdgeDefinition _selectedEdge;
-        private IFlowRunner _runner;
         private Grid _surface;
         private ScrollViewer _canvasScroll;
         private ScaleTransform _canvasScale;
@@ -167,34 +135,28 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private bool _isRenderingEdges;
         private bool _hasDeferredEdgeRefresh;
         private bool _isConnecting;
-        private bool _isDebugRunning;
         private NodeDefinition _connectionSourceNode;
         private string _connectionSourcePort;
-        private string _selectedDebugEntryName;
         private Point _connectionStartPoint;
 
         public FlowDesignerControl()
-            : this(null, null, null)
+            : this(null, null)
         {
         }
 
         public FlowDesignerControl(NodeRegistry nodeRegistry)
-            : this(nodeRegistry, null, null)
+            : this(nodeRegistry, null)
         {
         }
 
-        public FlowDesignerControl(NodeRegistry nodeRegistry, IDeviceRegistry debugDevices)
-            : this(nodeRegistry, debugDevices, null)
-        {
-        }
-
-        public FlowDesignerControl(NodeRegistry nodeRegistry, IDeviceRegistry debugDevices, FlowDesignerOptions options)
+        /// <summary>
+        /// 使用指定节点注册表和设计器选项创建纯编辑态流程设计器。
+        /// </summary>
+        public FlowDesignerControl(NodeRegistry nodeRegistry, FlowDesignerOptions options)
         {
             _options = options ?? new FlowDesignerOptions();
             _nodeRegistry = nodeRegistry ?? CreateDefaultNodeRegistry();
             _nodeCards = new Dictionary<string, NodeCardControl>(StringComparer.OrdinalIgnoreCase);
-            _nodeStartTimes = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
-            _interactionMode = DesignerInteractionMode.Edit;
             _palette = new NodePaletteControl();
             _properties = new PropertyPanelControl(_options.SettingConstantOptionsProvider);
             _properties.ApplyRequested += delegate
@@ -203,18 +165,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 TryApplyPendingPropertyChanges(out error);
             };
             _properties.ResetRequested += DiscardPendingPropertyChanges;
-            _entryTriggerPanel = new EntryTriggerPanelControl
-            {
-                Visibility = Visibility.Collapsed,
-                Margin = new Thickness(0, 0, 0, 8)
-            };
-            _entryTriggerPanel.EntrySelected += delegate(FlowEntryDefinition entry)
-            {
-                _selectedDebugEntryName = entry == null ? null : entry.EntryName;
-                UpdateInteractionModeUi();
-            };
-            _debug = new RuntimeDebugPanelControl();
-            _debug.ExpansionChanged += OnDebugDrawerExpansionChanged;
             _edges = new EdgeLayerControl();
             _edges.EdgeSelected += SelectEdge;
             _edges.EdgeDeleteRequested += DeleteEdge;
@@ -239,14 +189,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            DebugDevices = debugDevices ?? _options.DebugDevices;
             InitializeResources();
             _toolbarView = CreateToolbar();
             Content = CreateShell();
             _palette.SetDescriptors(_nodeRegistry.Descriptors.OrderBy(x => x.Category).ThenBy(x => x.DisplayName));
             _palette.NodeRequested += AddNodeFromPalette;
             _palette.NodeDragRequested += OnPaletteNodeDragRequested;
-            _debug.NodeRequested += SelectNodeById;
             PreviewKeyDown += OnPreviewKeyDown;
             Unloaded += delegate { CancelCanvasInteractionFrame(); };
             Focusable = true;
@@ -259,10 +207,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 CreateNewDesign();
             }
 
-            UpdateInteractionModeUi();
+            UpdateStatus();
         }
-
-        public IDeviceRegistry DebugDevices { get; set; }
 
         public NodeRegistry NodeRegistry
         {
@@ -338,14 +284,5 @@ namespace Vision.Flow.Designer.Wpf.Controls
             RenderProperties();
         }
 
-        private bool CanEditDocument
-        {
-            get { return _interactionMode == DesignerInteractionMode.Edit; }
-        }
-
-        private bool IsDebugRunMode
-        {
-            get { return _interactionMode == DesignerInteractionMode.DebugRun; }
-        }
     }
 }

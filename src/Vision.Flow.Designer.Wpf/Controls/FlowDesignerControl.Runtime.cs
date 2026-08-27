@@ -1,9 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,32 +13,21 @@ using Microsoft.Win32;
 using Vision.Flow.Nodes;
 using ShapesPath = System.Windows.Shapes.Path;
 using Vision.Flow.Core.Domain.Nodes;
-using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
 using Vision.Flow.Core.Services.Validation;
 using Vision.Flow.Core.Domain.Flows;
-using Vision.Flow.Core.Contracts.Devices;
 using Vision.Flow.Core.Services.Publishing;
 using Vision.Flow.Core.Contracts.Nodes;
-using Vision.Flow.Core.Runtime.Engine;
-using Vision.Flow.Core.Runtime.Execution;
-using Vision.Flow.Core.Runtime.State;
 using Vision.Flow.Designer.Wpf.Controls;
 using Vision.Flow.Designer.Wpf.ViewModels;
 
 namespace Vision.Flow.Designer.Wpf.Controls
 {
-    // 运行辅助方法负责编译、发布、调试运行，并将 FlowRunner 事件回传到设计器。
+    // 文档命令负责独立设计器的打开、保存、发布和状态反馈。
     public sealed partial class FlowDesignerControl
     {
         private void OpenDesign()
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Open skipped: switch to Edit mode first.");
-                return;
-            }
-
             var dialog = new OpenFileDialog
             {
                 Filter = "Flow design (*" + FlowFileExtensions.FlowDesign + ")|*" + FlowFileExtensions.FlowDesign + "|All files (*.*)|*.*",
@@ -59,7 +47,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             try
             {
                 _document = FlowDesignSerializer.Load(dialog.FileName);
-                ResetEntryTriggerPanelState();
                 if (_document.View == null)
                 {
                     _document.View = new FlowViewState();
@@ -76,22 +63,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 RenderCanvas();
                 ApplyCanvasViewState();
                 RenderProperties();
-                AddDebugMessage("Opened " + dialog.FileName + ".");
+                UpdateStatusMessage("Opened " + dialog.FileName + ".");
             }
             catch (Exception ex)
             {
-                AddDebugMessage("Open failed: " + ex.Message);
+                UpdateStatusMessage("Open failed: " + ex.Message);
             }
         }
 
         private void SaveDesign()
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Save skipped: switch to Edit mode first.");
-                return;
-            }
-
             var dialog = new SaveFileDialog
             {
                 Filter = "Flow design (*" + FlowFileExtensions.FlowDesign + ")|*" + FlowFileExtensions.FlowDesign + "|All files (*.*)|*.*",
@@ -114,22 +95,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 SaveCanvasViewState();
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(dialog.FileName));
                 FlowDesignSerializer.Save(dialog.FileName, _document);
-                AddDebugMessage("Saved design " + dialog.FileName + ".");
+                UpdateStatusMessage("Saved design " + dialog.FileName + ".");
             }
             catch (Exception ex)
             {
-                AddDebugMessage("Save failed: " + ex.Message);
+                UpdateStatusMessage("Save failed: " + ex.Message);
             }
         }
 
         private void ShowPublishRuntimeDialog()
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Publish skipped: switch to Edit mode first.");
-                return;
-            }
-
             var dialog = new SaveFileDialog
             {
                 Filter = "Flow runtime (*" + FlowFileExtensions.FlowRuntime + ")|*" + FlowFileExtensions.FlowRuntime + "|All files (*.*)|*.*",
@@ -154,398 +129,21 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 var publishResult = PublishRuntimeFile(dialog.FileName);
                 if (!publishResult.IsSuccess)
                 {
-                    AddDebugMessage("Publish validation failed: " + FormatValidationIssues(publishResult.Validation));
+                    UpdateStatusMessage("Publish validation failed: " + FormatValidationIssues(publishResult.Validation));
                     return;
                 }
 
-                AddDebugMessage("Published runtime " + dialog.FileName + ".");
+                UpdateStatusMessage("Published runtime " + dialog.FileName + ".");
             }
             catch (Exception ex)
             {
-                AddDebugMessage("Publish failed: " + ex.Message);
+                UpdateStatusMessage("Publish failed: " + ex.Message);
             }
         }
 
-        private async Task RunDebugAsync()
+        private void UpdateStatusMessage(string message)
         {
-            if (!IsDebugRunMode)
-            {
-                await SetInteractionModeAsync(DesignerInteractionMode.DebugRun).ConfigureAwait(true);
-            }
-
-            if (_document == null || _document.Runtime == null || _document.Runtime.Nodes.Count == 0)
-            {
-                AddDebugMessage("Debug skipped: the flow has no nodes.");
-                return;
-            }
-
-            RefreshEntryTriggerPanel();
-            FlowTriggerRequest triggerRequest;
-            string triggerError;
-            if (!_entryTriggerPanel.TryCreateManualRequest(CreateDebugToken(), out triggerRequest, out triggerError))
-            {
-                AddDebugMessage("Debug skipped: " + triggerError);
-                return;
-            }
-
-            try
-            {
-                await StopDebugAsync().ConfigureAwait(true);
-                ResetNodeStates();
-
-                var sink = new DesignerEventSink(this);
-                var engine = new FlowEngine(_nodeRegistry, sink, DebugDevices);
-                var runner = engine.CreateRunner(_document.Runtime);
-                _runner = runner;
-                _isDebugRunning = true;
-                UpdateInteractionModeUi();
-
-                await runner.StartAsync().ConfigureAwait(true);
-                var result = await runner.TriggerAsync(triggerRequest).ConfigureAwait(true);
-                AddDebugMessage(result != null && result.IsSuccess
-                    ? "Debug run completed: " + result.EntryName + "."
-                    : "Debug run finished with " + (result == null ? "unknown status" : result.Status.ToString()) +
-                        (result == null || string.IsNullOrWhiteSpace(result.ErrorMessage) ? "." : ": " + result.ErrorMessage));
-            }
-            catch (OperationCanceledException)
-            {
-                AddDebugMessage("Debug run stopped.");
-            }
-            catch (Exception ex)
-            {
-                AddDebugMessage("Debug run failed: " + ex.Message);
-            }
-            finally
-            {
-                var runner = _runner;
-                if (runner != null)
-                {
-                    try
-                    {
-                        if (runner.IsRunning)
-                        {
-                            await runner.StopAsync().ConfigureAwait(true);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        AddDebugMessage("Stop failed: " + ex.Message);
-                    }
-                }
-
-                _runner = null;
-                _isDebugRunning = false;
-                UpdateInteractionModeUi();
-            }
-        }
-
-        private async Task StopDebugAsync()
-        {
-            if (_runner == null)
-            {
-                _isDebugRunning = false;
-                UpdateInteractionModeUi();
-                return;
-            }
-
-            try
-            {
-                if (_runner.IsRunning)
-                {
-                    await _runner.StopAsync().ConfigureAwait(true);
-                }
-            }
-            catch (Exception ex)
-            {
-                AddDebugMessage("Stop failed: " + ex.Message);
-            }
-            finally
-            {
-                _runner = null;
-                _isDebugRunning = false;
-                MarkRunningNodeStatesStopped();
-                UpdateInteractionModeUi();
-            }
-        }
-
-        private void ResetNodeStates()
-        {
-            _nodeStartTimes.Clear();
-            foreach (var card in _nodeCards.Values)
-            {
-                card.SetRuntimeState(NodeRuntimeState.Waiting);
-            }
-        }
-
-        private void ClearNodeRuntimeStates()
-        {
-            _nodeStartTimes.Clear();
-            foreach (var card in _nodeCards.Values)
-            {
-                card.ClearRuntimeState();
-            }
-        }
-
-        private void MarkRunningNodeStatesStopped()
-        {
-            var now = DateTime.UtcNow;
-            foreach (var item in _nodeCards)
-            {
-                var elapsed = default(TimeSpan?);
-                DateTime started;
-                if (_nodeStartTimes.TryGetValue(item.Key, out started))
-                {
-                    elapsed = now - started;
-                }
-
-                item.Value.StopRunningRuntimeState(elapsed, "Stopped by user.");
-            }
-
-            _nodeStartTimes.Clear();
-        }
-
-        private async Task SetInteractionModeAsync(DesignerInteractionMode mode)
-        {
-            if (_interactionMode == mode)
-            {
-                return;
-            }
-
-            if (mode == DesignerInteractionMode.DebugRun && !TryResolvePendingPropertyChanges())
-            {
-                return;
-            }
-
-            CancelConnectionPreview();
-            if (mode == DesignerInteractionMode.Edit)
-            {
-                await StopDebugAsync().ConfigureAwait(true);
-                _interactionMode = mode;
-                ClearNodeRuntimeStates();
-            }
-            else
-            {
-                _interactionMode = mode;
-                ResetNodeStates();
-            }
-
-            UpdateInteractionModeUi();
-            RenderProperties();
-            UpdateStatus();
-        }
-
-        private void UpdateInteractionModeUi()
-        {
-            var isEdit = CanEditDocument;
-            if (_debugDrawerPreference == DebugDrawerPreference.Open)
-            {
-                SetDebugDrawerExpanded(true);
-            }
-            else if (_debugDrawerPreference == DebugDrawerPreference.Closed)
-            {
-                SetDebugDrawerExpanded(false);
-            }
-            else
-            {
-                SetDebugDrawerExpanded(IsDebugRunMode);
-            }
-
-            RefreshEntryTriggerPanel();
-            _palette.SetReadOnly(!isEdit);
-            _edges.SetReadOnly(!isEdit);
-
-            foreach (var item in _nodeCards)
-            {
-                item.Value.SetEditEnabled(isEdit);
-                item.Value.ContextMenu = isEdit ? CreateNodeContextMenu(item.Value.ViewModel.Node) : null;
-            }
-
-            SetToolbarButtonEnabled(_newButton, isEdit);
-            SetToolbarButtonEnabled(_sampleButton, isEdit);
-            SetToolbarButtonEnabled(_openButton, isEdit);
-            SetToolbarButtonEnabled(_saveButton, isEdit);
-            SetToolbarButtonEnabled(_publishButton, isEdit);
-            var selectedEntry = _entryTriggerPanel.SelectedEntry;
-            var canManualRun = selectedEntry != null && selectedEntry.TriggerKind == FlowTriggerKind.Manual;
-            SetToolbarButtonEnabled(_debugRunButton, IsDebugRunMode && !_isDebugRunning && canManualRun);
-            SetToolbarButtonEnabled(_stopButton, IsDebugRunMode && _isDebugRunning);
-            ApplyModeButtonStyle(_editModeButton, isEdit);
-            ApplyModeButtonStyle(_debugModeButton, IsDebugRunMode);
-        }
-
-        private void RefreshEntryTriggerPanel()
-        {
-            if (_entryTriggerPanel == null)
-            {
-                return;
-            }
-
-            _entryTriggerPanel.Visibility = IsDebugRunMode ? Visibility.Visible : Visibility.Collapsed;
-            if (!IsDebugRunMode)
-            {
-                return;
-            }
-
-            var entries = _document == null || _document.Runtime == null
-                ? null
-                : _document.Runtime.Entries;
-            _entryTriggerPanel.ShowEntries(entries, _selectedDebugEntryName, _isDebugRunning);
-            _selectedDebugEntryName = _entryTriggerPanel.SelectedEntry == null
-                ? null
-                : _entryTriggerPanel.SelectedEntry.EntryName;
-        }
-
-        private void ResetEntryTriggerPanelState()
-        {
-            _selectedDebugEntryName = null;
-            if (_entryTriggerPanel != null)
-            {
-                _entryTriggerPanel.Reset();
-            }
-        }
-
-        private static void SetToolbarButtonEnabled(Button button, bool isEnabled)
-        {
-            if (button != null)
-            {
-                button.IsEnabled = isEnabled;
-                button.Opacity = isEnabled ? 1.0 : 0.48;
-            }
-        }
-
-        private static void ApplyModeButtonStyle(Button button, bool isActive)
-        {
-            if (button == null)
-            {
-                return;
-            }
-
-            button.Background = isActive
-                ? BrushFromRgb(234, 248, 242)
-                : Brushes.Transparent;
-            button.BorderBrush = isActive
-                ? BrushFromRgb(16, 163, 114)
-                : Brushes.Transparent;
-            button.Foreground = isActive
-                ? BrushFromRgb(13, 139, 97)
-                : BrushFromRgb(51, 65, 85);
-            button.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
-        }
-
-        private void OnDebugDrawerExpansionChanged(bool isExpanded)
-        {
-            _debugDrawerPreference = isExpanded
-                ? DebugDrawerPreference.Open
-                : DebugDrawerPreference.Closed;
-            SetDebugDrawerExpanded(isExpanded);
-        }
-
-        private void SetDebugDrawerExpanded(bool isExpanded)
-        {
-            if (_debug != null)
-            {
-                _debug.SetExpanded(isExpanded);
-            }
-
-            if (_debugRowDefinition != null)
-            {
-                _debugRowDefinition.Height = new GridLength(isExpanded ? 190 : 36);
-            }
-        }
-
-        private FlowToken CreateDebugToken()
-        {
-            return new FlowToken();
-        }
-
-        private void HandleRuntimeEvent(FlowRuntimeEvent runtimeEvent)
-        {
-            if (runtimeEvent == null)
-            {
-                return;
-            }
-
-            if (!Dispatcher.CheckAccess())
-            {
-                Dispatcher.BeginInvoke(new Action(delegate { HandleRuntimeEvent(runtimeEvent); }));
-                return;
-            }
-
-            _debug.AddEvent(runtimeEvent);
-            if (runtimeEvent.EventType == FlowRuntimeEventType.NodeFailed ||
-                runtimeEvent.EventType == FlowRuntimeEventType.NodeTimeout)
-            {
-                SetDebugDrawerExpanded(true);
-            }
-
-            if (!IsDebugRunMode)
-            {
-                return;
-            }
-
-            if (runtimeEvent.EventType == FlowRuntimeEventType.FlowStopped)
-            {
-                MarkRunningNodeStatesStopped();
-                _isDebugRunning = false;
-                UpdateInteractionModeUi();
-                return;
-            }
-
-            if (!string.IsNullOrWhiteSpace(runtimeEvent.NodeId) && _nodeCards.ContainsKey(runtimeEvent.NodeId))
-            {
-                if (!IsNodeLifecycleRuntimeEvent(runtimeEvent.EventType))
-                {
-                    return;
-                }
-
-                if (runtimeEvent.EventType == FlowRuntimeEventType.NodeStarted)
-                {
-                    _nodeStartTimes[runtimeEvent.NodeId] = DateTime.UtcNow;
-                }
-
-                TimeSpan? elapsed = null;
-                DateTime started;
-                if (HasNodeElapsedTime(runtimeEvent.EventType) &&
-                    runtimeEvent.ElapsedMs >= 0)
-                {
-                    elapsed = TimeSpan.FromMilliseconds(runtimeEvent.ElapsedMs);
-                }
-                else if (HasNodeElapsedTime(runtimeEvent.EventType) &&
-                    _nodeStartTimes.TryGetValue(runtimeEvent.NodeId, out started))
-                {
-                    elapsed = DateTime.UtcNow - started;
-                }
-
-                _nodeCards[runtimeEvent.NodeId].SetRuntimeEvent(runtimeEvent, elapsed);
-            }
-        }
-
-        private static bool IsNodeLifecycleRuntimeEvent(FlowRuntimeEventType eventType)
-        {
-            return eventType == FlowRuntimeEventType.NodeStarted ||
-                eventType == FlowRuntimeEventType.NodeCompleted ||
-                eventType == FlowRuntimeEventType.NodeFailed ||
-                eventType == FlowRuntimeEventType.NodeTimeout ||
-                eventType == FlowRuntimeEventType.NodeRetrying ||
-                eventType == FlowRuntimeEventType.NodeRecovered ||
-                eventType == FlowRuntimeEventType.NodeCancelled ||
-                eventType == FlowRuntimeEventType.NodeSkipped;
-        }
-
-        private static bool HasNodeElapsedTime(FlowRuntimeEventType eventType)
-        {
-            return eventType == FlowRuntimeEventType.NodeCompleted ||
-                eventType == FlowRuntimeEventType.NodeFailed ||
-                eventType == FlowRuntimeEventType.NodeTimeout ||
-                eventType == FlowRuntimeEventType.NodeRetrying ||
-                eventType == FlowRuntimeEventType.NodeRecovered ||
-                eventType == FlowRuntimeEventType.NodeCancelled;
-        }
-
-        private void AddDebugMessage(string message)
-        {
-            _debug.AddMessage(message);
-            UpdateStatus();
+            _statusText.Text = message ?? string.Empty;
         }
 
         private void UpdateStatus()
@@ -556,8 +154,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 ? _selectedNode.Id
                 : (_selectedEdge == null ? "none" : FormatEdgeLabel(_selectedEdge));
             var zoom = _canvasScale == null ? 1.0 : _canvasScale.ScaleX;
-            var mode = CanEditDocument ? "Edit" : "Debug Run";
-            _statusText.Text = string.Format(CultureInfo.InvariantCulture, "{0} nodes | {1} edges | zoom {2:P0} | mode: {3} | selected: {4}", nodeCount, edgeCount, zoom, mode, selected);
+            _statusText.Text = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} nodes | {1} edges | zoom {2:P0} | selected: {3}",
+                nodeCount,
+                edgeCount,
+                zoom,
+                selected);
         }
 
         private static string FormatValidationIssues(FlowValidationResult validation)
@@ -632,21 +235,5 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return id;
         }
 
-        private sealed class DesignerEventSink : IFlowEventSink
-        {
-            private readonly FlowDesignerControl _owner;
-
-            public DesignerEventSink(FlowDesignerControl owner)
-            {
-                _owner = owner;
-            }
-
-            public Task PublishAsync(FlowRuntimeEvent runtimeEvent, System.Threading.CancellationToken cancellationToken)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                _owner.HandleRuntimeEvent(runtimeEvent);
-                return Task.FromResult(0);
-            }
-        }
     }
 }

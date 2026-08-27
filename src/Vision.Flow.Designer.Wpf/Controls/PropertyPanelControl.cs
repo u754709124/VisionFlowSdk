@@ -112,7 +112,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             actionLayout.Children.Add(actionRow);
             _readOnlyHint = new TextBlock
             {
-                Text = "调试运行模式：属性只读",
+                Text = "当前为只读模式，不能修改属性",
                 Foreground = FlowDesignerControl.BrushFromRgb(122, 135, 154),
                 VerticalAlignment = VerticalAlignment.Center,
                 Visibility = Visibility.Collapsed

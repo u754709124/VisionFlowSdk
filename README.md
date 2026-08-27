@@ -3,7 +3,7 @@
 `VisionFlowSdk` 是一个 UI 无关的工业视觉流程运行 SDK。当前 SDK 内置内容已收缩为：
 
 - `Vision.Flow.Core`：流程定义、执行引擎、发布/序列化、运行事件、变量池、Adapter 契约和基础流程节点。
-- `Vision.Flow.Designer.Wpf`：WPF 流程设计器，用于编辑、调试和发布 `.flowruntime`。
+- `Vision.Flow.Designer.Wpf`：WPF 流程设计器，用于编辑和发布 `.flowruntime`。
 
 相机节点、算法节点、图像保存、数据库保存、拼图、扫描和融合等节点不再由 SDK 内置提供，应放在具体上位机项目或项目专属节点库中实现和注册。
 
@@ -17,7 +17,7 @@
   -> upper-machine devices / algorithms / storage
 ```
 
-生产 WinForms 上位机至少引用 `Vision.Flow.Core.dll`，并按需引用自己的项目专属节点库。需要嵌入设计器或调试工具时再引用 `Vision.Flow.Designer.Wpf.dll`。
+生产 WinForms 上位机至少引用 `Vision.Flow.Core.dll`，并按需引用自己的项目专属节点库。需要嵌入设计器时再引用 `Vision.Flow.Designer.Wpf.dll`。
 
 Core Adapter 公共面保留相机、单光源控制器和协议无关运控的查找与 Adapter 契约，
 以及相机帧和图像引用契约。设备节点不再由 Core 内置，需由具体项目或项目专属节点库

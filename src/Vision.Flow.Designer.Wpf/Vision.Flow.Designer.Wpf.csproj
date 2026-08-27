@@ -45,7 +45,6 @@
     <!-- 显式列出源码，确保旧式项目系统的 IntelliSense 设计时模型与 MSBuild 编译输入一致。新增或删除源码时需同步更新此清单。 -->
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="Controls\EdgeLayerControl.cs" />
-    <Compile Include="Controls\EntryTriggerPanelControl.cs" />
     <Compile Include="Controls\FlowDesignerControl.Canvas.cs" />
     <Compile Include="Controls\FlowDesignerControl.cs" />
     <Compile Include="Controls\FlowDesignerControl.Document.cs" />
@@ -65,7 +64,6 @@
     <Compile Include="Controls\PortConnectionEventArgs.cs" />
     <Compile Include="Controls\PortControl.cs" />
     <Compile Include="Controls\PropertyPanelControl.cs" />
-    <Compile Include="Controls\RuntimeDebugPanelControl.cs" />
     <Compile Include="Controls\VariableSelectorControl.cs" />
     <Compile Include="Controls\VariableSelectorMappingsControl.cs" />
     <Compile Include="Theming\FlowDesignerIcons.cs" />
@@ -76,7 +74,6 @@
     <Compile Include="ViewModels\NodeViewModel.cs" />
     <Compile Include="ViewModels\PortViewModel.cs" />
     <Compile Include="ViewModels\PropertyPanelViewModel.cs" />
-    <Compile Include="ViewModels\RuntimeDebugViewModel.cs" />
     <Compile Include="ViewModels\VariableSelectionOption.cs" />
   </ItemGroup>
 </Project>

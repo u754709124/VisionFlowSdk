@@ -2,7 +2,7 @@
 
 ## 目标
 
-WPF Designer 提供流程编辑、调试和发布体验，但不承担生产运行逻辑。
+WPF Designer 提供流程编辑和发布体验，不承担生产运行或调试逻辑。
 
 嵌入式宿主通过 `FlowDesignerOptions.SettingConstantOptionsProvider` 提供
 `NodeSettingConstantOption` 候选项。`DisplayName` 只用于属性面板展示，`Value`
@@ -11,14 +11,13 @@ WPF Designer 提供流程编辑、调试和发布体验，但不承担生产运�
 ## 主要区域
 
 ```text
-顶部命令栏：编辑模式 / 调试运行 / New / Sample / Open / Save / Publish / 运行 / 停止
+顶部命令栏：New / Sample / Open / Save / Publish / 入口列表
 左侧 244 px：节点库
 中间：弹性画布
 右侧 380 px：节点属性
-底部：36 px 收起或 190 px 展开的运行调试抽屉
 ```
 
-`FlowDesignerOptions.ShowStandaloneDocumentCommands` 默认为 `true`，保持独立设计器原有的 New / Sample / Open / Save / Publish 命令。业务宿主统一管理自己的复合配置文件时可设为 `false`；此时仍保留“编辑模式 / 调试运行 / 运行 / 停止”。
+`FlowDesignerOptions.ShowStandaloneDocumentCommands` 默认为 `true`，保持独立设计器原有的 New / Sample / Open / Save / Publish 命令。业务宿主统一管理自己的复合配置文件时可设为 `false`；入口列表始终保留。
 
 ## 默认现代主题
 
@@ -43,7 +42,7 @@ condition.if
 
 节点库和节点卡片显示 Descriptor 提供的中文名称与中文描述；`NodeType` 仅作为稳定流程协议标识，不作为默认副标题展示。用户自行修改的节点实例名称仍按流程文件原值显示。
 
-宿主可以通过构造函数传入自己的 `NodeRegistry`，从而显示和调试项目专属相机、算法、保存、数据库等节点。
+宿主可以通过构造函数传入自己的 `NodeRegistry`，从而显示和编辑项目专属相机、算法、保存、数据库等节点。
 
 嵌入设计器控件时引用：
 
@@ -70,7 +69,7 @@ var snapshot = designer.CaptureDocument();
 var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowruntime");
 ```
 
-- `LoadDocumentAsync` 会停止当前调试、切回编辑模式并加载传入文档的深拷贝。
+- `LoadDocumentAsync` 会解析未应用属性草稿并加载传入文档的深拷贝。
 - `ResetDocumentAsync` 创建不含示例节点的空白图，并使设计态和运行态使用相同的 `FlowId` / `FlowName`。
 - `CaptureDocument` 先同步已渲染节点坐标、缩放、画布尺寸和滚动偏移，再返回通过 `FlowDesignSerializer` 生成的深拷贝。
 - `PublishRuntimeFile` 只允许在编辑模式调用。它捕获当前文档，通过 `FlowPublishService` 完成 Schema v2 深拷贝和校验，并仅在成功时写入 `.flowruntime`；失败原因从返回值的 `Validation` 获取。
@@ -93,8 +92,7 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - `HasPendingPropertyChanges` 报告有效修改和非法原始文本；`TryApplyPendingPropertyChanges(out string error)`、`DiscardPendingPropertyChanges()` 和 `TryResolvePendingPropertyChanges()` 供宿主协调保存、导航和关闭。
 - 加载或重置草稿时已经存在的候选失效、必填缺失等基线校验错误不视为新的未应用修改；用户后续输入和候选变化仍会进入 pending 状态。放弃修改会重新建立该基线，宿主后续捕获或切换文档不会重复提示。
 - `FlowDesignerOptions.PendingPropertyChangesPrompt` 可以返回 `Apply`、`Discard` 或 `Cancel`。为空时使用 SDK 自绘三按钮确认框；测试宿主可注入确定性返回值。
-- 切换节点、进入调试、新建、加载、打开、保存、发布、删除当前节点和关闭 Demo 前都会先解决草稿。取消或应用失败时停留在当前上下文，不会静默丢失输入。
-- 调试运行模式以只读提示替代“应用 / 重置”按钮，并禁用全部属性编辑器。
+- 切换节点、新建、加载、打开、保存、发布、删除当前节点和关闭 Demo 前都会先解决草稿。取消或应用失败时停留在当前上下文，不会静默丢失输入。
 
 配置项声明为 `ConstantOrVariable` 后，会在同一行提供“固定值 / 变量”切换：
 
@@ -117,7 +115,7 @@ Attribute 名称和一个结构化变量来源，并支持新增和删除；映�
 
 节点卡片只摘要显示变量模式的配置来源，不再摘要控制输入端口绑定。
 
-具体项目可以通过传入自己的节点注册表、节点 Descriptor 和调试设备来扩展属性面板的实际体验。
+具体项目可以通过传入自己的节点注册表和节点 Descriptor 来扩展属性面板的实际体验。
 
 嵌入式宿主还可以通过 `FlowDesignerOptions.SettingConstantOptionsProvider` 为固定值编辑器提供明确的动态候选项。例如项目相机节点的 `CameraId` 可以直接读取宿主当前绑定的设备配置，并在 Descriptor 中声明为 `ConstantOnly`，从而只显示设备数据源下拉框，不显示固定值/变量切换。候选项发生变化后调用 `RefreshSelectedNodeProperties()` 即可刷新当前属性面板。刷新同一节点会保留设置和执行策略的草稿、非法原始文本及行内错误；当前值从候选中失效时继续显示原值并禁止应用，不会清空用户输入。宿主为该 Descriptor 返回非 `null` 候选集合时，编辑器使用不可自由输入的现代下拉框；即使集合为空也保持空下拉框。宿主返回 `null` 时，声明了有效 `EnumType` 的设置使用枚举成员下拉框，其余设置继续使用手工输入控件。设计器不再为相机标识提供硬编码默认值。
 
@@ -151,7 +149,7 @@ Validator 只处理设计期常量，不读取其他配置项，也不在调试�
 - 重试采用 Dify 风格的简化界面，默认关闭。开启后只编辑最大重试次数 `MaxRetries` 和固定重试间隔 `RetryIntervalMs`；节点卡片同步显示“重试 N 次 · M ms”中文摘要，关闭后隐藏摘要。
 - `StopFlow` 表示最终失败后停止本次运行；`ErrorBranch` 表示沿 `Error` 或 `Timeout` 控制端口继续，没有对应连线时本次流程失败。
 - `DefaultOutputs` 根据 `NodeDescriptor.Outputs` 生成常量编辑器。String、Int32、Int64、Double、Boolean、DateTime 和 Object 会在写入 `NodeExecutionPolicy.DefaultOutputs` 前完成类型转换；Control、IVisionImage 和 CameraFrameData 等不能由界面创建的运行时对象会明确提示不支持。
-- 切换失败策略时保留已经填写的回退常量；调试运行只读模式会同时禁用超时、并发、重试、失败策略和回退值编辑器。
+- 切换失败策略时保留已经填写的回退常量。
 
 ## 画布缩放
 
@@ -165,24 +163,9 @@ Validator 只处理设计期常量，不读取其他配置项，也不在调试�
 
 平移和滚轮缩放使用 WPF 合成帧合并高频输入：同一显示帧内的多次鼠标移动只保留最新滚动位置，多次滚轮输入累积为一个缩放目标，每帧最多执行一次滚动与一次画布重排。节点文字不进入位图缓存，独立的纯背景阴影层使用 `BitmapCache` 复用栅格结果，从而在保持文字清晰的同时减少平移和缩放期间的重复绘制。
 
-## 调试运行
+## 调试边界
 
-Designer 调试运行会把当前 `.flowdesign` 发布为运行态定义，再通过同一个 `FlowRunner` 执行，并订阅 `FlowRuntimeEvent` 高亮节点和显示日志。
-
-运行调试区使用三态偏好：默认 `Auto` 在编辑模式收起、进入调试模式自动展开；用户手动展开后以 `Open` 跨模式保持，手动收起后以 `Closed` 保持。无论用户偏好如何，收到 `NodeFailed` 或 `NodeTimeout` 都会立即展开以显示诊断信息，但不会改写用户的长期偏好。
-
-切换到“调试运行”模式后，右侧会显示入口面板：
-
-- 入口下拉框列出 `RuntimeFlowDefinition.Entries`，并显示 Manual、External 或 NodeEvent 类型。
-- Manual 入口根据 `TriggerInputDescriptor` 生成临时输入表单，支持 String、Int32、Int64、Double、Boolean、DateTime 和 Object；必填、默认值和类型转换在触发前校验。
-- 点击 Debug Run 时，设计器以所选入口、表单输入和调试 Token 创建 `FlowTriggerRequest`。表单值只服务于当前调试会话，不写入 `.flowdesign` 或 `.flowruntime`。
-- External 入口只展示外部宿主触发说明和输入协议；NodeEvent 入口额外展示监听源节点，两者不能由设计器伪装成手动来源触发。
-- 调试运行期间入口选择和输入表单只读，运行结果根据 `FlowRunResult` 显示成功、失败、取消或拒绝状态。
-- 节点卡片区分普通运行状态与执行策略事件：`NodeRetrying` 显示“重试中”和下一次尝试序号，`NodeRecovered` 显示“已恢复”，`NodeCancelled` 显示“已取消”，`NodeSkipped` 显示“已跳过”。恢复事件后的 `NodeCompleted` 不会覆盖“已恢复”结果；运行状态摘要与卡片内的“已启用重试”配置摘要同时保留。
-
-配置项选择 TriggerInput 变量时，候选只来自能够到达当前节点的入口输入。多个可达入口中同名同类型的输入合并为一个“触发输入”候选；同名但类型不同的输入不进入候选，并在属性面板显示冲突。
-
-生产进程必须使用 `.flowruntime`，不依赖 Designer 控件、画布或 ViewModel。
+当前 Designer 已移除调试模式、运行/停止命令、入口触发表单、运行事件抽屉、节点运行态高亮和 `DebugDevices` 接口，也不会在控件内部创建 `FlowRunner`。后续调试逻辑需要通过新的宿主扩展契约重新设计；生产进程继续使用 `.flowruntime`，不依赖 Designer 控件、画布或 ViewModel。
 
 ## 枚举编辑体验
 

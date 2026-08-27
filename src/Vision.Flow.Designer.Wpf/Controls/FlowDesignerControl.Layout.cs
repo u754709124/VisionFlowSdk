@@ -50,8 +50,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            _debugRowDefinition = new RowDefinition { Height = new GridLength(36) };
-            root.RowDefinitions.Add(_debugRowDefinition);
 
             var workspace = new Grid
             {
@@ -69,22 +67,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
             Grid.SetColumn(canvasPanel, 1);
             workspace.Children.Add(canvasPanel);
 
-            var rightPanel = new Grid
-            {
-                Background = Brushes.White
-            };
-            rightPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            rightPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            Grid.SetRow(_entryTriggerPanel, 0);
-            rightPanel.Children.Add(_entryTriggerPanel);
-            Grid.SetRow(_properties, 1);
-            rightPanel.Children.Add(_properties);
-            Grid.SetColumn(rightPanel, 2);
-            workspace.Children.Add(rightPanel);
+            Grid.SetColumn(_properties, 2);
+            workspace.Children.Add(_properties);
             root.Children.Add(workspace);
-
-            Grid.SetRow(_debug, workspaceRow + 1);
-            root.Children.Add(_debug);
 
             return root;
         }
@@ -128,20 +113,12 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             dock.Children.Add(buttons);
 
-            _editModeButton = CreateToolbarButton("编辑模式", "edit", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.Edit); });
-            _debugModeButton = CreateToolbarButton("调试运行", "debug", async delegate { await SetInteractionModeAsync(DesignerInteractionMode.DebugRun); });
-            buttons.Children.Add(_editModeButton);
-            buttons.Children.Add(_debugModeButton);
-            buttons.Children.Add(CreateToolbarSpacer(_options.ToolbarPlacement == FlowDesignerToolbarPlacement.External));
-
             _newButton = CreateToolbarButton("New", "new", delegate { CreateNewDesign(); });
             _sampleButton = CreateToolbarButton("Sample", "sample", delegate { LoadCoreBasicTemplate(); });
             _openButton = CreateToolbarButton("Open", "open", delegate { OpenDesign(); });
             _saveButton = CreateToolbarButton("Save", "save", delegate { SaveDesign(); });
             _publishButton = CreateToolbarButton("Publish", "publish", delegate { ShowPublishRuntimeDialog(); });
             _entryListButton = CreateToolbarButton("入口列表", "entries", delegate { ShowEntryListDialog(); }, true);
-            _debugRunButton = CreateToolbarButton("运行", "run", async delegate { await RunDebugAsync(); });
-            _stopButton = CreateToolbarButton("停止", "stop", async delegate { await StopDebugAsync(); });
 
             if (_options.ShowStandaloneDocumentCommands)
             {
@@ -153,8 +130,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
 
             buttons.Children.Add(_entryListButton);
-            buttons.Children.Add(_debugRunButton);
-            buttons.Children.Add(_stopButton);
 
             return root;
         }
@@ -448,10 +423,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             var icon = FlowDesignerIcons.Create(iconName, BrushFromRgb(75, 91, 112), isCompact ? 13 : 15);
             icon.SetBinding(Shape.StrokeProperty, new Binding("Foreground") { Source = owner });
-            if (string.Equals(iconName, "stop", StringComparison.OrdinalIgnoreCase))
-            {
-                icon.SetBinding(Shape.FillProperty, new Binding("Foreground") { Source = owner });
-            }
             panel.Children.Add(icon);
             panel.Children.Add(new TextBlock
             {
@@ -462,17 +433,5 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return panel;
         }
 
-        private static UIElement CreateToolbarSpacer(bool isCompact)
-        {
-            return new Border
-            {
-                Width = 1,
-                Height = 24,
-                Margin = isCompact
-                    ? new Thickness(2, 4, 5, 4)
-                    : new Thickness(2, 4, 10, 4),
-                Background = BrushFromRgb(221, 229, 239)
-            };
-        }
     }
 }

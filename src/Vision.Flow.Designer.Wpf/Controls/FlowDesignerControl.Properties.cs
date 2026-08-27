@@ -53,15 +53,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             error = null;
             if (_selectedNode == null || _propertyDraftNode == null || !HasPendingPropertyChangesCore())
             {
-                _properties.SetPendingState(false, !CanEditDocument);
+                _properties.SetPendingState(false, false);
                 return true;
-            }
-
-            if (!CanEditDocument)
-            {
-                error = "调试运行模式下不能应用节点属性。";
-                _properties.ShowValidationError(error);
-                return false;
             }
 
             if (!_properties.TryValidate(out error))
@@ -102,7 +95,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             RenderCanvas();
             RenderProperties();
             _properties.ShowValidationError(null);
-            AddDebugMessage("Applied properties for node " + _selectedNode.Id + ".");
+            UpdateStatusMessage("Applied properties for node " + _selectedNode.Id + ".");
             return true;
         }
 
@@ -198,7 +191,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _propertyDraftDescriptor = null;
             _propertyDraftDescriptorState = null;
             _properties.ResetEditorState();
-            _properties.SetPendingState(false, !CanEditDocument);
+            _properties.SetPendingState(false, false);
             _properties.ShowValidationError(null);
         }
 
@@ -206,7 +199,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         {
             _properties.ShowValidationError(null);
             ReconcilePropertyDraftDescriptor();
-            _properties.SetPendingState(HasPendingPropertyChangesCore(), !CanEditDocument);
+            _properties.SetPendingState(HasPendingPropertyChangesCore(), false);
         }
 
         private void UpdatePropertyDraftDescriptorState()

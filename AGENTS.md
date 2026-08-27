@@ -101,7 +101,6 @@ condition.if
 - 端口和连线
 - 动态属性面板
 - 变量选择器
-- 调试面板
 - `.flowdesign` 保存/加载/发布 UI
 
 禁止：
@@ -175,12 +174,7 @@ Production Runtime -> WPF Canvas
 - 不打开 WPF 流程设计器。
 - 不依赖节点卡片、画布状态、Designer ViewModel。
 
-WPF 调试运行可以：
-
-- 将当前 `.flowdesign` 编译为运行态定义。
-- 通过同一个 `FlowRunner` 调试运行。
-- 订阅 `FlowRuntimeEvent`。
-- 高亮节点和显示调试输出。
+WPF Designer 当前只负责编辑和发布，不在控件内部创建 `FlowRunner`。后续调试能力必须先定义新的宿主扩展契约，再补充 UI 和测试。
 
 ---
 
@@ -266,7 +260,6 @@ WPF 设计器应提供现代节点编辑体验：
 - 左侧节点库。
 - 中间无限画布。
 - 右侧动态属性面板。
-- 底部调试面板。
 - 节点卡片。
 - 贝塞尔连线。
 - 缩放和平移。

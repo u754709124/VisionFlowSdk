@@ -74,17 +74,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 }));
             }
 
-            if (!CanEditDocument)
-            {
-                throw new InvalidOperationException("Runtime files can only be published in Edit mode.");
-            }
-
             return new FlowPublishService(_nodeRegistry).PublishToFile(CaptureDocument(), path);
         }
 
         /// <summary>
-        /// 由宿主加载完整设计态流程。加载前会停止当前调试运行并切回编辑模式，
-        /// 传入文档会被深拷贝，后续由调用方持有的对象变化不会影响设计器。
+        /// 由宿主加载完整设计态流程。传入文档会被深拷贝，后续由调用方持有的对象变化不会影响设计器。
         /// </summary>
         public Task LoadDocumentAsync(FlowDesignDocument document)
         {
@@ -123,30 +117,23 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return LoadDocumentAsync(CreateDocument(flowId.Trim(), flowName.Trim()));
         }
 
-        private async Task LoadDocumentCoreAsync(FlowDesignDocument document)
+        private Task LoadDocumentCoreAsync(FlowDesignDocument document)
         {
             if (!TryResolvePendingPropertyChanges())
             {
-                return;
+                return Task.FromResult(0);
             }
 
             CancelConnectionPreview();
-            await StopDebugAsync().ConfigureAwait(true);
-
-            _interactionMode = DesignerInteractionMode.Edit;
             _document = document;
-            ResetEntryTriggerPanelState();
             _selectedNode = _document.Runtime.Nodes.FirstOrDefault();
             BeginPropertyDraft(_selectedNode);
             _selectedEdge = null;
-            _nodeStartTimes.Clear();
             RenderCanvas();
             ApplyCanvasViewState();
             RenderProperties();
-            _debug.Clear();
-            AddDebugMessage("Design document loaded by host.");
-            UpdateInteractionModeUi();
             UpdateStatus();
+            return Task.FromResult(0);
         }
 
         private void SaveRenderedNodeViewState()
@@ -197,44 +184,29 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void CreateNewDesign()
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("New design skipped: switch to Edit mode first.");
-                return;
-            }
-
             if (!TryResolvePendingPropertyChanges())
             {
                 return;
             }
 
             _document = CreateDocument("designer-flow", "Designer Flow");
-            ResetEntryTriggerPanelState();
             _selectedNode = null;
             ClearPropertyDraft();
             _selectedEdge = null;
             RenderCanvas();
             ApplyCanvasViewState();
             RenderProperties();
-            _debug.Clear();
-            AddDebugMessage("New design created.");
+            UpdateStatusMessage("New design created.");
         }
 
         private void LoadCoreBasicTemplate()
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Sample load skipped: switch to Edit mode first.");
-                return;
-            }
-
             if (!TryResolvePendingPropertyChanges())
             {
                 return;
             }
 
             _document = CreateDocument("designer-core-basic", "Core Basic Flow");
-            ResetEntryTriggerPanelState();
             var flow = _document.Runtime;
 
             AddTemplateNode("set_result", FlowNodeTypes.VariableSet, "设置检测结果", 80, 120, new Dictionary<string, object>
@@ -270,8 +242,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             RenderCanvas();
             ApplyCanvasViewState();
             RenderProperties();
-            _debug.Clear();
-            AddDebugMessage("Core basic sample loaded.");
+            UpdateStatusMessage("Core basic sample loaded.");
         }
 
         private void AddTemplateNode(
@@ -326,12 +297,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void AddNodeFromPalette(NodeDescriptor descriptor, Point? canvasPosition)
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Add node skipped: switch to Edit mode first.");
-                return;
-            }
-
             if (descriptor == null)
             {
                 return;
@@ -386,7 +351,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             SelectNode(node);
             RenderCanvas();
-            AddDebugMessage("Added node " + node.Id + " (" + descriptor.NodeType + ").");
+            UpdateStatusMessage("Added node " + node.Id + " (" + descriptor.NodeType + ").");
         }
 
         private NodeViewState CreatePaletteNodeViewState(Point? canvasPosition)
@@ -460,11 +425,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void AddEdge(string fromNodeId, string fromPort, string toNodeId, string toPort)
         {
-            if (!CanEditDocument)
-            {
-                return;
-            }
-
             if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId))
             {
                 return;
@@ -517,12 +477,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void DeleteSelection()
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Delete skipped: switch to Edit mode first.");
-                return;
-            }
-
             if (_selectedEdge != null)
             {
                 DeleteEdge(_selectedEdge);
@@ -537,12 +491,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void DeleteEdge(EdgeDefinition edge)
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Delete edge skipped: switch to Edit mode first.");
-                return;
-            }
-
             if (edge == null || _document == null || _document.Runtime == null)
             {
                 return;
@@ -557,7 +505,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             RenderEdges();
             UpdateStatus();
-            AddDebugMessage("Deleted edge " + edge.FromNodeId + " -> " + edge.ToNodeId + ".");
+            UpdateStatusMessage("Deleted edge " + edge.FromNodeId + " -> " + edge.ToNodeId + ".");
         }
 
         private void RenderCanvas()
@@ -585,13 +533,13 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 card.SetCanvasZoom(_canvasScale == null ? 1.0 : _canvasScale.ScaleX);
                 card.SetSelected(StringEquals(node.Id, _selectedNode == null ? null : _selectedNode.Id));
                 card.SetDisabled(IsNodeDisabled(node));
-                card.SetEditEnabled(CanEditDocument);
+                card.SetEditEnabled(true);
                 card.MouseLeftButtonDown += OnNodeMouseDown;
                 card.MouseMove += OnNodeMouseMove;
                 card.MouseLeftButtonUp += OnNodeMouseUp;
                 card.OutputPortDragStarted += OnOutputPortDragStarted;
                 card.InputPortDragCompleted += OnInputPortDragCompleted;
-                card.ContextMenu = CanEditDocument ? CreateNodeContextMenu(node) : null;
+                card.ContextMenu = CreateNodeContextMenu(node);
                 Canvas.SetLeft(card, view.X);
                 Canvas.SetTop(card, view.Y);
                 _nodeLayer.Children.Add(card);
@@ -627,15 +575,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 CreateVariableSuggestionIssues(_selectedNode),
                 delegate
                 {
-                    if (!CanEditDocument)
-                    {
-                        return;
-                    }
-
                     OnPropertyDraftChanged();
                 },
-                !CanEditDocument);
-            _properties.SetPendingState(HasPendingPropertyChangesCore(), !CanEditDocument);
+                false);
+            _properties.SetPendingState(HasPendingPropertyChangesCore(), false);
         }
 
         private IList<VariableSelectionOption> CreateVariableSuggestions(NodeDefinition currentNode)
@@ -1027,11 +970,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private ContextMenu CreateNodeContextMenu(NodeDefinition node)
         {
-            if (!CanEditDocument)
-            {
-                return null;
-            }
-
             var menu = new ContextMenu();
             menu.Items.Add(CreateMenuItem("Rename", delegate { RenameNode(node); }));
             menu.Items.Add(CreateMenuItem("Duplicate", delegate { DuplicateNode(node); }));
@@ -1050,12 +988,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void RenameNode(NodeDefinition node)
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Rename skipped: switch to Edit mode first.");
-                return;
-            }
-
             if (node == null)
             {
                 return;
@@ -1110,12 +1042,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
         private void DuplicateNode(NodeDefinition node)
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Duplicate skipped: switch to Edit mode first.");
-                return;
-            }
-
             if (node == null || _document == null || _document.Runtime == null)
             {
                 return;
@@ -1145,17 +1071,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
             AddAutomaticListenerEntry(clone);
             RenderCanvas();
             SelectNode(clone);
-            AddDebugMessage("Duplicated node " + node.Id + " as " + clone.Id + ".");
+            UpdateStatusMessage("Duplicated node " + node.Id + " as " + clone.Id + ".");
         }
 
         private void DeleteNode(NodeDefinition node)
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Delete node skipped: switch to Edit mode first.");
-                return;
-            }
-
             if (node == null || _document == null || _document.Runtime == null)
             {
                 return;
@@ -1183,17 +1103,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
 
             RenderCanvas();
             RenderProperties();
-            AddDebugMessage("Deleted node " + node.Id + ".");
+            UpdateStatusMessage("Deleted node " + node.Id + ".");
         }
 
         private void ToggleNodeDisabled(NodeDefinition node)
         {
-            if (!CanEditDocument)
-            {
-                AddDebugMessage("Toggle disabled skipped: switch to Edit mode first.");
-                return;
-            }
-
             if (node == null)
             {
                 return;

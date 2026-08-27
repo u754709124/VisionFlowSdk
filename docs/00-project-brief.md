@@ -13,7 +13,6 @@ SDK 提供 UI 无关的流程运行时、Core 内置节点和 WPF 流程设计�
 - 算法配方调用
 - 图像保存
 - 数据库保存
-- 调试显示
 - 流程发布
 
 SDK 内置基础流程能力；相机、光源、运控、算法、图像保存、数据库保存、拼图、扫描和融合节点由具体项目或项目专属节点库实现。WinForms 上位机生产运行时直接引用发布 DLL 和项目节点库，加载 `.flowruntime` 并通过 `FlowRunner` 执行。
@@ -21,7 +20,7 @@ SDK 内置基础流程能力；相机、光源、运控、算法、图像保存�
 ## 核心原则
 
 ```text
-WPF Designer = 编辑、配置、调试、发布
+WPF Designer = 编辑、配置、发布
 Flow Runtime = 实际执行
 WinForms Production App = 加载 .flowruntime 并执行
 ```

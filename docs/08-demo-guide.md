@@ -23,9 +23,9 @@
 
 ## Vision.Flow.Demo.DesignerWpf
 
-用途：证明流程设计、调试和发布能力可用。
+用途：证明流程设计和发布能力可用。
 
-默认加载 Core 基础样例。具体项目可以宿主 `FlowDesignerControl` 并注入自己的节点注册表和调试设备。
+默认加载 Core 基础样例。具体项目可以宿主 `FlowDesignerControl` 并注入自己的节点注册表。
 
 ## Sample Flows
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -29,7 +29,7 @@ using Vision.Flow.Nodes;
 
 namespace Vision.Flow.Tests
 {
-    // Designer 控件测试在 STA 线程运行，覆盖调试只读模式和节点运行状态摘要。
+    // Designer 控件测试在 STA 线程运行，覆盖编辑、布局、文档和属性草稿交互。
     internal static class DesignerInteractionTests
     {
         public static Task TypedObjectMenuSelectsRootAndFirstLayerMembers()
@@ -383,98 +383,6 @@ namespace Vision.Flow.Tests
                 AssertEx.Equal(1000, sourceItems[0]["Value"],
                     "Duplicating a node should deep-copy collection and dictionary constant values.");
 
-                var manualEntry = new FlowEntryDefinition
-                {
-                    EntryName = "ManualInspect",
-                    TargetNodeId = "c",
-                    TriggerKind = FlowTriggerKind.Manual,
-                    Inputs =
-                    {
-                        new TriggerInputDescriptor
-                        {
-                            Name = "BatchSize",
-                            DisplayName = "批次数量",
-                            DataType = FlowDataType.Int32,
-                            IsRequired = true
-                        },
-                        new TriggerInputDescriptor
-                        {
-                            Name = "Product",
-                            DisplayName = "产品",
-                            DataType = FlowDataType.String,
-                            DefaultValue = "DemoProduct"
-                        }
-                    }
-                };
-                var externalEntry = new FlowEntryDefinition
-                {
-                    EntryName = "ExternalInspect",
-                    TargetNodeId = "c",
-                    TriggerKind = FlowTriggerKind.External,
-                    Inputs =
-                    {
-                        new TriggerInputDescriptor
-                        {
-                            Name = "Payload",
-                            DisplayName = "请求数据",
-                            DataType = FlowDataType.Object,
-                            IsRequired = true
-                        }
-                    }
-                };
-                var nodeEventEntry = new FlowEntryDefinition
-                {
-                    EntryName = "CameraFrame",
-                    SourceNodeId = "camera_listener",
-                    TargetNodeId = "c",
-                    TriggerKind = FlowTriggerKind.NodeEvent
-                };
-                var triggerPanel = new EntryTriggerPanelControl();
-                triggerPanel.ShowEntries(new[] { manualEntry, externalEntry, nodeEventEntry }, "ManualInspect", false);
-                AssertEx.True(object.ReferenceEquals(manualEntry, triggerPanel.SelectedEntry),
-                    "The trigger panel should restore the requested entry selection.");
-                var batchEditor = FindChildren<TextBox>(triggerPanel)
-                    .FirstOrDefault(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "BatchSize", StringComparison.Ordinal));
-                AssertEx.NotNull(batchEditor, "A manual entry should generate editors from TriggerInputDescriptor.");
-                batchEditor.Text = "12";
-                FlowTriggerRequest triggerRequest;
-                string triggerError;
-                AssertEx.True(triggerPanel.TryCreateManualRequest(new FlowToken(), out triggerRequest, out triggerError),
-                    "Valid manual input values should create a FlowTriggerRequest: " + triggerError);
-                AssertEx.Equal(12, triggerRequest.Inputs["BatchSize"],
-                    "The manual trigger form should convert input text to the descriptor data type.");
-                AssertEx.Equal("DemoProduct", triggerRequest.Inputs["Product"],
-                    "The manual trigger form should use descriptor defaults when the user leaves the value unchanged.");
-
-                batchEditor.Text = string.Empty;
-                AssertEx.False(triggerPanel.TryCreateManualRequest(new FlowToken(), out triggerRequest, out triggerError),
-                    "A missing required manual input should block the debug trigger.");
-                AssertEx.True((triggerError ?? string.Empty).IndexOf("BatchSize", StringComparison.OrdinalIgnoreCase) >= 0,
-                    "The required-input error should identify the stable input name.");
-
-                var entrySelector = FindChildren<ComboBox>(triggerPanel)
-                    .FirstOrDefault(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "DebugEntrySelector", StringComparison.Ordinal));
-                AssertEx.NotNull(entrySelector, "The trigger panel should provide an entry selector.");
-                entrySelector.SelectedIndex = 1;
-                AssertEx.Equal(FlowTriggerKind.External, triggerPanel.SelectedEntry.TriggerKind,
-                    "The entry selector should allow inspecting an External entry.");
-                AssertEx.True(FindChildren<TextBlock>(triggerPanel).Any(x => (x.Text ?? string.Empty).IndexOf("外部宿主", StringComparison.Ordinal) >= 0),
-                    "External entries should show host-trigger information instead of manual editors.");
-                AssertEx.False(triggerPanel.TryCreateManualRequest(new FlowToken(), out triggerRequest, out triggerError),
-                    "External entries should not be manually triggered by the designer.");
-
-                entrySelector = FindChildren<ComboBox>(triggerPanel)
-                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "DebugEntrySelector", StringComparison.Ordinal));
-                entrySelector.SelectedIndex = 2;
-                AssertEx.True(FindChildren<TextBlock>(triggerPanel).Any(x => (x.Text ?? string.Empty).IndexOf("camera_listener", StringComparison.Ordinal) >= 0),
-                    "NodeEvent entries should display their listener source node.");
-
-                triggerPanel.ShowEntries(new[] { manualEntry, externalEntry, nodeEventEntry }, "ManualInspect", true);
-                AssertEx.True(FindChildren<ComboBox>(triggerPanel).All(x => !x.IsEnabled),
-                    "Entry selection should be disabled while a debug run is active.");
-                AssertEx.True(FindChildren<TextBox>(triggerPanel).All(x => x.IsReadOnly),
-                    "Manual trigger inputs should be read-only while a debug run is active.");
-
                 var candidateDocument = new FlowDesignDocument
                 {
                     Runtime = new RuntimeFlowDefinition(),
@@ -518,7 +426,7 @@ namespace Vision.Flow.Tests
                         new TriggerInputDescriptor { Name = "EventOnly", DataType = FlowDataType.Boolean }
                     }
                 });
-                var candidateControl = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = false });
+                var candidateControl = new FlowDesignerControl(null, new FlowDesignerOptions { LoadSampleOnStartup = false });
                 SetPrivateField(candidateControl, "_document", candidateDocument);
                 var triggerOptions = new List<VariableSelectionOption>();
                 var triggerIssues = new List<string>();
@@ -1194,50 +1102,6 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task StopMarksRunningCardsStopped()
-        {
-            RunOnSta(delegate
-            {
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = false });
-                var node = CreateNode();
-                var card = new NodeCardControl(new NodeViewModel(node, CreateDescriptor()));
-                card.SetRuntimeState(NodeRuntimeState.Running, null, null);
-
-                GetPrivateField<Dictionary<string, NodeCardControl>>(control, "_nodeCards")[node.Id] = card;
-                GetPrivateField<Dictionary<string, DateTime>>(control, "_nodeStartTimes")[node.Id] = DateTime.UtcNow.AddMilliseconds(-42);
-
-                InvokePrivate(control, "MarkRunningNodeStatesStopped");
-
-                var texts = FindChildren<TextBlock>(card).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("已停止", StringComparison.OrdinalIgnoreCase) >= 0),
-                    "Stopping debug should move running cards out of Running and show a stopped state.");
-                AssertEx.False(texts.Any(x => x.IndexOf("运行中", StringComparison.OrdinalIgnoreCase) >= 0),
-                    "Stopped node card should not keep showing Running.");
-            });
-            return Task.FromResult(0);
-        }
-
-        public static Task DebugButtonsRecoverAfterStop()
-        {
-            RunOnSta(delegate
-            {
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = false });
-                control.LoadDocumentAsync(CreateHostDocument()).GetAwaiter().GetResult();
-                SetDesignerMode(control, "DebugRun");
-
-                SetPrivateField(control, "_isDebugRunning", true);
-                InvokePrivate(control, "UpdateInteractionModeUi");
-                AssertEx.False(GetPrivateField<Button>(control, "_debugRunButton").IsEnabled, "Debug Run should be disabled while a debug run is active.");
-                AssertEx.True(GetPrivateField<Button>(control, "_stopButton").IsEnabled, "Stop should be enabled while a debug run is active.");
-
-                SetPrivateField(control, "_isDebugRunning", false);
-                InvokePrivate(control, "UpdateInteractionModeUi");
-                AssertEx.True(GetPrivateField<Button>(control, "_debugRunButton").IsEnabled, "Debug Run should be re-enabled after Stop.");
-                AssertEx.False(GetPrivateField<Button>(control, "_stopButton").IsEnabled, "Stop should be disabled after Stop finishes.");
-            });
-            return Task.FromResult(0);
-        }
-
         public static Task EmbeddedToolbarHidesStandaloneDocumentCommands()
         {
             RunOnSta(delegate
@@ -1246,7 +1110,7 @@ namespace Vision.Flow.Tests
                 AssertEx.True(defaultOptions.ShowStandaloneDocumentCommands,
                     "Standalone document commands should remain enabled by default for compatibility.");
 
-                var standalone = new FlowDesignerControl(null, null, defaultOptions);
+                var standalone = new FlowDesignerControl(null, defaultOptions);
                 var standaloneLabels = FindChildren<Button>(standalone)
                     .Select(GetButtonLabel)
                     .Where(x => !string.IsNullOrWhiteSpace(x))
@@ -1254,7 +1118,7 @@ namespace Vision.Flow.Tests
                 AssertEx.True(new[] { "New", "Sample", "Open", "Save", "Publish" }.All(standaloneLabels.Contains),
                     "Default designer toolbar should keep all standalone document commands.");
 
-                var embedded = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var embedded = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false
@@ -1265,8 +1129,8 @@ namespace Vision.Flow.Tests
                     .ToList();
                 AssertEx.False(new[] { "New", "Sample", "Open", "Save", "Publish" }.Any(embeddedLabels.Contains),
                     "Embedded designer toolbar should hide standalone document commands.");
-                AssertEx.True(new[] { "编辑模式", "调试运行", "运行", "停止" }.All(embeddedLabels.Contains),
-                    "Embedded designer toolbar should keep mode, run and stop commands with readable labels.");
+                AssertEx.False(new[] { "编辑模式", "调试运行", "运行", "停止" }.Any(embeddedLabels.Contains),
+                    "Embedded designer toolbar should not expose removed debug commands.");
             });
             return Task.FromResult(0);
         }
@@ -1301,7 +1165,7 @@ namespace Vision.Flow.Tests
                 AssertEx.Equal(FlowDesignerToolbarPlacement.Internal, defaultOptions.ToolbarPlacement,
                     "Internal toolbar placement should remain the compatibility default.");
 
-                var external = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var external = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
@@ -1313,7 +1177,7 @@ namespace Vision.Flow.Tests
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .ToList();
                 AssertEx.False(new[] { "编辑模式", "调试运行", "运行", "停止" }.Any(shellLabels.Contains),
-                    "External command bar must not remain parented inside the designer shell.");
+                    "Removed debug commands must not appear in the designer shell.");
                 AssertEx.NotNull(external.ToolbarView.TryFindResource(FlowDesignerTheme.ToolbarButtonStyleKey),
                     "External command bar should resolve its own theme without parent-resource inheritance.");
 
@@ -1321,8 +1185,8 @@ namespace Vision.Flow.Tests
                     .Select(GetButtonLabel)
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .ToList();
-                AssertEx.True(new[] { "编辑模式", "调试运行", "运行", "停止" }.All(labels.Contains),
-                    "External command bar should preserve all SDK mode and runtime commands.");
+                AssertEx.False(new[] { "编辑模式", "调试运行", "运行", "停止" }.Any(labels.Contains),
+                    "External command bar should not expose removed debug commands.");
 
                 external.ToolbarView.Measure(new Size(300, 50));
                 external.ToolbarView.Arrange(new Rect(0, 0, 300, 50));
@@ -1346,7 +1210,7 @@ namespace Vision.Flow.Tests
                     }
                 }
 
-                var internalControl = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var internalControl = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
@@ -1366,7 +1230,7 @@ namespace Vision.Flow.Tests
                 CommonNodeRegistration.RegisterAll(registry);
                 var listenerFactory = new TestListenerNodeFactory();
                 registry.Register(listenerFactory);
-                var control = new FlowDesignerControl(registry, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(registry, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
@@ -1593,76 +1457,13 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task DebugDrawerHonorsAutoOpenAndUserPreference()
-        {
-            RunOnSta(delegate
-            {
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
-                {
-                    LoadSampleOnStartup = false,
-                    ShowStandaloneDocumentCommands = false
-                });
-                var row = GetPrivateField<RowDefinition>(control, "_debugRowDefinition");
-                var drawer = GetPrivateField<RuntimeDebugPanelControl>(control, "_debug");
-                AssertEx.Equal(36.0, row.Height.Value,
-                    "Edit mode should start with the debug drawer collapsed.");
-                AssertEx.False(drawer.IsExpanded,
-                    "The debug drawer content should start hidden in automatic edit mode.");
-
-                SetDesignerMode(control, "DebugRun");
-                InvokePrivate(control, "UpdateInteractionModeUi");
-                AssertEx.Equal(190.0, row.Height.Value,
-                    "Automatic preference should open the drawer in debug mode.");
-                SetDesignerMode(control, "Edit");
-                InvokePrivate(control, "UpdateInteractionModeUi");
-                AssertEx.Equal(36.0, row.Height.Value,
-                    "Automatic preference should collapse the drawer after returning to edit mode.");
-
-                InvokePrivate(control, "OnDebugDrawerExpansionChanged", true);
-                SetDesignerMode(control, "DebugRun");
-                InvokePrivate(control, "UpdateInteractionModeUi");
-                SetDesignerMode(control, "Edit");
-                InvokePrivate(control, "UpdateInteractionModeUi");
-                AssertEx.Equal(190.0, row.Height.Value,
-                    "A user-pinned open drawer should remain open across mode changes.");
-
-                InvokePrivate(control, "OnDebugDrawerExpansionChanged", false);
-                SetDesignerMode(control, "DebugRun");
-                InvokePrivate(control, "UpdateInteractionModeUi");
-                AssertEx.Equal(36.0, row.Height.Value,
-                    "A user-closed drawer should not be reopened by routine mode refreshes.");
-
-                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
-                {
-                    EventType = FlowRuntimeEventType.NodeFailed,
-                    NodeId = "missing",
-                    Message = "failure"
-                });
-                AssertEx.Equal(190.0, row.Height.Value,
-                    "A failure event should force the debug drawer open for immediate diagnosis.");
-                InvokePrivate(control, "UpdateInteractionModeUi");
-                AssertEx.Equal(36.0, row.Height.Value,
-                    "After the forced failure reveal, the user's closed preference should remain intact.");
-
-                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
-                {
-                    EventType = FlowRuntimeEventType.NodeTimeout,
-                    NodeId = "missing",
-                    Message = "timeout"
-                });
-                AssertEx.True(drawer.IsExpanded,
-                    "A timeout event should also reveal the debug drawer.");
-            });
-            return Task.FromResult(0);
-        }
-
         public static Task PropertyDraftAppliesResetsAndResolvesDecisions()
         {
             RunOnSta(delegate
             {
                 var decision = PendingPropertyChangesDecision.Cancel;
                 var promptCount = 0;
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
@@ -1795,7 +1596,7 @@ namespace Vision.Flow.Tests
             {
                 var decision = PendingPropertyChangesDecision.Cancel;
                 var promptCount = 0;
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
@@ -1908,7 +1709,7 @@ namespace Vision.Flow.Tests
                 AssertEx.Equal(1300.0, clamped.Y,
                     "Dragging the mini-map viewport should clamp navigation at the canvas bottom edge.");
 
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false
@@ -1947,7 +1748,7 @@ namespace Vision.Flow.Tests
             RunOnSta(delegate
             {
                 var promptCount = 0;
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
@@ -1996,7 +1797,7 @@ namespace Vision.Flow.Tests
         {
             RunOnSta(delegate
             {
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false
@@ -2061,7 +1862,7 @@ namespace Vision.Flow.Tests
         {
             RunOnSta(delegate
             {
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false
@@ -2288,48 +2089,34 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task PropertyDraftGuardsLoadAndDebugMode()
+        public static Task PropertyDraftGuardsLoad()
         {
             RunOnSta(delegate
             {
                 var decision = PendingPropertyChangesDecision.Cancel;
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
                     PendingPropertyChangesPrompt = delegate { return decision; }
                 });
-                control.LoadDocumentAsync(CreateDelayDocument("first-flow", "第一个节点", 10))
-                    .GetAwaiter().GetResult();
+                control.LoadDocumentAsync(CreateDelayDocument("first-flow", "第一个节点", 10)).GetAwaiter().GetResult();
                 var nameEditor = FindChildren<TextBox>(control)
                     .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "NodeName", StringComparison.Ordinal));
                 nameEditor.Text = "尚未应用";
 
-                control.LoadDocumentAsync(CreateDelayDocument("second-flow", "第二个节点", 20))
-                    .GetAwaiter().GetResult();
+                control.LoadDocumentAsync(CreateDelayDocument("second-flow", "第二个节点", 20)).GetAwaiter().GetResult();
                 var source = GetPrivateField<FlowDesignDocument>(control, "_document");
                 AssertEx.Equal("first-flow", source.FlowId,
                     "Canceling the pending decision should keep the current document loaded.");
                 AssertEx.True(control.HasPendingPropertyChanges,
                     "Canceling load should preserve the current property draft.");
 
-                var modeType = typeof(FlowDesignerControl).Assembly.GetType(
-                    "Vision.Flow.Designer.Wpf.Controls.DesignerInteractionMode");
-                var debugMode = Enum.Parse(modeType, "DebugRun");
-                InvokePrivateTask(control, "SetInteractionModeAsync", debugMode).GetAwaiter().GetResult();
-                AssertEx.Equal("Edit", GetPrivateField<object>(control, "_interactionMode").ToString(),
-                    "Canceling pending changes should block entry into debug mode.");
-
                 decision = PendingPropertyChangesDecision.Apply;
-                InvokePrivateTask(control, "SetInteractionModeAsync", debugMode).GetAwaiter().GetResult();
-                AssertEx.Equal("DebugRun", GetPrivateField<object>(control, "_interactionMode").ToString(),
-                    "Applying the draft should allow entry into debug mode.");
-                AssertEx.Equal("尚未应用", source.Runtime.Nodes[0].Name,
-                    "Entering debug mode with Apply should commit the draft first.");
-                var applyButton = FindChildren<Button>(control)
-                    .First(x => string.Equals(Convert.ToString(x.Tag, CultureInfo.InvariantCulture), "PropertyApply", StringComparison.Ordinal));
-                AssertEx.Equal(Visibility.Collapsed, applyButton.Visibility,
-                    "Debug read-only mode should replace property actions with the read-only state.");
+                control.LoadDocumentAsync(CreateDelayDocument("second-flow", "第二个节点", 20)).GetAwaiter().GetResult();
+                source = GetPrivateField<FlowDesignDocument>(control, "_document");
+                AssertEx.Equal("second-flow", source.FlowId,
+                    "Applying the pending draft should allow the next document to load.");
             });
             return Task.FromResult(0);
         }
@@ -2339,7 +2126,7 @@ namespace Vision.Flow.Tests
             RunOnSta(delegate
             {
                 var candidates = new List<string> { "30", "45" };
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
@@ -2391,7 +2178,7 @@ namespace Vision.Flow.Tests
                 CommonNodeRegistration.RegisterAll(registry);
                 var dynamicFactory = new DesignerDynamicDescriptorFactory();
                 registry.Register(dynamicFactory);
-                var control = new FlowDesignerControl(registry, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(registry, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
@@ -2586,7 +2373,7 @@ namespace Vision.Flow.Tests
             RunOnSta(delegate
             {
                 var decision = PendingPropertyChangesDecision.Cancel;
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false,
@@ -2661,18 +2448,13 @@ namespace Vision.Flow.Tests
         {
             RunOnSta(delegate
             {
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false
                 });
                 var source = CreateHostDocument();
-                SetDesignerMode(control, "DebugRun");
-
                 control.LoadDocumentAsync(source).GetAwaiter().GetResult();
-                AssertEx.Equal("Edit", GetPrivateField<object>(control, "_interactionMode").ToString(),
-                    "Host load should switch the designer back to Edit mode.");
-
                 source.Runtime.Nodes[0].Name = "Changed outside designer";
                 var cards = GetPrivateField<Dictionary<string, NodeCardControl>>(control, "_nodeCards");
                 var card = cards["node_1"];
@@ -2730,7 +2512,7 @@ namespace Vision.Flow.Tests
             {
                 RunOnSta(delegate
                 {
-                    var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                    var control = new FlowDesignerControl(null, new FlowDesignerOptions
                     {
                         LoadSampleOnStartup = false,
                         ShowStandaloneDocumentCommands = false
@@ -2809,7 +2591,7 @@ namespace Vision.Flow.Tests
         {
             RunOnSta(delegate
             {
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = true });
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions { LoadSampleOnStartup = true });
 
                 control.ResetDocumentAsync("strategy-123", "策略连线图").GetAwaiter().GetResult();
                 var captured = control.CaptureDocument();
@@ -2904,7 +2686,7 @@ namespace Vision.Flow.Tests
         {
             RunOnSta(delegate
             {
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions
+                var control = new FlowDesignerControl(null, new FlowDesignerOptions
                 {
                     LoadSampleOnStartup = false,
                     ShowStandaloneDocumentCommands = false
@@ -2962,105 +2744,6 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task NodeCardShowsRuntimeSummaryAboveCard()
-        {
-            RunOnSta(delegate
-            {
-                var card = new NodeCardControl(new NodeViewModel(CreateNode(), CreateDescriptor()));
-
-                card.SetRuntimeState(NodeRuntimeState.Completed, TimeSpan.FromMilliseconds(12), null);
-
-                var texts = FindChildren<TextBlock>(card).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("成功", StringComparison.OrdinalIgnoreCase) >= 0 && x.IndexOf("12ms", StringComparison.OrdinalIgnoreCase) >= 0),
-                    "Completed node card should show success and elapsed time in the runtime summary.");
-                var summaryText = FindChildren<TextBlock>(card).FirstOrDefault(x => (x.Text ?? string.Empty).IndexOf("成功", StringComparison.OrdinalIgnoreCase) >= 0);
-                AssertRuntimeSummaryIsInsideCard(summaryText, card);
-                AssertEx.True((summaryText.Text ?? string.Empty).IndexOf(" · ", StringComparison.Ordinal) >= 0,
-                    "Runtime summary should use a readable middle-dot separator.");
-                AssertEx.False((summaryText.Text ?? string.Empty).IndexOf(" 路 ", StringComparison.Ordinal) >= 0,
-                    "Runtime summary should not contain the corrupted separator text.");
-
-                card.SetRuntimeState(NodeRuntimeState.Failed, TimeSpan.FromMilliseconds(34), "Camera timeout detail");
-                texts = FindChildren<TextBlock>(card).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("失败", StringComparison.OrdinalIgnoreCase) >= 0 && x.IndexOf("34ms", StringComparison.OrdinalIgnoreCase) >= 0),
-                    "Failed node card should show failure and elapsed time in the runtime summary.");
-                AssertEx.True(Convert.ToString(card.ToolTip, CultureInfo.InvariantCulture).IndexOf("Camera timeout detail", StringComparison.OrdinalIgnoreCase) >= 0,
-                    "Failed node card should keep the full failure reason in the tooltip.");
-
-                var retryNode = CreateNode();
-                retryNode.ExecutionPolicy.RetryPolicy.Enabled = true;
-                var eventCard = new NodeCardControl(new NodeViewModel(retryNode, CreateDescriptor()));
-                var control = new FlowDesignerControl(null, null, new FlowDesignerOptions { LoadSampleOnStartup = false });
-                SetDesignerMode(control, "DebugRun");
-                GetPrivateField<Dictionary<string, NodeCardControl>>(control, "_nodeCards")[retryNode.Id] = eventCard;
-
-                var retrying = new FlowRuntimeEvent
-                {
-                    EventType = FlowRuntimeEventType.NodeRetrying,
-                    NodeId = retryNode.Id,
-                    State = NodeRuntimeState.Waiting,
-                    Message = "Transient camera error",
-                    ElapsedMs = 25
-                };
-                retrying.Data[FlowRuntimeDataKeys.Attempt] = 2;
-                InvokePrivate(control, "HandleRuntimeEvent", retrying);
-
-                texts = FindChildren<TextBlock>(eventCard).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("重试中", StringComparison.Ordinal) >= 0 && x.IndexOf("第 2 次", StringComparison.Ordinal) >= 0),
-                    "NodeRetrying should show the next attempt instead of the generic waiting state.");
-                AssertEx.True(texts.Any(x => string.Equals(x, "重试", StringComparison.Ordinal)) &&
-                    texts.Any(x => x.IndexOf("3 次", StringComparison.Ordinal) >= 0 && x.IndexOf("1000 ms", StringComparison.Ordinal) >= 0),
-                    "Runtime retry status should not hide the card's enabled retry configuration summary.");
-                AssertEx.True(Convert.ToString(eventCard.ToolTip, CultureInfo.InvariantCulture).IndexOf("Transient camera error", StringComparison.Ordinal) >= 0,
-                    "Retrying cards should keep the retry reason in the tooltip.");
-
-                var recovered = new FlowRuntimeEvent
-                {
-                    EventType = FlowRuntimeEventType.NodeRecovered,
-                    NodeId = retryNode.Id,
-                    State = NodeRuntimeState.Completed,
-                    ElapsedMs = 40
-                };
-                recovered.Data[FlowRuntimeDataKeys.Attempt] = 2;
-                InvokePrivate(control, "HandleRuntimeEvent", recovered);
-                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
-                {
-                    EventType = FlowRuntimeEventType.NodeCompleted,
-                    NodeId = retryNode.Id,
-                    State = NodeRuntimeState.Completed,
-                    ElapsedMs = 42
-                });
-
-                texts = FindChildren<TextBlock>(eventCard).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("已恢复", StringComparison.Ordinal) >= 0 && x.IndexOf("第 2 次", StringComparison.Ordinal) >= 0),
-                    "NodeCompleted immediately following NodeRecovered should preserve the recovered result on the card.");
-
-                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
-                {
-                    EventType = FlowRuntimeEventType.NodeCancelled,
-                    NodeId = retryNode.Id,
-                    State = NodeRuntimeState.Stopped,
-                    Message = "Node execution was cancelled.",
-                    ElapsedMs = 51
-                });
-                texts = FindChildren<TextBlock>(eventCard).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("已取消", StringComparison.Ordinal) >= 0),
-                    "NodeCancelled should be distinguishable from a generic stopped state.");
-
-                InvokePrivate(control, "HandleRuntimeEvent", new FlowRuntimeEvent
-                {
-                    EventType = FlowRuntimeEventType.NodeSkipped,
-                    NodeId = retryNode.Id,
-                    State = NodeRuntimeState.Skipped,
-                    Message = "All reachable inbound control edges were skipped."
-                });
-                texts = FindChildren<TextBlock>(eventCard).Select(x => x.Text ?? string.Empty).ToList();
-                AssertEx.True(texts.Any(x => x.IndexOf("已跳过", StringComparison.Ordinal) >= 0),
-                    "NodeSkipped should show an explicit skipped state on the card.");
-            });
-            return Task.FromResult(0);
-        }
-
         private static void RaiseDoubleClick(Button button)
         {
             AssertEx.NotNull(button, "Palette button should be available before raising double-click.");
@@ -3076,13 +2759,6 @@ namespace Vision.Flow.Tests
             var button = FindChildren<Button>(palette).FirstOrDefault(x => object.ReferenceEquals(x.Tag, descriptor));
             AssertEx.NotNull(button, "Palette should render a button for the descriptor.");
             return button;
-        }
-
-        private static void SetDesignerMode(FlowDesignerControl control, string modeName)
-        {
-            var modeType = typeof(FlowDesignerControl).Assembly.GetType("Vision.Flow.Designer.Wpf.Controls.DesignerInteractionMode");
-            AssertEx.NotNull(modeType, "Designer interaction mode type should exist.");
-            SetPrivateField(control, "_interactionMode", Enum.Parse(modeType, modeName));
         }
 
         private static T GetPrivateField<T>(object instance, string name)
@@ -3125,25 +2801,6 @@ namespace Vision.Flow.Tests
             var method = instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
             AssertEx.NotNull(method, "Private method should exist: " + name);
             return (T)method.Invoke(instance, args ?? new object[0]);
-        }
-
-        private static void AssertRuntimeSummaryIsInsideCard(TextBlock summaryText, NodeCardControl card)
-        {
-            AssertEx.NotNull(summaryText, "Runtime summary text should be rendered.");
-            var current = summaryText as DependencyObject;
-            var foundCard = false;
-            while (current != null)
-            {
-                if (object.ReferenceEquals(current, card))
-                {
-                    foundCard = true;
-                    break;
-                }
-
-                current = LogicalTreeHelper.GetParent(current) ?? VisualTreeHelper.GetParent(current);
-            }
-
-            AssertEx.True(foundCard, "Runtime status should render inside the node card chrome.");
         }
 
         private static string GetButtonLabel(Button button)

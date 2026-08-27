@@ -35,7 +35,7 @@ Core 只内置 UI 无关基础流程节点，不引用具体相机 SDK 或上位
 
 ### Vision.Flow.Designer.Wpf
 
-负责 WPF 设计器 UI：节点库、画布、连线、属性面板、变量选择器、调试面板、`.flowdesign` 保存/加载和 `.flowruntime` 发布。
+负责 WPF 设计器 UI：节点库、画布、连线、属性面板、变量选择器、`.flowdesign` 保存/加载和 `.flowruntime` 发布。设计器不创建 `FlowRunner`，调试能力等待新的宿主扩展契约。
 
 设计器控件公开在 `Vision.Flow.Designer.Wpf.Controls`，ViewModel 放在 `Vision.Flow.Designer.Wpf.ViewModels`。
 
