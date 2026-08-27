@@ -135,12 +135,14 @@
     <Compile Include="Runtime\Execution\FlowContinuation.cs" />
     <Compile Include="Runtime\Execution\FlowExecutionContext.cs" />
     <Compile Include="Runtime\Execution\FlowExecutionOptions.cs" />
+    <Compile Include="Runtime\Execution\IFlowRuntimeDiagnosticsGate.cs" />
     <Compile Include="Runtime\Execution\FlowFanOutMode.cs" />
     <Compile Include="Runtime\Execution\FlowListenerContext.cs" />
     <Compile Include="Runtime\Execution\FlowTriggerModels.cs" />
     <Compile Include="Runtime\Execution\NodeExecutionExceptions.cs" />
     <Compile Include="Runtime\Execution\NodeExecutionResult.cs" />
     <Compile Include="Runtime\Execution\NodeFailureKind.cs" />
+    <Compile Include="Runtime\Execution\NodeInputCaptureSession.cs" />
     <Compile Include="Runtime\Execution\NullFlowContinuationDispatcher.cs" />
     <Compile Include="Runtime\Execution\SettingValueResolver.cs" />
     <Compile Include="Runtime\State\FlowToken.cs" />

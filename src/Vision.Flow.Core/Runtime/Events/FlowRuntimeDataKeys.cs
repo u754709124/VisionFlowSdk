@@ -27,5 +27,11 @@ namespace Vision.Flow.Core.Runtime.Events
         public const string Attempt = "Attempt";
         public const string FailureKind = "FailureKind";
         public const string FailureStrategy = "FailureStrategy";
+        public const string Inputs = "Inputs";
+        public const string SettingName = "SettingName";
+        public const string SettingMode = "SettingMode";
+        public const string SelectorScope = "SelectorScope";
+        public const string SelectorPath = "SelectorPath";
+        public const string ResolutionError = "ResolutionError";
     }
 }

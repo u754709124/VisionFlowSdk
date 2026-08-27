@@ -80,6 +80,18 @@ Core 未显式配置 Sink 时使用 `BoundedFlowEventSink`，默认容量 1024�
 
 `InMemoryFlowEventSink` 仅用于测试和受控诊断，默认最多保存 4096 条并采用最旧淘汰，不再允许无界增长。
 
+### 附加式节点输入诊断
+
+宿主可通过 `FlowExecutionOptions.DiagnosticsGate` 注入外部所有的
+`IFlowRuntimeDiagnosticsGate`。开关关闭时 Runner 每个节点 Attempt 只读取一次开关，
+不会创建输入集合、序列化数据或启动后台任务。开关打开后，
+`FlowExecutionContext.GetSettingValue` 只记录节点实际读取的设置；未读取设置不会被提前解析，
+因此不会改变配置错误和变量绑定错误的发生时机。
+
+每次 Attempt 在重试或节点终态事件之前发布 `NodeInputsCaptured`，其 `Data.Inputs`
+包含设置名、取值模式、变量来源、路径、原始值或解析错误。事件仍经过
+`SanitizingFlowEventSink`，图像、二进制和可释放资源只保留安全摘要；普通字符串和值不做脱敏。
+
 
 ## 入口并发与图内并行
 
