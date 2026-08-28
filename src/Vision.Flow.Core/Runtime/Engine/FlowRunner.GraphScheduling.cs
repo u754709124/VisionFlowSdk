@@ -85,19 +85,41 @@ namespace Vision.Flow.Core.Runtime.Engine
             CancellationToken cancellationToken,
             string flowRunId)
         {
+            NodeExecutionFailedException branchFailure = null;
             NodeDefinition node;
             while (state.TryTakeReadyNode(out node))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var result = await ExecuteNodeAsync(
-                    node,
-                    token,
-                    variables,
-                    triggerInputs,
-                    cancellationToken,
-                    flowRunId).ConfigureAwait(false);
-                var skippedNodes = state.CompleteNode(node, GetEffectiveOutputPort(result));
+                NodeExecutionResult result = null;
+                NodeExecutionFailedException currentFailure = null;
+                try
+                {
+                    result = await ExecuteNodeAsync(
+                        node,
+                        token,
+                        variables,
+                        triggerInputs,
+                        cancellationToken,
+                        flowRunId).ConfigureAwait(false);
+                }
+                catch (NodeExecutionFailedException ex)
+                {
+                    currentFailure = ex;
+                    if (branchFailure == null)
+                    {
+                        branchFailure = ex;
+                    }
+                }
+
+                var skippedNodes = currentFailure == null
+                    ? state.CompleteNode(node, GetEffectiveOutputPort(result))
+                    : state.FailNode(node);
                 await PublishSkippedNodesAsync(skippedNodes, token, cancellationToken, flowRunId).ConfigureAwait(false);
+            }
+
+            if (branchFailure != null)
+            {
+                throw branchFailure;
             }
         }
 
@@ -113,6 +135,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             using (var schedulerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 var runningTasks = new List<Task<ScheduledNodeCompletion>>();
+                NodeExecutionFailedException branchFailure = null;
                 try
                 {
                     while (state.HasReadyNodes || runningTasks.Count > 0)
@@ -137,14 +160,23 @@ namespace Vision.Flow.Core.Runtime.Engine
                         var completedTask = await Task.WhenAny(runningTasks).ConfigureAwait(false);
                         runningTasks.Remove(completedTask);
                         var completion = await completedTask.ConfigureAwait(false);
-                        var skippedNodes = state.CompleteNode(
-                            completion.Node,
-                            GetEffectiveOutputPort(completion.Result));
+                        if (completion.Failure != null && branchFailure == null)
+                        {
+                            branchFailure = completion.Failure;
+                        }
+                        var skippedNodes = completion.Failure == null
+                            ? state.CompleteNode(completion.Node, GetEffectiveOutputPort(completion.Result))
+                            : state.FailNode(completion.Node);
                         await PublishSkippedNodesAsync(
                             skippedNodes,
                             token,
                             schedulerCancellation.Token,
                             flowRunId).ConfigureAwait(false);
+                    }
+
+                    if (branchFailure != null)
+                    {
+                        throw branchFailure;
                     }
                 }
                 catch
@@ -164,14 +196,22 @@ namespace Vision.Flow.Core.Runtime.Engine
             CancellationToken cancellationToken,
             string flowRunId)
         {
-            var result = await ExecuteNodeAsync(
-                node,
-                token,
-                variables,
-                triggerInputs,
-                cancellationToken,
-                flowRunId).ConfigureAwait(false);
-            return new ScheduledNodeCompletion(node, result);
+            try
+            {
+                var result = await ExecuteNodeAsync(
+                    node,
+                    token,
+                    variables,
+                    triggerInputs,
+                    cancellationToken,
+                    flowRunId).ConfigureAwait(false);
+                return new ScheduledNodeCompletion(node, result, null);
+            }
+            catch (NodeExecutionFailedException ex)
+            {
+                // 策略失败只终止当前控制分支；调度器继续等待兄弟分支，最终再汇总为 FlowRun 失败。
+                return new ScheduledNodeCompletion(node, null, ex);
+            }
         }
 
         private async Task PublishSkippedNodesAsync(
@@ -230,15 +270,21 @@ namespace Vision.Flow.Core.Runtime.Engine
 
         private sealed class ScheduledNodeCompletion
         {
-            internal ScheduledNodeCompletion(NodeDefinition node, NodeExecutionResult result)
+            internal ScheduledNodeCompletion(
+                NodeDefinition node,
+                NodeExecutionResult result,
+                NodeExecutionFailedException failure)
             {
                 Node = node;
                 Result = result;
+                Failure = failure;
             }
 
             internal NodeDefinition Node { get; private set; }
 
             internal NodeExecutionResult Result { get; private set; }
+
+            internal NodeExecutionFailedException Failure { get; private set; }
         }
     }
 
@@ -314,6 +360,23 @@ namespace Vision.Flow.Core.Runtime.Engine
             return ResolveOutgoingEdges(nodeIndex, outputPort);
         }
 
+        internal IList<NodeDefinition> FailNode(NodeDefinition node)
+        {
+            if (node == null || string.IsNullOrWhiteSpace(node.Id))
+            {
+                throw new ArgumentNullException("node");
+            }
+
+            int nodeIndex;
+            if (!_scope.NodeIndexes.TryGetValue(node.Id, out nodeIndex))
+            {
+                throw new InvalidOperationException("Scheduled node is outside the compiled scope: " + node.Id);
+            }
+
+            _nodeStates[nodeIndex] = ScheduledNodeState.Completed;
+            return SkipOutgoingEdges(nodeIndex);
+        }
+
         internal void EnsureTerminal()
         {
             for (var index = 0; index < _nodeStates.Length; index++)
@@ -362,6 +425,27 @@ namespace Vision.Flow.Core.Runtime.Engine
                     ? ScheduledEdgeState.Taken
                     : ScheduledEdgeState.Skipped;
                 _candidateNodes.Enqueue(edge.TargetIndex);
+            }
+
+            EvaluateCandidates();
+            return _skippedNodes;
+        }
+
+        private IList<NodeDefinition> SkipOutgoingEdges(int nodeIndex)
+        {
+            _skippedNodes.Clear();
+            _candidateNodes.Clear();
+            var outgoing = _scope.OutgoingEdgeIndexes[nodeIndex];
+            for (var index = 0; index < outgoing.Length; index++)
+            {
+                var edgeIndex = outgoing[index];
+                if (_edgeStates[edgeIndex] != ScheduledEdgeState.Unknown)
+                {
+                    continue;
+                }
+
+                _edgeStates[edgeIndex] = ScheduledEdgeState.Skipped;
+                _candidateNodes.Enqueue(_scope.Edges[edgeIndex].TargetIndex);
             }
 
             EvaluateCandidates();

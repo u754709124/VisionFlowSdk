@@ -50,13 +50,32 @@ namespace Vision.Flow.Core.Runtime.Execution
             string outputPort = FlowPortNames.Error,
             NodeFailureKind failureKind = NodeFailureKind.Execution)
         {
+            return Failure(errorMessage, null, outputPort, failureKind);
+        }
+
+        /// <summary>
+        /// 创建可向异常处理分支提供声明输出的失败结果；仅当运行策略成功转入异常分支时，输出才会写入变量池。
+        /// </summary>
+        /// <param name="errorMessage">供日志、报警和流程终态使用的失败原因。</param>
+        /// <param name="outputs">异常处理分支可读取的节点输出。</param>
+        /// <param name="outputPort">失败恢复使用的控制输出端口。</param>
+        /// <param name="failureKind">稳定失败分类。</param>
+        /// <returns>包含失败诊断和输出快照的节点执行结果。</returns>
+        public static NodeExecutionResult Failure(
+            string errorMessage,
+            IDictionary<string, object> outputs,
+            string outputPort = FlowPortNames.Error,
+            NodeFailureKind failureKind = NodeFailureKind.Execution)
+        {
             return new NodeExecutionResult
             {
                 IsSuccess = false,
                 FailureKind = failureKind == NodeFailureKind.None ? NodeFailureKind.Execution : failureKind,
                 OutputPort = string.IsNullOrWhiteSpace(outputPort) ? FlowPortNames.Error : outputPort,
                 ErrorMessage = errorMessage,
-                Outputs = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                Outputs = outputs == null
+                    ? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, object>(outputs, StringComparer.OrdinalIgnoreCase)
             };
         }
 

@@ -1,11 +1,11 @@
 {
   "flowId": "core-basic",
   "flowName": "Core Basic Demo",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "runtime": {
     "flowId": "core-basic",
     "flowName": "Core Basic Demo",
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "version": "1.0.0",
     "nodes": [
       {
@@ -21,7 +21,7 @@
           "timeoutMs": 0,
           "maxConcurrentExecutions": 1,
           "retryPolicy": { "enabled": false, "maxRetries": 3, "retryIntervalMs": 1000 },
-          "failureStrategy": "StopFlow",
+          "failureStrategy": "StopBranch",
           "defaultOutputs": {}
         }
       },
@@ -39,7 +39,7 @@
           "timeoutMs": 0,
           "maxConcurrentExecutions": 1,
           "retryPolicy": { "enabled": false, "maxRetries": 3, "retryIntervalMs": 1000 },
-          "failureStrategy": "StopFlow",
+          "failureStrategy": "StopBranch",
           "defaultOutputs": {}
         }
       },
@@ -56,7 +56,7 @@
           "timeoutMs": 0,
           "maxConcurrentExecutions": 1,
           "retryPolicy": { "enabled": false, "maxRetries": 3, "retryIntervalMs": 1000 },
-          "failureStrategy": "StopFlow",
+          "failureStrategy": "StopBranch",
           "defaultOutputs": {}
         }
       },
@@ -73,7 +73,7 @@
           "timeoutMs": 0,
           "maxConcurrentExecutions": 1,
           "retryPolicy": { "enabled": false, "maxRetries": 3, "retryIntervalMs": 1000 },
-          "failureStrategy": "StopFlow",
+          "failureStrategy": "StopBranch",
           "defaultOutputs": {}
         }
       }

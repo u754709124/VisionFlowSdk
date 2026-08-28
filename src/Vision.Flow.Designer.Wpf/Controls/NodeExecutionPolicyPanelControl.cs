@@ -165,7 +165,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 Tag = TagPrefix + "FailureStrategy"
             };
             failureSelector.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.FieldComboBoxStyleKey);
-            AddFailureStrategyItem(failureSelector, "停止流程", FailureStrategy.StopFlow);
+            AddFailureStrategyItem(failureSelector, "停止当前分支", FailureStrategy.StopBranch);
             AddFailureStrategyItem(failureSelector, "转入异常分支", FailureStrategy.ErrorBranch);
             AddFailureStrategyItem(failureSelector, "使用默认输出", FailureStrategy.DefaultOutputs);
             failureSelector.SelectedItem = failureSelector.Items
@@ -249,14 +249,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
             switch (_policy.FailureStrategy)
             {
                 case FailureStrategy.ErrorBranch:
-                    layout.Children.Add(CreateMutedText("节点最终失败后沿 Error 或 Timeout 控制端口继续；没有对应连线时本次流程失败。"));
+                    layout.Children.Add(CreateMutedText("节点最终失败后停止当前正常分支，并沿 Error 或 Timeout 控制端口继续；没有对应连线时当前分支失败。并行兄弟分支不受影响。"));
                     break;
                 case FailureStrategy.DefaultOutputs:
                     layout.Children.Add(CreateMutedText("节点最终失败后写入以下常量回退输出，并沿 Next 控制端口继续。"));
                     AddDefaultOutputEditors(layout);
                     break;
                 default:
-                    layout.Children.Add(CreateMutedText("节点最终失败后停止本次流程运行。"));
+                    layout.Children.Add(CreateMutedText("节点最终失败后停止当前分支，等待并行兄弟分支完成后将本次流程记为失败。"));
                     break;
             }
 

@@ -200,7 +200,7 @@ Designer、Validator 和发布服务使用同一结果。
 
 ## NodeExecutionPolicy 协议
 
-Schema v2 的每个节点在 `.flowdesign` 和 `.flowruntime` 中都必须按下面的稳定结构序列化。生产序列化器始终输出完整的 `ExecutionPolicy`；读取缺失或 `null` 的策略时使用默认值，不提供 v1 兼容或迁移逻辑。
+Schema v3 的每个节点在 `.flowdesign` 和 `.flowruntime` 中都必须按下面的稳定结构序列化。生产序列化器始终输出完整的 `ExecutionPolicy`；读取缺失或 `null` 的策略时使用默认值，不提供旧版本兼容或迁移逻辑。
 
 ```json
 {
@@ -217,7 +217,7 @@ Schema v2 的每个节点在 `.flowdesign` 和 `.flowruntime` 中都必须按下
       "MaxRetries": 3,
       "RetryIntervalMs": 1000
     },
-    "FailureStrategy": "StopFlow",
+    "FailureStrategy": "StopBranch",
     "DefaultOutputs": {}
   }
 }
@@ -230,7 +230,7 @@ Schema v2 的每个节点在 `.flowdesign` 和 `.flowruntime` 中都必须按下
 - `MaxRetries` 是首次失败后的附加重试次数，不包含首次执行，必须大于或等于 0。
 - `RetryIntervalMs` 是固定重试间隔，必须大于或等于 0。
 - `RetryPolicy.Enabled = false` 时只尝试一次，即使 `MaxRetries` 为正数也不重试。
-- `FailureStrategy` 使用稳定字符串 `StopFlow`、`ErrorBranch` 或 `DefaultOutputs`。
+- `FailureStrategy` 使用稳定字符串 `StopBranch`、`ErrorBranch` 或 `DefaultOutputs`；旧 `StopFlow` 不再兼容。
 - `DefaultOutputs` 顶层键按大小写不敏感比较；序列化、反序列化和发布克隆都必须保持该语义。
 
 ## 发布校验
@@ -266,10 +266,10 @@ Schema v2 的每个节点在 `.flowdesign` 和 `.flowruntime` 中都必须按下
 - Error / Timeout 路由
 - 重试成功、重试耗尽和重试等待取消
 - Binding / Configuration 不重试
-- StopFlow / ErrorBranch / DefaultOutputs 三种失败策略
+- StopBranch / ErrorBranch / DefaultOutputs 三种失败策略
 - 输出变量
 - RuntimeEvent 的 Attempt / FailureKind / FailureStrategy 数据
-- Schema v2 执行策略 round-trip、缺失策略默认值与发布校验
+- Schema v3 执行策略 round-trip、缺失策略默认值与发布校验
 
 ## Descriptor 枚举字段
 

@@ -118,7 +118,7 @@ Core 未显式配置 Sink 时使用 `BoundedFlowEventSink`，默认容量 1024�
 
 `FanOutMode.Sequential` 使用一个确定性的就绪队列，按边定义顺序处理同批就绪节点。`FanOutMode.Parallel` 直接组合节点返回的异步任务，不通过 `Task.Run` 额外跳转线程池，并受 `MaxDegreeOfParallelism` 以及各节点 `MaxConcurrentExecutions` 约束；无论采用哪种模式，入边解析规则和“单次激活只执行一次”的语义保持一致。
 
-并行分支共享同一个 `FlowToken` 与线程安全变量池；Token 的 `Values` / `Metadata` 使用线程安全映射。节点失败策略是唯一分支失败协议：`StopFlow` 会取消并等待仍在运行的协作式兄弟节点，`ErrorBranch` / `DefaultOutputs` 则把失败转换为可继续的节点结果。Runtime 不再提供无实际语义的分支 Token 克隆或“忽略分支失败”开关。进程内节点无法被强制终止，扩展节点必须响应传入的取消令牌，否则超时、停止或并行失败收敛会继续等待该节点退出。
+并行分支共享同一个 `FlowToken` 与线程安全变量池；Token 的 `Values` / `Metadata` 使用线程安全映射。节点失败策略是唯一分支失败协议：`StopBranch` 只截断失败节点的正常后继，兄弟分支继续执行，全部分支收敛后 FlowRun 记为失败；`ErrorBranch` 沿异常端口恢复；`DefaultOutputs` 使用回退输出继续。只有用户取消、Runtime 停止或外部取消才会取消整个 FlowRun。进程内节点无法被强制终止，扩展节点必须响应传入的取消令牌，使超时和全局停止能够及时收敛。
 
 该汇聚规则解决的是单次 DAG 调度中的控制流收敛，不替代 `join.and` 的跨事件、跨到达批次和 `JoinKey` 聚合语义。流程发布仍应拒绝控制流环，运行时就绪队列不依赖递归路径的 visited 集合来掩盖非法环。
 
@@ -131,7 +131,7 @@ Core 未显式配置 Sink 时使用 `BoundedFlowEventSink`，默认容量 1024�
 - `RetryPolicy.Enabled = false`：只执行首次尝试；`MaxRetries` 不参与计算。
 - `RetryPolicy.MaxRetries = 3`：启用重试后最多追加 3 次尝试，不包含首次执行。
 - `RetryPolicy.RetryIntervalMs = 1000`：两次尝试之间使用可取消的固定等待时间。
-- `FailureStrategy = StopFlow`：重试耗尽或遇到不可重试失败后的默认行为。
+- `FailureStrategy = StopBranch`：重试耗尽或遇到不可重试失败后的默认行为。
 - `DefaultOutputs`：`DefaultOutputs` 策略使用的输出字典，键按大小写不敏感比较。
 
 `MaxRetries` 表示“重试次数”而不是“总尝试次数”，因此最大总尝试次数为 `MaxRetries + 1`。只有 `Execution` 和 `Timeout` 失败可以重试；`Binding`、`Configuration` 与 `Cancelled` 不重试。
@@ -164,7 +164,7 @@ Attempt 1 -> NodeStarted -> execute with timeout
 
 重试成功后发布 `NodeRecovered`，随后按正常成功路径写出变量并发布 `NodeCompleted`。最终失败按 `FailureStrategy` 处理：
 
-- `StopFlow`：停止当前 FlowRun，不再调度下游，FlowRun 终态为 `Failed`。
+- `StopBranch`：停止当前控制分支的正常后继，不取消兄弟分支；全部分支收敛后 FlowRun 终态为 `Failed`。
 - `ErrorBranch`：沿失败结果的 `OutputPort` 继续；端口为空时使用 `Error`。发布时节点 Descriptor 必须声明 `Error` 控制输出端口，运行时还必须存在对应出边，否则 FlowRun 仍为 `Failed`。
 - `DefaultOutputs`：把策略中配置的全部默认输出写入变量池，并从 `Next` 端口继续；该次恢复可以使 FlowRun 最终成功。
 

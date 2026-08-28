@@ -13,7 +13,7 @@ tests/Vision.Flow.Tests
 - NodeEvent：只启动入口引用的 `IFlowListenerNode`、监听续流携带入口与 TriggerInputs、按 SourceNodeId 出边继续、停止时释放监听器。
 - FlowRun 生命周期：终态 exactly-once、终态 Sink 异常不重发、并发 `StopAsync` 共享排空、`FlowStopped` 晚于全部 Active 终态、停止后迟到续流按原 `FlowRunId` 拒绝。
 - 事件压力与快照：十万条 `OutputProduced` 下队列不超过配置容量、保留内存增量不超过 32 MB、丢弃计数可观测、关键终态满载背压且最终送达；普通对象公开字段与属性 getter、集合以及普通/泛型/只读字典按 5 层形成独立快照，getter 异常不会中断发布；HTuple 不读取内部内容并形成终止标记，同时验证循环和上限，事件快照不包含图像、帧、字节缓冲区或其他可释放资源原对象。
-- Serialization / Publish：Schema v2 round-trip、明确拒绝 v1、入口类型/输入/执行策略 round-trip、节点 `ExecutionPolicy` 完整协议与缺失/null 默认值、结构化 Setting Selector、TriggerInput 可达性和类型冲突、入口绕过变量来源警告、发布后移除 view state、校验通过后写入 `.flowruntime`、无效发布不覆盖、样例流程校验。
+- Serialization / Publish：Schema v3 round-trip、明确拒绝旧版本、入口类型/输入/执行策略 round-trip、节点 `ExecutionPolicy` 完整协议与缺失/null 默认值、结构化 Setting Selector、TriggerInput 可达性和类型冲突、入口绕过变量来源警告、发布后移除 view state、校验通过后写入 `.flowruntime`、无效发布不覆盖、样例流程校验。
 - Core 节点：注册、日志事件、延时、FlowRun/全局变量写入、AND Join、Condition 分支。
 - Core 契约：`VisionImageReference` 生命周期和精简公共面的守卫。
 - Designer：主题资源解析、内部/外置命令栏、配置项固定值/变量切换与常量保留、实例级和流程感知动态 Descriptor 刷新、祖先与入口变量候选范围、全局变量分组、类型过滤、失效 Selector 保留、有序字段映射增删排序、属性草稿应用/重置/校验/三种未保存决策、只读控件状态、节点库四字段搜索与折叠恢复、拖拽、卡片外侧短条端口锚点、无三角箭头的贝塞尔连线末端、缩略图视野换算与边界限制、DPI 像素对齐平移，以及工具栏不再暴露调试命令。
@@ -53,7 +53,7 @@ Runtime 测试至少覆盖：
 - `TimeoutMs = 0` 继承全局超时，正数覆盖全局超时。
 - 重试等待期间取消时不再启动下一次尝试，发布 `NodeCancelled`，FlowRun 终态为 `Cancelled`。
 - 超时尝试即使延迟响应取消，也必须退出后才开始重试，确保 `MaxConcurrentExecutions` 不被旧尝试穿透。
-- `StopFlow` 使 FlowRun 失败；`ErrorBranch` 沿失败端口或 `Error` 端口继续；`DefaultOutputs` 写出声明值后从 `Next` 继续。
+- `StopBranch` 截断当前分支并在兄弟分支收敛后使 FlowRun 失败；`ErrorBranch` 沿失败端口或 `Error` 端口继续；`DefaultOutputs` 写出声明值后从 `Next` 继续。
 - `NodeStarted`、`NodeRetrying`、`NodeFailed`、`NodeTimeout`、`NodeRecovered` 与 `NodeCancelled` 的事件顺序，以及 `Attempt` 从 1 开始、`FailureKind` 和 `FailureStrategy` 的数据语义。
 
 ## 就绪队列调度验收
@@ -62,7 +62,7 @@ Runtime 测试至少覆盖：
 
 - `FanOutMode.Sequential` 按出边定义顺序处理同批就绪节点，每个节点完成后再取下一个节点。
 - `FanOutMode.Parallel` 在 `MaxDegreeOfParallelism >= 2` 时允许两个兄弟分支真实重叠执行。
-- 并行分支发生 `StopFlow` 失败时，Runtime 取消并等待协作式兄弟分支退出。
+- 并行分支发生 `StopBranch` 失败时，Runtime 保留兄弟分支并等待其正常完成。
 - 多分支 fan-in 只有在所有入边都由 `Unknown` 解析为 `Taken` 或 `Skipped` 后才就绪，并且每次激活只执行一次。
 - 条件节点未选中的输出端口标记为 `Skipped`；skip 可以穿过未执行节点继续传播，使下游汇聚不被永久阻塞。
 - IF 条件节点覆盖六种数值比较操作符、`Int32` / `Int64` / `Double` 混合比较、区分大小写字符串比较、左值强制变量绑定、两侧类型校验以及枚举固定值下拉候选。
@@ -78,7 +78,7 @@ Runtime 测试至少覆盖：
 序列化与发布测试至少覆盖：
 
 - 生产 JSON 始终包含 `ExecutionPolicy`、嵌套 `RetryPolicy`、`FailureStrategy` 与 `DefaultOutputs`，非默认值可以完成设计态和运行态 round-trip。
-- v2 JSON 缺失或显式写入 `null` 的节点策略时回落默认值；`DefaultOutputs` 反序列化及发布克隆后仍按大小写不敏感查找。
+- v3 JSON 缺失或显式写入 `null` 的节点策略时回落默认值；`DefaultOutputs` 反序列化及发布克隆后仍按大小写不敏感查找。
 - 非法超时、并发数、重试次数或重试间隔产生 `NodeExecutionPolicyInvalid`。
 - `ErrorBranch` 缺少 `Error` 控制输出端口时产生 `NodeErrorPortMissing`。
 - `DefaultOutputs` 缺键、多键或值类型不兼容时产生 `NodeDefaultOutputInvalid`。

@@ -99,7 +99,7 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task DynamicDescriptorSettingsKeepSchemaV2Serialization()
+        public static Task DynamicDescriptorSettingsKeepSchemaV3Serialization()
         {
             var runtime = CreateDynamicFlow("Beta", includeCommandInput: true);
             runtime.Nodes[1].Settings["Message"] =
@@ -107,7 +107,7 @@ namespace Vision.Flow.Tests
             var runtimeJson = RuntimeFlowSerializer.Serialize(runtime);
             var restoredRuntime = RuntimeFlowSerializer.Deserialize(runtimeJson);
 
-            AssertEx.Equal(FlowSchema.CurrentVersion, restoredRuntime.SchemaVersion, "Runtime schema should remain v2.");
+            AssertEx.Equal(FlowSchema.CurrentVersion, restoredRuntime.SchemaVersion, "Runtime schema should remain v3.");
             AssertEx.False(
                 runtimeJson.IndexOf("AffectsDescriptor", StringComparison.OrdinalIgnoreCase) >= 0,
                 "Runtime files must not persist descriptor metadata.");
@@ -133,7 +133,7 @@ namespace Vision.Flow.Tests
             };
             var designJson = FlowDesignSerializer.Serialize(design);
             var restoredDesign = FlowDesignSerializer.Deserialize(designJson);
-            AssertEx.Equal(FlowSchema.CurrentVersion, restoredDesign.SchemaVersion, "Design schema should remain v2.");
+            AssertEx.Equal(FlowSchema.CurrentVersion, restoredDesign.SchemaVersion, "Design schema should remain v3.");
             AssertEx.False(
                 designJson.IndexOf("AffectsDescriptor", StringComparison.OrdinalIgnoreCase) >= 0,
                 "Design files must not persist descriptor metadata.");

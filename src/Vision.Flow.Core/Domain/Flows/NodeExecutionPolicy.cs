@@ -13,7 +13,7 @@ namespace Vision.Flow.Core.Domain.Flows
             TimeoutMs = 0;
             MaxConcurrentExecutions = 1;
             RetryPolicy = new RetryPolicy();
-            FailureStrategy = FailureStrategy.StopFlow;
+            FailureStrategy = FailureStrategy.StopBranch;
             DefaultOutputs = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -76,7 +76,7 @@ namespace Vision.Flow.Core.Domain.Flows
     /// </summary>
     public enum FailureStrategy
     {
-        StopFlow = 0,
+        StopBranch = 0,
         ErrorBranch = 1,
         DefaultOutputs = 2
     }

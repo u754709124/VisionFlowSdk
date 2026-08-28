@@ -73,7 +73,7 @@ namespace Vision.Flow.Tests
             await runner.StopAsync().ConfigureAwait(false);
         }
 
-        public static async Task ParallelStopFlowCancelsSiblingBranch()
+        public static async Task ParallelStopBranchPreservesSiblingBranch()
         {
             var probe = new ParallelFailureProbe();
             var flow = new RuntimeFlowDefinition
@@ -105,9 +105,53 @@ namespace Vision.Flow.Tests
             var result = await runner.TriggerAsync(TestTriggerRequests.Manual("ManualStart", new FlowToken())).ConfigureAwait(false);
 
             AssertEx.Equal(FlowRunStatus.Failed, result.Status,
-                "A StopFlow failure in one parallel branch should fail the FlowRun.");
-            AssertEx.True(probe.SiblingCancelled,
-                "A StopFlow failure should cancel and drain a cooperative sibling branch.");
+                "A StopBranch failure in one parallel branch should fail the FlowRun after siblings settle.");
+            AssertEx.True(probe.SiblingCompleted,
+                "A StopBranch failure must allow a sibling branch to complete.");
+            AssertEx.False(probe.SiblingCancelled,
+                "A StopBranch failure must not cancel a cooperative sibling branch.");
+            await runner.StopAsync().ConfigureAwait(false);
+        }
+
+        public static async Task ParallelMissingErrorBranchPreservesSiblingBranch()
+        {
+            var probe = new ParallelFailureProbe();
+            var flow = new RuntimeFlowDefinition
+            {
+                FlowId = "ready-queue-parallel-missing-error",
+                FlowName = "Parallel missing Error route",
+                Version = "3.0.0"
+            };
+            flow.Nodes.Add(CreateFailureProbeNode("A"));
+            var failing = CreateFailureProbeNode("B");
+            failing.ExecutionPolicy.FailureStrategy = FailureStrategy.ErrorBranch;
+            flow.Nodes.Add(failing);
+            flow.Nodes.Add(CreateFailureProbeNode("C"));
+            flow.Edges.Add(CreateEdge("A", FlowPortNames.Next, "B"));
+            flow.Edges.Add(CreateEdge("A", FlowPortNames.Next, "C"));
+            AddManualEntry(flow, "A");
+
+            var registry = new NodeRegistry();
+            registry.Register(new ParallelFailureNodeFactory(probe));
+            var runner = new FlowEngine(
+                registry,
+                new InMemoryFlowEventSink(),
+                null,
+                new FlowExecutionOptions
+                {
+                    FanOutMode = FlowFanOutMode.Parallel,
+                    MaxDegreeOfParallelism = 2
+                }).CreateRunner(flow);
+
+            await runner.StartAsync().ConfigureAwait(false);
+            var result = await runner.TriggerAsync(TestTriggerRequests.Manual("ManualStart", new FlowToken())).ConfigureAwait(false);
+
+            AssertEx.Equal(FlowRunStatus.Failed, result.Status,
+                "An ErrorBranch without a connected Error route should fail after siblings settle.");
+            AssertEx.True(probe.SiblingCompleted,
+                "A missing Error route must allow a sibling branch to complete.");
+            AssertEx.False(probe.SiblingCancelled,
+                "A missing Error route must not cancel a cooperative sibling branch.");
             await runner.StopAsync().ConfigureAwait(false);
         }
 
@@ -460,6 +504,8 @@ namespace Vision.Flow.Tests
 
         public bool SiblingCancelled { get; private set; }
 
+        public bool SiblingCompleted { get; private set; }
+
         public async Task<NodeExecutionResult> FailAfterSiblingStartsAsync(CancellationToken cancellationToken)
         {
             await _siblingStarted.Task.ConfigureAwait(false);
@@ -472,7 +518,8 @@ namespace Vision.Flow.Tests
             _siblingStarted.TrySetResult(true);
             try
             {
-                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(50, cancellationToken).ConfigureAwait(false);
+                SiblingCompleted = true;
                 return NodeExecutionResult.Success();
             }
             catch (OperationCanceledException)
