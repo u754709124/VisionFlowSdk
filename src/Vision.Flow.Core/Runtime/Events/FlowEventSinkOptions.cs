@@ -47,8 +47,8 @@ namespace Vision.Flow.Core.Runtime.Events
         public int MaxCollectionItems { get; set; } = 32;
 
         /// <summary>
-        /// 获取或设置嵌套事件数据允许展开的最大深度。
+        /// 获取或设置嵌套事件数据允许展开的最大深度，默认值为 5 层，与调试查看器保持一致。
         /// </summary>
-        public int MaxDataDepth { get; set; } = 3;
+        public int MaxDataDepth { get; set; } = 5;
     }
 }

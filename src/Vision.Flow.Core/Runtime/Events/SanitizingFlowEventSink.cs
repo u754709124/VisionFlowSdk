@@ -92,6 +92,29 @@ namespace Vision.Flow.Core.Runtime.Events
                 return Truncate(text);
             }
 
+            var existingSummary = value as FlowRuntimeValueSummary;
+            if (existingSummary != null)
+            {
+                return new FlowRuntimeValueSummary
+                {
+                    TypeName = existingSummary.TypeName,
+                    Description = Truncate(existingSummary.Description),
+                    Size = existingSummary.Size,
+                    IsResource = existingSummary.IsResource
+                };
+            }
+
+            var existingUnevaluated = value as FlowRuntimeUnevaluatedValue;
+            if (existingUnevaluated != null)
+            {
+                return new FlowRuntimeUnevaluatedValue
+                {
+                    TypeName = existingUnevaluated.TypeName,
+                    Reason = existingUnevaluated.Reason,
+                    IsResource = existingUnevaluated.IsResource
+                };
+            }
+
             var image = value as IVisionImage;
             if (image != null)
             {
@@ -109,17 +132,6 @@ namespace Vision.Flow.Core.Runtime.Events
                 };
             }
 
-            var frame = value as CameraFrameData;
-            if (frame != null)
-            {
-                return new FlowRuntimeValueSummary
-                {
-                    TypeName = value.GetType().FullName,
-                    Description = "CameraId=" + frame.CameraId + ", CaptureFrameId=" + frame.CaptureFrameId,
-                    IsResource = frame.Image != null
-                };
-            }
-
             var bytes = value as byte[];
             if (bytes != null)
             {
@@ -132,9 +144,9 @@ namespace Vision.Flow.Core.Runtime.Events
                 };
             }
 
-            if (value is IDisposable)
+            if (IsHTupleType(value.GetType()))
             {
-                return CreateOpaqueSummary(value, true, null);
+                return CreateUnevaluatedValue(value.GetType());
             }
 
             if (depth >= Math.Max(0, _options.MaxDataDepth))
@@ -164,23 +176,14 @@ namespace Vision.Flow.Core.Runtime.Events
         private object CreateStructuredSnapshot(object value, int depth, ISet<object> ancestors)
         {
 
-            var dictionary = value as IDictionary;
-            if (dictionary != null)
+            object dictionarySnapshot;
+            if (TryCreateDictionarySnapshot(
+                value,
+                depth,
+                ancestors,
+                out dictionarySnapshot))
             {
-                var copy = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-                var count = 0;
-                foreach (DictionaryEntry entry in dictionary)
-                {
-                    if (count++ >= Math.Max(0, _options.MaxCollectionItems))
-                    {
-                        break;
-                    }
-
-                    copy[Convert.ToString(entry.Key, CultureInfo.InvariantCulture)] =
-                        CreateValueSnapshot(entry.Value, depth + 1, ancestors);
-                }
-
-                return copy;
+                return dictionarySnapshot;
             }
 
             var enumerable = value as IEnumerable;
@@ -201,6 +204,59 @@ namespace Vision.Flow.Core.Runtime.Events
             }
 
             return CreateObjectSnapshot(value, depth, ancestors);
+        }
+
+        private bool TryCreateDictionarySnapshot(
+            object value,
+            int depth,
+            ISet<object> ancestors,
+            out object result)
+        {
+            var copy = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            var dictionary = value as IDictionary;
+            if (dictionary != null)
+            {
+                int count = 0;
+                foreach (DictionaryEntry entry in dictionary)
+                {
+                    if (count++ >= Math.Max(0, _options.MaxCollectionItems))
+                        break;
+                    copy[Convert.ToString(entry.Key, CultureInfo.InvariantCulture)] =
+                        CreateValueSnapshot(entry.Value, depth + 1, ancestors);
+                }
+                result = copy;
+                return true;
+            }
+
+            bool isGenericDictionary = value.GetType()
+                .GetInterfaces()
+                .Where(x => x.IsGenericType)
+                .Select(x => x.GetGenericTypeDefinition().FullName)
+                .Any(x => string.Equals(x, "System.Collections.Generic.IDictionary`2", StringComparison.Ordinal) ||
+                    string.Equals(x, "System.Collections.Generic.IReadOnlyDictionary`2", StringComparison.Ordinal));
+            if (!isGenericDictionary)
+            {
+                result = null;
+                return false;
+            }
+
+            int itemCount = 0;
+            foreach (object entry in (IEnumerable)value)
+            {
+                if (itemCount++ >= Math.Max(0, _options.MaxCollectionItems))
+                    break;
+                Type entryType = entry.GetType();
+                PropertyInfo keyProperty = entryType.GetProperty("Key");
+                PropertyInfo valueProperty = entryType.GetProperty("Value");
+                if (keyProperty == null || valueProperty == null)
+                    continue;
+                object key = keyProperty.GetValue(entry, null);
+                object entryValue = valueProperty.GetValue(entry, null);
+                copy[Convert.ToString(key, CultureInfo.InvariantCulture)] =
+                    CreateValueSnapshot(entryValue, depth + 1, ancestors);
+            }
+            result = copy;
+            return true;
         }
 
         private object CreateObjectSnapshot(object value, int depth, ISet<object> ancestors)
@@ -243,14 +299,24 @@ namespace Vision.Flow.Core.Runtime.Events
                 snapshot[member.Name] = ReadMemberSnapshot(value, member, depth, ancestors);
             }
 
-            return snapshot;
+            return new FlowRuntimeObjectSnapshot
+            {
+                TypeName = type.FullName,
+                IsResource = value is IDisposable,
+                Members = snapshot
+            };
         }
 
         private object ReadMemberSnapshot(object instance, MemberInfo member, int depth, ISet<object> ancestors)
         {
+            var property = member as PropertyInfo;
+            if (property != null && IsHTupleType(property.PropertyType))
+            {
+                return CreateUnevaluatedValue(property.PropertyType);
+            }
+
             try
             {
-                var property = member as PropertyInfo;
                 object value = property != null
                     ? property.GetValue(instance, null)
                     : ((FieldInfo)member).GetValue(instance);
@@ -263,6 +329,24 @@ namespace Vision.Flow.Core.Runtime.Events
                     : exception;
                 return Truncate("<读取失败: " + actual.GetType().Name + ">");
             }
+        }
+
+        private static FlowRuntimeUnevaluatedValue CreateUnevaluatedValue(Type type)
+        {
+            return new FlowRuntimeUnevaluatedValue
+            {
+                TypeName = type.FullName ?? type.Name,
+                Reason = "HTupleNotEvaluated",
+                IsResource = typeof(IDisposable).IsAssignableFrom(type)
+            };
+        }
+
+        private static bool IsHTupleType(Type type)
+        {
+            return type != null && string.Equals(
+                type.FullName,
+                "HalconDotNet.HTuple",
+                StringComparison.Ordinal);
         }
 
         private static PropertyInfo[] GetPublicProperties(Type type)

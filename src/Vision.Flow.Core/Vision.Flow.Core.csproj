@@ -122,6 +122,8 @@
     <Compile Include="Runtime\Events\FlowEventSinkOptions.cs" />
     <Compile Include="Runtime\Events\FlowRuntimeEvent.cs" />
     <Compile Include="Runtime\Events\FlowRuntimeEventType.cs" />
+    <Compile Include="Runtime\Events\FlowRuntimeObjectSnapshot.cs" />
+    <Compile Include="Runtime\Events\FlowRuntimeUnevaluatedValue.cs" />
     <Compile Include="Runtime\Events\FlowRuntimeValueSummary.cs" />
     <Compile Include="Runtime\Events\IFlowEventSink.cs" />
     <Compile Include="Runtime\Events\InMemoryFlowEventSink.cs" />
