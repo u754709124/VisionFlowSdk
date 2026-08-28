@@ -2,6 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Vision.Flow.Core.Contracts.Devices;
@@ -62,13 +65,16 @@ namespace Vision.Flow.Core.Runtime.Events
 
             foreach (var pair in source.Data)
             {
-                snapshot.Data[pair.Key] = CreateValueSnapshot(pair.Value, 0);
+                snapshot.Data[pair.Key] = CreateValueSnapshot(
+                    pair.Value,
+                    0,
+                    new HashSet<object>(ReferenceEqualityComparer.Instance));
             }
 
             return snapshot;
         }
 
-        private object CreateValueSnapshot(object value, int depth)
+        private object CreateValueSnapshot(object value, int depth, ISet<object> ancestors)
         {
             if (value == null || value is bool || value is char ||
                 value is byte || value is sbyte || value is short || value is ushort ||
@@ -136,6 +142,28 @@ namespace Vision.Flow.Core.Runtime.Events
                 return CreateOpaqueSummary(value, false, null);
             }
 
+            bool tracksReference = !value.GetType().IsValueType;
+            if (tracksReference && !ancestors.Add(value))
+            {
+                return CreateOpaqueSummary(value, false, null, "Cyclic reference");
+            }
+
+            try
+            {
+                return CreateStructuredSnapshot(value, depth, ancestors);
+            }
+            finally
+            {
+                if (tracksReference)
+                {
+                    ancestors.Remove(value);
+                }
+            }
+        }
+
+        private object CreateStructuredSnapshot(object value, int depth, ISet<object> ancestors)
+        {
+
             var dictionary = value as IDictionary;
             if (dictionary != null)
             {
@@ -149,7 +177,7 @@ namespace Vision.Flow.Core.Runtime.Events
                     }
 
                     copy[Convert.ToString(entry.Key, CultureInfo.InvariantCulture)] =
-                        CreateValueSnapshot(entry.Value, depth + 1);
+                        CreateValueSnapshot(entry.Value, depth + 1, ancestors);
                 }
 
                 return copy;
@@ -166,21 +194,127 @@ namespace Vision.Flow.Core.Runtime.Events
                         break;
                     }
 
-                    copy.Add(CreateValueSnapshot(item, depth + 1));
+                    copy.Add(CreateValueSnapshot(item, depth + 1, ancestors));
                 }
 
                 return copy;
             }
 
-            return CreateOpaqueSummary(value, false, null);
+            return CreateObjectSnapshot(value, depth, ancestors);
         }
 
-        private static FlowRuntimeValueSummary CreateOpaqueSummary(object value, bool isResource, long? size)
+        private object CreateObjectSnapshot(object value, int depth, ISet<object> ancestors)
+        {
+            Type type = value.GetType();
+            PropertyInfo[] properties = GetPublicProperties(type)
+                .Where(x => x.GetIndexParameters().Length == 0 && x.GetGetMethod(false) != null)
+                .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x
+                    .OrderBy(property => GetInheritanceDistance(type, property.DeclaringType))
+                    .ThenBy(property => property.Name, StringComparer.Ordinal)
+                    .First())
+                .ToArray();
+            var propertyNames = new HashSet<string>(
+                properties.Select(x => x.Name),
+                StringComparer.OrdinalIgnoreCase);
+            FieldInfo[] fields = GetPublicFields(type)
+                .Where(x => !propertyNames.Contains(x.Name))
+                .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x
+                    .OrderBy(field => GetInheritanceDistance(type, field.DeclaringType))
+                    .ThenBy(field => field.Name, StringComparer.Ordinal)
+                    .First())
+                .ToArray();
+            MemberInfo[] members = properties
+                .Cast<MemberInfo>()
+                .Concat(fields)
+                .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(x => x.Name, StringComparer.Ordinal)
+                .ToArray();
+            if (members.Length == 0)
+            {
+                return CreateOpaqueSummary(value, false, null);
+            }
+
+            var snapshot = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            int maximumMembers = Math.Max(0, _options.MaxCollectionItems);
+            foreach (MemberInfo member in members.Take(maximumMembers))
+            {
+                snapshot[member.Name] = ReadMemberSnapshot(value, member, depth, ancestors);
+            }
+
+            return snapshot;
+        }
+
+        private object ReadMemberSnapshot(object instance, MemberInfo member, int depth, ISet<object> ancestors)
+        {
+            try
+            {
+                var property = member as PropertyInfo;
+                object value = property != null
+                    ? property.GetValue(instance, null)
+                    : ((FieldInfo)member).GetValue(instance);
+                return CreateValueSnapshot(value, depth + 1, ancestors);
+            }
+            catch (Exception exception)
+            {
+                Exception actual = exception is TargetInvocationException && exception.InnerException != null
+                    ? exception.InnerException
+                    : exception;
+                return Truncate("<读取失败: " + actual.GetType().Name + ">");
+            }
+        }
+
+        private static PropertyInfo[] GetPublicProperties(Type type)
+        {
+            try
+            {
+                return type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+            }
+            catch
+            {
+                return new PropertyInfo[0];
+            }
+        }
+
+        private static FieldInfo[] GetPublicFields(Type type)
+        {
+            try
+            {
+                return type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+            }
+            catch
+            {
+                return new FieldInfo[0];
+            }
+        }
+
+        private static int GetInheritanceDistance(Type runtimeType, Type declaringType)
+        {
+            int distance = 0;
+            for (Type current = runtimeType; current != null; current = current.BaseType)
+            {
+                if (current == declaringType)
+                {
+                    return distance;
+                }
+
+                distance++;
+            }
+
+            return int.MaxValue;
+        }
+
+        private static FlowRuntimeValueSummary CreateOpaqueSummary(
+            object value,
+            bool isResource,
+            long? size,
+            string description = null)
         {
             return new FlowRuntimeValueSummary
             {
                 TypeName = value.GetType().FullName,
-                Description = isResource ? "Disposable resource" : "Opaque runtime value",
+                Description = description ?? (isResource ? "Disposable resource" : "Opaque runtime value"),
                 Size = size,
                 IsResource = isResource
             };
@@ -194,6 +328,21 @@ namespace Vision.Flow.Core.Runtime.Events
             }
 
             return value.Substring(0, Math.Max(0, _options.MaxStringLength));
+        }
+
+        private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
+        {
+            internal static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();
+
+            public new bool Equals(object left, object right)
+            {
+                return ReferenceEquals(left, right);
+            }
+
+            public int GetHashCode(object value)
+            {
+                return RuntimeHelpers.GetHashCode(value);
+            }
         }
     }
 }

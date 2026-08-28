@@ -60,6 +60,106 @@ namespace Vision.Flow.Tests
         }
 
         /// <summary>
+        /// 验证普通对象按公开实例成员形成独立快照，同时隔离异常 getter、循环引用和资源成员。
+        /// </summary>
+        public static async Task SanitizerCapturesPublicObjectMembersSafely()
+        {
+            var inner = new InMemoryFlowEventSink(16);
+            var sink = new SanitizingFlowEventSink(
+                inner,
+                new FlowEventSinkOptions
+                {
+                    MaxDataDepth = 4,
+                    MaxCollectionItems = 16,
+                    MaxStringLength = 64
+                });
+            var source = new DerivedSnapshotProbe
+            {
+                Name = "property-value",
+                Inherited = "inherited-value",
+                PublicField = 42,
+                Nested = new NestedSnapshotProbe { Enabled = true },
+                Resource = new DisposableSnapshotProbe()
+            };
+            source.Self = source;
+
+            await sink.PublishAsync(
+                new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.OutputProduced,
+                    Data = { { FlowRuntimeDataKeys.Value, source } }
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            var snapshot = inner.Events.Single().Data[FlowRuntimeDataKeys.Value] as IDictionary<string, object>;
+            AssertEx.True(snapshot != null, "Ordinary objects must become structured member snapshots.");
+            AssertEx.Equal("property-value", Convert.ToString(snapshot["Name"]), "A public property must win over an inherited field with the same name.");
+            AssertEx.Equal("inherited-value", Convert.ToString(snapshot["Inherited"]), "Inherited public members must be captured.");
+            AssertEx.Equal(42, Convert.ToInt32(snapshot["PublicField"]), "Public fields must be captured.");
+            AssertEx.False(snapshot.ContainsKey("PrivateValue"), "Private members must not be captured.");
+            AssertEx.False(snapshot.ContainsKey("StaticValue"), "Static members must not be captured.");
+            AssertEx.False(snapshot.ContainsKey("Item"), "Indexer properties must not be captured.");
+            AssertEx.True(Convert.ToString(snapshot["Throwing"]).StartsWith("<读取失败: InvalidOperationException>"), "A failing getter must become a stable placeholder.");
+            AssertEx.True(snapshot["Self"] is FlowRuntimeValueSummary, "A cyclic reference must become a summary.");
+            AssertEx.True(snapshot["Resource"] is FlowRuntimeValueSummary, "A disposable child must remain a resource summary.");
+            var nested = snapshot["Nested"] as IDictionary<string, object>;
+            AssertEx.True(nested != null && Convert.ToBoolean(nested["Enabled"]), "Nested ordinary objects must remain expandable.");
+        }
+
+        /// <summary>
+        /// 验证对象成员快照复用集合数量与递归深度上限。
+        /// </summary>
+        public static async Task SanitizerAppliesObjectMemberLimits()
+        {
+            var memberInner = new InMemoryFlowEventSink(16);
+            var memberSink = new SanitizingFlowEventSink(
+                memberInner,
+                new FlowEventSinkOptions
+                {
+                    MaxDataDepth = 4,
+                    MaxCollectionItems = 2
+                });
+            var source = new DerivedSnapshotProbe
+            {
+                Name = "name",
+                Inherited = "inherited",
+                PublicField = 7,
+                Nested = new NestedSnapshotProbe { Enabled = true }
+            };
+
+            await memberSink.PublishAsync(
+                new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.OutputProduced,
+                    Data = { { FlowRuntimeDataKeys.Value, source } }
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            var memberSnapshot = memberInner.Events.Single().Data[FlowRuntimeDataKeys.Value] as IDictionary<string, object>;
+            AssertEx.True(memberSnapshot != null, "The root object must still be structured within the configured depth.");
+            AssertEx.Equal(2, memberSnapshot.Count, "MaxCollectionItems must cap public object members.");
+
+            var depthInner = new InMemoryFlowEventSink(16);
+            var depthSink = new SanitizingFlowEventSink(
+                depthInner,
+                new FlowEventSinkOptions
+                {
+                    MaxDataDepth = 1,
+                    MaxCollectionItems = 16
+                });
+            await depthSink.PublishAsync(
+                new FlowRuntimeEvent
+                {
+                    EventType = FlowRuntimeEventType.OutputProduced,
+                    Data = { { FlowRuntimeDataKeys.Value, source } }
+                },
+                CancellationToken.None).ConfigureAwait(false);
+
+            var depthSnapshot = depthInner.Events.Single().Data[FlowRuntimeDataKeys.Value] as IDictionary<string, object>;
+            AssertEx.True(depthSnapshot != null && depthSnapshot["Nested"] is FlowRuntimeValueSummary, "Nested objects at the configured depth boundary must become summaries.");
+        }
+
+        /// <summary>
         /// 验证十万条遥测压力下队列保持有界，且关键终态通过背压送达而不被丢弃。
         /// </summary>
         public static async Task BoundedSinkContainsTelemetryPressure()
@@ -148,6 +248,46 @@ namespace Vision.Flow.Tests
             public void Release()
             {
                 _release.TrySetResult(null);
+            }
+        }
+
+        private class BaseSnapshotProbe
+        {
+            public string Name = "base-field";
+
+            public string Inherited { get; set; }
+
+            public static string StaticValue { get { return "static"; } }
+
+            private string PrivateValue { get { return "private"; } }
+
+            public string this[int index] { get { return index.ToString(); } }
+        }
+
+        private sealed class DerivedSnapshotProbe : BaseSnapshotProbe
+        {
+            public new string Name { get; set; }
+
+            public int PublicField;
+
+            public NestedSnapshotProbe Nested { get; set; }
+
+            public DerivedSnapshotProbe Self { get; set; }
+
+            public IDisposable Resource { get; set; }
+
+            public string Throwing { get { throw new InvalidOperationException("probe"); } }
+        }
+
+        private sealed class NestedSnapshotProbe
+        {
+            public bool Enabled { get; set; }
+        }
+
+        private sealed class DisposableSnapshotProbe : IDisposable
+        {
+            public void Dispose()
+            {
             }
         }
     }

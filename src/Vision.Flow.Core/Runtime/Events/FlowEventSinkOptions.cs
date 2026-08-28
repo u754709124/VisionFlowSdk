@@ -42,7 +42,7 @@ namespace Vision.Flow.Core.Runtime.Events
         public int MaxStringLength { get; set; } = 512;
 
         /// <summary>
-        /// 获取或设置字典或集合快照允许保留的最大元素数。
+        /// 获取或设置字典、集合或普通对象快照允许保留的最大元素或公开成员数。
         /// </summary>
         public int MaxCollectionItems { get; set; } = 32;
 
