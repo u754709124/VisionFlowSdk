@@ -392,7 +392,7 @@ namespace Vision.Flow.Core.Runtime.Engine
             var failureKind = NormalizeFailureKind(failure);
             var strategy = Enum.IsDefined(typeof(FailureStrategy), policy.FailureStrategy)
                 ? policy.FailureStrategy
-                : FailureStrategy.StopFlow;
+                : FailureStrategy.StopBranch;
 
             if (strategy == FailureStrategy.ErrorBranch)
             {
@@ -404,6 +404,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                     throw CreateExecutionFailedException(node, failure, failureKind, "ErrorBranch has no connected output edge.");
                 }
 
+                await WriteOutputsAsync(node, token, failure, variables, cancellationToken, flowRunId).ConfigureAwait(false);
                 await PublishRecoveredAsync(
                     node,
                     token,
@@ -486,6 +487,11 @@ namespace Vision.Flow.Core.Runtime.Engine
             runtimeEvent.Data[FlowRuntimeDataKeys.Attempt] = Math.Max(1, attempt);
             runtimeEvent.Data[FlowRuntimeDataKeys.FailureKind] = NormalizeFailureKind(result).ToString();
             runtimeEvent.Data[FlowRuntimeDataKeys.FailureStrategy] = failureStrategy.ToString();
+            var failurePort = string.IsNullOrWhiteSpace(result.OutputPort)
+                ? FlowPortNames.Error
+                : result.OutputPort;
+            runtimeEvent.Data[FlowRuntimeDataKeys.FailureRouteAvailable] =
+                _plan.GetOutgoingEdges(node.Id, failurePort).Count > 0;
             await PublishAsync(runtimeEvent, cancellationToken).ConfigureAwait(false);
         }
 

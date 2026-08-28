@@ -101,22 +101,35 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
-        public static Task DesignV1IsRejected()
+        public static Task DesignV2IsRejected()
         {
-            var json = "{\"FlowId\":\"legacy-design\",\"FlowName\":\"Legacy Design\",\"SchemaVersion\":1,\"Runtime\":{\"FlowId\":\"legacy-design\",\"FlowName\":\"Legacy Design\",\"SchemaVersion\":1,\"Nodes\":[],\"Edges\":[],\"Entries\":[]},\"View\":{\"Zoom\":1,\"OffsetX\":0,\"OffsetY\":0,\"Nodes\":{}}}";
+            var json = "{\"FlowId\":\"legacy-design\",\"FlowName\":\"Legacy Design\",\"SchemaVersion\":2,\"Runtime\":{\"FlowId\":\"legacy-design\",\"FlowName\":\"Legacy Design\",\"SchemaVersion\":2,\"Nodes\":[],\"Edges\":[],\"Entries\":[]},\"View\":{\"Zoom\":1,\"OffsetX\":0,\"OffsetY\":0,\"Nodes\":{}}}";
 
             AssertEx.Throws<UnsupportedFlowSchemaVersionException>(
                 () => FlowDesignSerializer.Deserialize(json),
-                "V1 design files should be rejected explicitly.");
+                "V2 design files should be rejected explicitly.");
             return Task.FromResult(0);
         }
 
-        public static Task RuntimeV1IsRejected()
+        public static Task RuntimeV2IsRejected()
         {
-            var json = "{\"FlowId\":\"legacy-runtime\",\"SchemaVersion\":1,\"Nodes\":[],\"Edges\":[],\"Entries\":[]}";
+            var json = "{\"FlowId\":\"legacy-runtime\",\"SchemaVersion\":2,\"Nodes\":[],\"Edges\":[],\"Entries\":[]}";
             AssertEx.Throws<UnsupportedFlowSchemaVersionException>(
                 () => RuntimeFlowSerializer.Deserialize(json),
-                "V1 runtime files should be rejected explicitly.");
+                "V2 runtime files should be rejected explicitly.");
+            return Task.FromResult(0);
+        }
+
+        public static Task StopFlowStrategyIsRejected()
+        {
+            var runtime = CreateSampleRuntime();
+            runtime.Nodes[0].ExecutionPolicy.FailureStrategy = FailureStrategy.StopBranch;
+            var json = RuntimeFlowSerializer.Serialize(runtime)
+                .Replace("\"FailureStrategy\":\"StopBranch\"", "\"FailureStrategy\":\"StopFlow\"");
+
+            AssertEx.Throws<InvalidOperationException>(
+                () => RuntimeFlowSerializer.Deserialize(json),
+                "Removed StopFlow wire values must be rejected instead of migrated.");
             return Task.FromResult(0);
         }
 

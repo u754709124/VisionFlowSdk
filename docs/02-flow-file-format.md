@@ -1,8 +1,8 @@
 # 02 - Flow File Format
 
-## Schema v2
+## Schema v3
 
-当前开发版本只支持 `SchemaVersion = 2`。`.flowdesign` 和 `.flowruntime` 缺少版本号或版本号不是 2 时，反序列化器抛出 `UnsupportedFlowSchemaVersionException`；SDK 不提供 v1 迁移或兼容读取。
+当前开发版本只支持 `SchemaVersion = 3`。`.flowdesign` 和 `.flowruntime` 缺少版本号或版本号不是 3 时，反序列化器抛出 `UnsupportedFlowSchemaVersionException`；SDK 不提供旧版本迁移或兼容读取。
 
 ## 文件类型
 
@@ -43,7 +43,7 @@
 }
 ```
 
-节点的端口、配置项和输出定义仍由注册工厂的 Descriptor 提供，不写入流程文件。动态节点可以把命令、模式等稳定选择保存为普通 `NodeSettingValue`，再由工厂根据反序列化后的 `NodeDefinition` 重新生成实例 Descriptor。`AffectsDescriptor` 等 Descriptor 元数据不进入 `.flowdesign` 或 `.flowruntime`，Schema 版本仍为 v2。
+节点的端口、配置项和输出定义仍由注册工厂的 Descriptor 提供，不写入流程文件。动态节点可以把命令、模式等稳定选择保存为普通 `NodeSettingValue`，再由工厂根据反序列化后的 `NodeDefinition` 重新生成实例 Descriptor。`AffectsDescriptor` 等 Descriptor 元数据不进入 `.flowdesign` 或 `.flowruntime`，Schema 版本仍为 v3。
 
 选择器范围：
 
@@ -134,7 +134,7 @@
   -> .flowruntime
 ```
 
-`FlowPublishService.PublishToFile(document, path)` 是设计态文件落盘为生产运行文件的统一入口：它先按 Schema v2 创建独立运行态快照并完成全部校验，仅在校验成功后写入扩展名为 `.flowruntime` 的目标文件。校验失败时返回 `FlowPublishResult.Validation`，不会创建新文件，也不会覆盖已有运行文件。`FlowPublishResult.Runtime` 与输入设计文档不共享节点、配置值、变量选择器、执行策略或集合等可变对象。
+`FlowPublishService.PublishToFile(document, path)` 是设计态文件落盘为生产运行文件的统一入口：它先按 Schema v3 创建独立运行态快照并完成全部校验，仅在校验成功后写入扩展名为 `.flowruntime` 的目标文件。校验失败时返回 `FlowPublishResult.Validation`，不会创建新文件，也不会覆盖已有运行文件。`FlowPublishResult.Runtime` 与输入设计文档不共享节点、配置值、变量选择器、执行策略或集合等可变对象。
 
 变量输出按 `NodeId.OutputName` 写入运行时变量池。NodeOutput 选择器只能引用控制流拓扑中的前置节点输出；TriggerInput 选择器只能引用可达入口声明的输入；`Control` 类型不能绑定到配置项。类型兼容规则由 `FlowDataTypeCompatibility` 统一提供给 Validator 和 Designer。
 
@@ -158,16 +158,16 @@ Descriptor 可在 Object 类型的设置和输出上声明非序列化的 `Objec
 
 ## 环境变量
 
-Schema v2 的 `Runtime` 可包含 `EnvironmentVariables`。每项使用不可变 `Id`
+Schema v3 的 `Runtime` 可包含 `EnvironmentVariables`。每项使用不可变 `Id`
 作为流程协议标识，`Name` 仅用于用户界面，首期 `DataType` 只允许 `Int32`、
 `Boolean`、`String`，并要求提供类型匹配的 `DefaultValue`。节点配置通过
 `VariableSelectorScope.EnvironmentVariable` 和单段 `Path: [variableId]` 引用；
-改显示名称不会破坏绑定。发布会校验并深拷贝定义，旧的无环境变量 v2 文件继续按
+改显示名称不会破坏绑定。发布会校验并深拷贝定义，无环境变量的 v3 文件继续按
 空集合加载。
 
 ## Session 全局变量
 
-Schema v2 的 `Runtime.GlobalVariables` 是独立于只读环境变量的可变 Session 状态。
+Schema v3 的 `Runtime.GlobalVariables` 是独立于只读环境变量的可变 Session 状态。
 每项包含稳定且唯一的 `Id`、唯一显示名 `Name`、`DataType` 和非空
 `DefaultValue`；环境变量和 Session 全局变量均保持声明的 CLR 类型，不做字符串或数字间的隐式转换；
 类型只允许 `String`、`Int32`、`Boolean`、`DateTime`，其中 String 允许空字符串，

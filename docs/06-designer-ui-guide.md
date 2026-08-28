@@ -72,7 +72,7 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - `LoadDocumentAsync` 会解析未应用属性草稿并加载传入文档的深拷贝。
 - `ResetDocumentAsync` 创建不含示例节点的空白图，并使设计态和运行态使用相同的 `FlowId` / `FlowName`。
 - `CaptureDocument` 先同步已渲染节点坐标、缩放、画布尺寸和滚动偏移，再返回通过 `FlowDesignSerializer` 生成的深拷贝。
-- `PublishRuntimeFile` 只允许在编辑模式调用。它捕获当前文档，通过 `FlowPublishService` 完成 Schema v2 深拷贝和校验，并仅在成功时写入 `.flowruntime`；失败原因从返回值的 `Validation` 获取。
+- `PublishRuntimeFile` 只允许在编辑模式调用。它捕获当前文档，通过 `FlowPublishService` 完成 Schema v3 深拷贝和校验，并仅在成功时写入 `.flowruntime`；失败原因从返回值的 `Validation` 获取。
 - 宿主持有的输入文档和捕获结果都不会与控件内部文档共享可变对象。
 - `FlowDesignerOptions.ToolbarPlacement` 默认为 `Internal`。设为 `External` 后，`ToolbarView` 不再挂在设计器内部，宿主必须把这个单例元素放入自己的单层命令栏；关闭独立文件命令时，模式、入口列表和运行命令可在 300 px 分配宽度内完成布局。
 
@@ -149,7 +149,7 @@ Validator 只处理设计期常量，不读取其他配置项，也不在调试�
 
 - `TimeoutMs` 配置单次执行超时，`0` 表示继承流程全局超时；`MaxConcurrentExecutions` 限制同一节点实例的最大并发执行数。
 - 重试采用 Dify 风格的简化界面，默认关闭。开启后只编辑最大重试次数 `MaxRetries` 和固定重试间隔 `RetryIntervalMs`；节点卡片同步显示“重试 N 次 · M ms”中文摘要，关闭后隐藏摘要。
-- `StopFlow` 表示最终失败后停止本次运行；`ErrorBranch` 表示沿 `Error` 或 `Timeout` 控制端口继续，没有对应连线时本次流程失败。
+- `StopBranch` 表示最终失败后停止当前控制分支、保留并行兄弟分支；`ErrorBranch` 表示停止正常后继并沿 `Error` 或 `Timeout` 控制端口继续，没有对应连线时当前分支失败。
 - `DefaultOutputs` 根据 `NodeDescriptor.Outputs` 生成常量编辑器。String、Int32、Int64、Double、Boolean、DateTime 和 Object 会在写入 `NodeExecutionPolicy.DefaultOutputs` 前完成类型转换；Control、IVisionImage 和 CameraFrameData 等不能由界面创建的运行时对象会明确提示不支持。
 - 切换失败策略时保留已经填写的回退常量。
 

@@ -325,8 +325,8 @@ namespace Vision.Flow.Tests
                         StringComparison.Ordinal)),
                     "Default-output editors should be hidden outside DefaultOutputs mode.");
                 failureSelector.SelectedIndex = 0;
-                AssertEx.True(FindChildren<TextBlock>(policyPanel).Any(x => (x.Text ?? string.Empty).IndexOf("停止本次流程", StringComparison.Ordinal) >= 0),
-                    "StopFlow should explain that the current flow run stops.");
+                AssertEx.True(FindChildren<TextBlock>(policyPanel).Any(x => (x.Text ?? string.Empty).IndexOf("停止当前分支", StringComparison.Ordinal) >= 0),
+                    "StopBranch should explain that only the current branch stops.");
                 failureSelector.SelectedIndex = 2;
                 AssertEx.Equal("fallback", policyNode.ExecutionPolicy.DefaultOutputs["Result"],
                     "Switching failure modes should preserve existing fallback constants.");

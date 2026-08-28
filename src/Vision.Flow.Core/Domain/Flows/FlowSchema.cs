@@ -3,11 +3,11 @@ using System;
 namespace Vision.Flow.Core.Domain.Flows
 {
     /// <summary>
-    /// 流程文件结构版本入口；当前开发版本只接受 v2。
+    /// 流程文件结构版本入口；当前开发版本只接受 v3。
     /// </summary>
     public static class FlowSchema
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         public static void EnsureSupported(int schemaVersion)
         {

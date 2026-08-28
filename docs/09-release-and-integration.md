@@ -78,7 +78,7 @@ var publisher = new FlowPublishService(nodes);
 var result = publisher.PublishToFile(flowDesignDocument, @"C:\Flows\Station01.flowruntime");
 ```
 
-两种入口执行同一条发布链：Schema v2 检查、运行态深拷贝、`FlowValidator` 校验、移除设计器 ViewState、序列化 `.flowruntime`。校验失败不会创建或覆盖目标文件；目标路径必须使用 `.flowruntime` 扩展名。生产部署不应直接复制 `.flowdesign` 或从 Designer 内部对象读取运行定义。
+两种入口执行同一条发布链：Schema v3 检查、运行态深拷贝、`FlowValidator` 校验、移除设计器 ViewState、序列化 `.flowruntime`。校验失败不会创建或覆盖目标文件；目标路径必须使用 `.flowruntime` 扩展名。生产部署不应直接复制 `.flowdesign` 或从 Designer 内部对象读取运行定义。
 
 ## Runtime Wiring
 

@@ -35,7 +35,7 @@ namespace Vision.Flow.Core.Runtime.Execution
     }
 
     /// <summary>
-    /// StopFlow 策略终止当前流程运行时使用的异常，保留失败分类供宿主诊断。
+    /// 分支失败无法恢复时使用的异常；调度器会先让兄弟分支收敛，再以此异常结束 FlowRun。
     /// </summary>
     public sealed class NodeExecutionFailedException : Exception
     {

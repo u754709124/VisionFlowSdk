@@ -27,6 +27,9 @@ namespace Vision.Flow.Core.Runtime.Events
         public const string Attempt = "Attempt";
         public const string FailureKind = "FailureKind";
         public const string FailureStrategy = "FailureStrategy";
+
+        /// <summary>最终失败时所选失败输出端口是否存在可执行连线。</summary>
+        public const string FailureRouteAvailable = "FailureRouteAvailable";
         public const string Inputs = "Inputs";
         public const string SettingName = "SettingName";
         public const string SettingMode = "SettingMode";

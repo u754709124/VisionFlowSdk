@@ -23,7 +23,7 @@ namespace Vision.Flow.Tests
 
             var result = await RunAsync(harness).ConfigureAwait(false);
 
-            AssertEx.Equal(FlowRunStatus.Failed, result.Status, "StopFlow should fail the run.");
+            AssertEx.Equal(FlowRunStatus.Failed, result.Status, "StopBranch should fail the run.");
             AssertEx.Equal(1, harness.Factory.AttemptCount, "Retry is disabled by default, so the node should execute once.");
             AssertEx.False(harness.Sink.Events.Any(x => x.EventType == FlowRuntimeEventType.NodeRetrying),
                 "Retry-disabled nodes should not publish NodeRetrying.");
@@ -41,7 +41,7 @@ namespace Vision.Flow.Tests
             var result = await RunAsync(harness).ConfigureAwait(false);
             stopwatch.Stop();
 
-            AssertEx.Equal(FlowRunStatus.Failed, result.Status, "Exhausted retries should use StopFlow by default.");
+            AssertEx.Equal(FlowRunStatus.Failed, result.Status, "Exhausted retries should use StopBranch by default.");
             AssertEx.Equal(3, harness.Factory.AttemptCount, "MaxRetries excludes the first execution.");
             AssertEx.Equal(2, harness.Sink.Events.Count(x => x.EventType == FlowRuntimeEventType.NodeRetrying),
                 "Every scheduled retry should publish NodeRetrying.");
@@ -77,18 +77,18 @@ namespace Vision.Flow.Tests
                 "Retry recovery should publish NodeRecovered.");
         }
 
-        public static async Task StopFlowIsTheDefaultFailureStrategy()
+        public static async Task StopBranchIsTheDefaultFailureStrategy()
         {
             var harness = CreateHarness((attempt, context, cancellationToken) =>
                 Task.FromResult(NodeExecutionResult.Failure("permanent")));
 
             var result = await RunAsync(harness).ConfigureAwait(false);
 
-            AssertEx.Equal(FailureStrategy.StopFlow, harness.Node.ExecutionPolicy.FailureStrategy,
-                "All nodes should default to StopFlow.");
-            AssertEx.Equal(FlowRunStatus.Failed, result.Status, "StopFlow should terminate the current run.");
+            AssertEx.Equal(FailureStrategy.StopBranch, harness.Node.ExecutionPolicy.FailureStrategy,
+                "All nodes should default to StopBranch.");
+            AssertEx.Equal(FlowRunStatus.Failed, result.Status, "StopBranch should terminate the current branch and fail the run.");
             AssertEx.True((result.ErrorMessage ?? string.Empty).IndexOf("probe", StringComparison.OrdinalIgnoreCase) >= 0,
-                "StopFlow diagnostics should identify the failing node.");
+                "StopBranch diagnostics should identify the failing node.");
         }
 
         public static async Task ErrorBranchContinuesThroughConnectedPort()
@@ -102,7 +102,9 @@ namespace Vision.Flow.Tests
                 }
 
                 return Task.FromResult(string.Equals(context.Node.Id, "probe", StringComparison.OrdinalIgnoreCase)
-                    ? NodeExecutionResult.Failure("handled")
+                    ? NodeExecutionResult.Failure(
+                        "handled",
+                        new Dictionary<string, object> { { "Value", "failure-output" } })
                     : NodeExecutionResult.Success());
             });
             harness.Node.ExecutionPolicy.FailureStrategy = FailureStrategy.ErrorBranch;
@@ -114,10 +116,32 @@ namespace Vision.Flow.Tests
             AssertEx.Equal(FlowRunStatus.Succeeded, result.Status, "A connected ErrorBranch should handle the failure.");
             AssertEx.SequenceEqual(new[] { "probe", "handler" }, executionLog,
                 "ErrorBranch should continue through the failure result port.");
+            AssertEx.Equal("failure-output", Convert.ToString(result.Variables["probe.Value"]),
+                "A handled ErrorBranch should publish declared failure outputs.");
             AssertEx.True(harness.Sink.Events.Any(x =>
                     x.EventType == FlowRuntimeEventType.NodeRecovered &&
                     string.Equals(Convert.ToString(x.Data[FlowRuntimeDataKeys.FailureStrategy]), "ErrorBranch", StringComparison.Ordinal)),
                 "Handled error branches should publish NodeRecovered.");
+            var finalFailure = harness.Sink.Events.Last(x => x.EventType == FlowRuntimeEventType.NodeFailed);
+            AssertEx.Equal(true, Convert.ToBoolean(finalFailure.Data[FlowRuntimeDataKeys.FailureRouteAvailable]),
+                "Final failure diagnostics should report the connected Error route.");
+        }
+
+        public static async Task ErrorBranchWithoutConnectionFailsCurrentBranch()
+        {
+            var harness = CreateHarness((attempt, context, cancellationToken) =>
+                Task.FromResult(NodeExecutionResult.Failure("unhandled")));
+            harness.Node.ExecutionPolicy.FailureStrategy = FailureStrategy.ErrorBranch;
+
+            var result = await RunAsync(harness).ConfigureAwait(false);
+
+            AssertEx.Equal(FlowRunStatus.Failed, result.Status,
+                "An ErrorBranch without a connected failure route should fail the run.");
+            var finalFailure = harness.Sink.Events.Last(x => x.EventType == FlowRuntimeEventType.NodeFailed);
+            AssertEx.Equal(false, Convert.ToBoolean(finalFailure.Data[FlowRuntimeDataKeys.FailureRouteAvailable]),
+                "Final failure diagnostics should report a missing Error route.");
+            AssertEx.True((result.ErrorMessage ?? string.Empty).IndexOf("no connected output edge", StringComparison.OrdinalIgnoreCase) >= 0,
+                "The FlowRun failure should explain that the Error route is missing.");
         }
 
         public static async Task DefaultOutputsContinueThroughNext()
