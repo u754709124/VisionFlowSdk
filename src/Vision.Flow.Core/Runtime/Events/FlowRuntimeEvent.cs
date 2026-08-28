@@ -12,11 +12,14 @@ namespace Vision.Flow.Core.Runtime.Events
     {
         public FlowRuntimeEvent()
         {
-            TimestampUtc = DateTime.UtcNow;
+            Timestamp = DateTime.Now;
             Data = new Dictionary<string, object>();
         }
 
-        public DateTime TimestampUtc { get; set; }
+        /// <summary>
+        /// 获取或设置运行事件在当前运行机器上的本地发生时间。
+        /// </summary>
+        public DateTime Timestamp { get; set; }
 
         public FlowRuntimeEventType EventType { get; set; }
 

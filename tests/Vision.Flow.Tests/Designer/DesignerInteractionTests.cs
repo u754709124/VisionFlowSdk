@@ -2387,7 +2387,7 @@ namespace Vision.Flow.Tests
                     "CreateVariableSuggestions",
                     source.Runtime.Nodes[1]);
                 AssertEx.SequenceEqual(
-                    new[] { "CaptureFrameId", "CreatedAtUtc", "Metadata", "TokenId", "Values" },
+                    new[] { "CaptureFrameId", "CreatedAt", "Metadata", "TokenId", "Values" },
                     suggestions
                         .Where(x => x.Selector.Scope == VariableSelectorScope.Token)
                         .Select(x => x.Selector.Path[0])

@@ -101,7 +101,7 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 - 节点输出候选只来自当前节点沿控制入边反向遍历得到的全部直接、间接前置节点，不显示自身、下游或无关节点。
 - 候选项显示节点名称、节点 ID、输出名称和类型，并只保留与目标配置项兼容的变量；当设置或输出声明 `EnumType` 时还必须是同一个具体枚举类型。数值扩宽、不同枚举之间转换和字符串隐式转换均不开放。
 - `Object` 输出声明 `ObjectType` 后，菜单中的对象项本身仍可点击选择；鼠标移到该项会展开公开可读属性和公开字段组成的首层子菜单，子项也可选择，但不会继续展开第二层。类型化 Object 按 CLR 可赋值关系过滤；无实际类型的 Object 来源不会出现在类型化目标候选中。
-- Token 字段单独分组，固定候选为 `TokenId`、`CreatedAtUtc`、`CaptureFrameId`、`Metadata` 和 `Values`；项目业务标识不作为 SDK 固定字段。变量来源因删除节点、删除连线或 Descriptor 变化而失效时，选择器保留原 Selector 并显示错误，不会静默清空。
+- Token 字段单独分组，固定候选为 `TokenId`、`CreatedAt`、`CaptureFrameId`、`Metadata` 和 `Values`；`CreatedAt` 直接记录运行机器的本地时间。项目业务标识不作为 SDK 固定字段。变量来源因删除节点、删除连线或 Descriptor 变化而失效时，选择器保留原 Selector 并显示错误，不会静默清空。
 - 环境变量单独分组，显示名称、稳定 Id 和类型，不受控制流拓扑限制；定义删除或类型变化导致绑定失效时同样保留原 Selector 并显示错误。
 - Session 全局变量使用独立“全局变量”分组，按稳定 Id 保存、按 `FlowDataType` 精确过滤；宿主通过 `UpdateGlobalVariables` 同步当前流程定义。
 - 嵌入式宿主在配方变量变化后调用 `UpdateEnvironmentVariables`，设计器会原位更新流程定义和候选并保留当前属性草稿。

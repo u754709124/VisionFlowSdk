@@ -18,7 +18,10 @@ namespace Vision.Flow.Core.Contracts.Devices
 
         string ImageKind { get; }
 
-        DateTime CreatedUtc { get; }
+        /// <summary>
+        /// 获取图像引用在当前运行机器上的本地创建时间。
+        /// </summary>
+        DateTime CreatedAt { get; }
 
         byte[] Data { get; }
 

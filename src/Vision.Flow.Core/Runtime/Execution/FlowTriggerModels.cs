@@ -98,14 +98,14 @@ namespace Vision.Flow.Core.Runtime.Execution
         public string ErrorMessage { get; set; }
 
         /// <summary>
-        /// 开始执行或进入等待队列的 UTC 时间。
+        /// 开始执行或进入等待队列的本地时间。
         /// </summary>
-        public DateTime StartedAtUtc { get; set; }
+        public DateTime StartedAt { get; set; }
 
         /// <summary>
-        /// 到达终态的 UTC 时间。
+        /// 到达终态的本地时间。
         /// </summary>
-        public DateTime CompletedAtUtc { get; set; }
+        public DateTime CompletedAt { get; set; }
 
         /// <summary>
         /// 本次运行结束时的变量池快照；被拒绝的运行保持为空。

@@ -74,14 +74,14 @@ namespace Vision.Flow.Nodes
                         case FlowDuplicatePolicy.Error:
                             return Task.FromResult(NodeExecutionResult.Failure("Duplicate AND join input for JoinKey '" + joinKey + "' and TokenId '" + inputKey + "'."));
                         case FlowDuplicatePolicy.Replace:
-                            bucket.Inputs[inputKey] = DateTime.UtcNow;
+                            bucket.Inputs[inputKey] = DateTime.Now;
                             break;
                     }
 
                     return Task.FromResult(CreateWaitingResult(bucket));
                 }
 
-                bucket.Inputs[inputKey] = DateTime.UtcNow;
+                bucket.Inputs[inputKey] = DateTime.Now;
                 if (bucket.Inputs.Count < expectedInputCount)
                 {
                     return Task.FromResult(CreateWaitingResult(bucket));

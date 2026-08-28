@@ -59,7 +59,7 @@ var result = await runner.TriggerAsync(new FlowTriggerRequest
 });
 ```
 
-`FlowToken` 的固定字段只保留 `TokenId`、`CreatedAtUtc` 和 `CaptureFrameId`；项目业务标识通过
+`FlowToken` 的固定字段只保留 `TokenId`、`CreatedAt` 和 `CaptureFrameId`；`CreatedAt` 在创建时直接使用运行机器的 `DateTime.Now`。项目业务标识通过
 `Values` 或 `Metadata` 显式传递。构造器会生成 `TokenId`，统一入口和独立监听续流还会修复
 外部调用方显式传入的 null、空串或空白值，因此所有已接受 FlowRun 的生命周期事件都具有
 非空 `TokenId`。

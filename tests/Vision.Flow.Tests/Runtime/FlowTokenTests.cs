@@ -31,6 +31,7 @@ namespace Vision.Flow.Tests
             var token = new FlowToken();
 
             AssertEx.False(string.IsNullOrWhiteSpace(token.TokenId), "A new token should receive an identifier.");
+            AssertEx.Equal(DateTimeKind.Local, token.CreatedAt.Kind, "A new token should use the running machine's local creation time.");
 
             token.Set("Score", 98);
             token.Set("Name", "part-a");

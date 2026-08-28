@@ -10,7 +10,7 @@ namespace Vision.Flow.Nodes
             JoinKey = joinKey;
             ExpectedInputCount = expectedInputCount;
             TimeoutMs = timeoutMs;
-            CreatedAtUtc = DateTime.UtcNow;
+            CreatedAt = DateTime.Now;
             Inputs = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -20,13 +20,13 @@ namespace Vision.Flow.Nodes
 
         public int TimeoutMs { get; set; }
 
-        public DateTime CreatedAtUtc { get; private set; }
+        public DateTime CreatedAt { get; private set; }
 
         public Dictionary<string, DateTime> Inputs { get; private set; }
 
         public bool IsExpired()
         {
-            return TimeoutMs > 0 && DateTime.UtcNow - CreatedAtUtc > TimeSpan.FromMilliseconds(TimeoutMs);
+            return TimeoutMs > 0 && DateTime.Now - CreatedAt > TimeSpan.FromMilliseconds(TimeoutMs);
         }
     }
 }

@@ -355,7 +355,7 @@ namespace Vision.Flow.Core.Services.Validation
                     valueType = new ConditionValueType(FlowDataType.String, null, null);
                     return true;
                 }
-                if (string.Equals(selector.Path[0], "CreatedAtUtc", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(selector.Path[0], "CreatedAt", StringComparison.OrdinalIgnoreCase))
                 {
                     valueType = new ConditionValueType(FlowDataType.DateTime, null, null);
                     return true;

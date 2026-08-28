@@ -42,7 +42,7 @@ namespace Vision.Flow.Core.Runtime.Events
         {
             var snapshot = new FlowRuntimeEvent
             {
-                TimestampUtc = source.TimestampUtc,
+                Timestamp = source.Timestamp,
                 EventType = source.EventType,
                 FlowId = source.FlowId,
                 FlowRunId = source.FlowRunId,

@@ -13,7 +13,7 @@ namespace Vision.Flow.Core.Runtime.State
         public FlowToken()
         {
             TokenId = Guid.NewGuid().ToString("N");
-            CreatedAtUtc = DateTime.UtcNow;
+            CreatedAt = DateTime.Now;
             Metadata = new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             Values = new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         }
@@ -23,7 +23,10 @@ namespace Vision.Flow.Core.Runtime.State
         /// </summary>
         public string TokenId { get; set; }
 
-        public DateTime CreatedAtUtc { get; set; }
+        /// <summary>
+        /// 获取或设置令牌在当前运行机器上的本地创建时间。
+        /// </summary>
+        public DateTime CreatedAt { get; set; }
 
         /// <summary>
         /// 获取或设置当前流程令牌关联的相机采集帧技术追踪标识。

@@ -27,6 +27,7 @@ namespace Vision.Flow.Tests
         {
             var native = new DisposableProbe();
             var image = new VisionImageReference("image-001", 5, 6, "Mono8", new byte[] { 1, 2 }, native, true, "Raw");
+            AssertEx.Equal(DateTimeKind.Local, image.CreatedAt.Kind, "Vision images must use the running machine's local creation time.");
             image.Metadata[FlowMetadataKeys.CaptureFrameId] = "frame-001";
 
             var clone = image.CloneReference();
@@ -146,7 +147,7 @@ namespace Vision.Flow.Tests
                     CameraId = CameraId,
                     TriggerId = "grab-one",
                     CaptureFrameId = Guid.NewGuid().ToString("N"),
-                    GrabTime = DateTime.UtcNow,
+                    GrabTime = DateTime.Now,
                     Image = new VisionImageReference("grab-one-image", 1, 1, "Mono8", new byte[] { 7 })
                 });
             }
@@ -167,7 +168,7 @@ namespace Vision.Flow.Tests
                             CameraId = CameraId,
                             TriggerId = triggerId,
                             CaptureFrameId = frameId,
-                            GrabTime = DateTime.UtcNow,
+                            GrabTime = DateTime.Now,
                             Image = new VisionImageReference(frameId, 1, 1, "Mono8", new byte[] { 7 })
                         }));
             }

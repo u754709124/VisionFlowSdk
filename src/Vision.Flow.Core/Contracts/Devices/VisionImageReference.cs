@@ -44,7 +44,7 @@ namespace Vision.Flow.Core.Contracts.Devices
             Height = height <= 0 ? 1 : height;
             PixelFormat = string.IsNullOrWhiteSpace(pixelFormat) ? "Mono8" : pixelFormat;
             ImageKind = string.IsNullOrWhiteSpace(imageKind) ? "Raw" : imageKind;
-            CreatedUtc = DateTime.UtcNow;
+            CreatedAt = DateTime.Now;
             Data = data ?? new byte[0];
             NativeImage = nativeImage;
             _ownsNativeImage = ownsNativeImage;
@@ -61,7 +61,10 @@ namespace Vision.Flow.Core.Contracts.Devices
 
         public string ImageKind { get; private set; }
 
-        public DateTime CreatedUtc { get; private set; }
+        /// <summary>
+        /// 获取图像引用在当前运行机器上的本地创建时间。
+        /// </summary>
+        public DateTime CreatedAt { get; private set; }
 
         public byte[] Data { get; private set; }
 
@@ -75,7 +78,7 @@ namespace Vision.Flow.Core.Contracts.Devices
         {
             var clone = new VisionImageReference(ImageId, Width, Height, PixelFormat, Data, NativeImage, false, ImageKind)
             {
-                CreatedUtc = CreatedUtc
+                CreatedAt = CreatedAt
             };
             CopyMetadata(Metadata, clone.Metadata);
             return clone;

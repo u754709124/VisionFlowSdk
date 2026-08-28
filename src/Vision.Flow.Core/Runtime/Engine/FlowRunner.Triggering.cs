@@ -89,7 +89,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                 EntryName = entry.EntryName,
                 Source = source,
                 Token = token,
-                StartedAtUtc = DateTime.UtcNow
+                StartedAt = DateTime.Now
             };
             CancellationToken runnerToken = CancellationToken.None;
             ActiveFlowRun activeRun = null;
@@ -298,7 +298,7 @@ namespace Vision.Flow.Core.Runtime.Engine
                 EntryName = string.Empty,
                 Source = FlowTriggerSource.NodeEvent,
                 Token = token,
-                StartedAtUtc = DateTime.UtcNow
+                StartedAt = DateTime.Now
             };
             CancellationToken runnerToken = CancellationToken.None;
             ActiveFlowRun activeRun = null;
@@ -475,7 +475,7 @@ namespace Vision.Flow.Core.Runtime.Engine
 
             result.Status = status;
             result.ErrorMessage = errorMessage;
-            result.CompletedAtUtc = DateTime.UtcNow;
+            result.CompletedAt = DateTime.Now;
             result.Variables = status == FlowRunStatus.Rejected || variables == null
                 ? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                 : variables.Snapshot();
@@ -543,9 +543,9 @@ namespace Vision.Flow.Core.Runtime.Engine
             string message,
             IDictionary<string, object> triggerInputs)
         {
-            var elapsedMs = result.CompletedAtUtc == default(DateTime)
+            var elapsedMs = result.CompletedAt == default(DateTime)
                 ? 0
-                : (long)Math.Max(0, (result.CompletedAtUtc - result.StartedAtUtc).TotalMilliseconds);
+                : (long)Math.Max(0, (result.CompletedAt - result.StartedAt).TotalMilliseconds);
             var runtimeEvent = CreateRuntimeEvent(
                 eventType,
                 result.Token,

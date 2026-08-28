@@ -913,7 +913,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private static void AddTokenVariableSuggestions(ICollection<VariableSelectionOption> items)
         {
             AddTokenVariableSuggestion(items, "TokenId", FlowDataType.String);
-            AddTokenVariableSuggestion(items, "CreatedAtUtc", FlowDataType.DateTime);
+            AddTokenVariableSuggestion(items, "CreatedAt", FlowDataType.DateTime);
             AddTokenVariableSuggestion(items, "CaptureFrameId", FlowDataType.String);
             AddTokenVariableSuggestion(items, "Metadata", FlowDataType.Object);
             AddTokenVariableSuggestion(items, "Values", FlowDataType.Object);

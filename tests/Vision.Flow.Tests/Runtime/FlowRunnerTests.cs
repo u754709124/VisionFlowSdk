@@ -75,9 +75,9 @@ namespace Vision.Flow.Tests
                 });
 
             await runner.StartAsync().ConfigureAwait(false);
-            var startUtc = DateTime.UtcNow;
+            var startedAt = DateTime.Now;
             await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-parallel-fanout" })).ConfigureAwait(false);
-            var elapsedMs = (DateTime.UtcNow - startUtc).TotalMilliseconds;
+            var elapsedMs = (DateTime.Now - startedAt).TotalMilliseconds;
 
             AssertEx.True(executionLog.Contains("A"), "Parallel fan-out should execute the source node.");
             AssertEx.True(executionLog.Contains("B"), "Parallel fan-out should execute branch B.");
@@ -346,7 +346,8 @@ namespace Vision.Flow.Tests
             var runner = CreateRunner(CreateSingleNodeFlow(), executionLog, sink);
 
             await runner.StartAsync().ConfigureAwait(false);
-            await runner.TriggerAsync(CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-events" })).ConfigureAwait(false);
+            FlowRunResult result = await runner.TriggerAsync(
+                CreateManualRequest("ManualStart", new FlowToken { TokenId = "token-events" })).ConfigureAwait(false);
 
             var eventTypes = sink.Events.Select(x => x.EventType).ToList();
             AssertEx.SequenceEqual(
@@ -364,8 +365,11 @@ namespace Vision.Flow.Tests
 
             var completed = sink.Events.FirstOrDefault(x => x.EventType == FlowRuntimeEventType.NodeCompleted);
             AssertEx.NotNull(completed, "NodeCompleted event should be published.");
+            AssertEx.Equal(DateTimeKind.Local, completed.Timestamp.Kind, "Runtime events must use the running machine's local time.");
             AssertEx.False(string.IsNullOrWhiteSpace(completed.FlowRunId), "Runtime events should include FlowRunId.");
             AssertEx.True(completed.ElapsedMs >= 0, "Runtime events should include elapsed time.");
+            AssertEx.Equal(DateTimeKind.Local, result.StartedAt.Kind, "FlowRun start time must be local.");
+            AssertEx.Equal(DateTimeKind.Local, result.CompletedAt.Kind, "FlowRun completion time must be local.");
             var started = sink.Events.FirstOrDefault(x => x.EventType == FlowRuntimeEventType.FlowRunStarted);
             AssertEx.Equal("Running", Convert.ToString(started.Data[FlowRuntimeDataKeys.FlowRunStatus]), "FlowRunStarted must not expose the default Succeeded terminal status.");
         }
