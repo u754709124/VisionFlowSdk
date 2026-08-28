@@ -110,6 +110,8 @@ namespace Vision.Flow.Tests
                 new TestCase("FlowRunner publishes runtime events in order", FlowRunnerTests.RuntimeEventOrder),
                 new TestCase("In-memory sink preserves parameterless binary contract", FlowEventSinkTests.ParameterlessInMemorySinkPreservesBinaryContract),
                 new TestCase("Runtime event snapshots remove resource references", FlowEventSinkTests.SanitizerRemovesResourceReferences),
+                new TestCase("Runtime event snapshots capture public object members safely", FlowEventSinkTests.SanitizerCapturesPublicObjectMembersSafely),
+                new TestCase("Runtime event snapshots enforce object member limits", FlowEventSinkTests.SanitizerAppliesObjectMemberLimits),
                 new TestCase("Runtime diagnostics gate enables input capture dynamically", RuntimeDiagnosticsTests.GateCanEnableCaptureWithoutRecreatingRunner),
                 new TestCase("Runtime diagnostics separates retry input attempts", RuntimeDiagnosticsTests.RetryAttemptsPublishIndependentInputSnapshots),
                 new TestCase("Runtime diagnostics records input resolution failures", RuntimeDiagnosticsTests.ResolutionFailureIsCapturedBeforeNodeFailure),

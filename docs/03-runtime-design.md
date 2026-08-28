@@ -74,7 +74,7 @@ FlowRun 终态采用 exactly-once 语义：每个被接受的 `FlowRunId` 最多
 
 ## 生产事件出口
 
-`FlowRunner` 在交给任意 `IFlowEventSink` 前通过 `SanitizingFlowEventSink` 创建独立快照。标量和受限长度字符串原值保留；`IVisionImage`、`CameraFrameData`、`IDisposable`、字节缓冲区、过深或不透明对象替换为 `FlowRuntimeValueSummary`，集合按 `MaxCollectionItems` 截断。因此 `OutputProduced` 事件不拥有、也不延长真实图像或设备资源的生命周期。
+`FlowRunner` 在交给任意 `IFlowEventSink` 前通过 `SanitizingFlowEventSink` 创建独立快照。标量和受限长度字符串原值保留；普通非资源对象按名称稳定复制公开实例属性和字段，属性优先于同名字段，单个 getter 失败只记录读取失败占位。循环引用、无公开成员或过深对象替换为 `FlowRuntimeValueSummary`，对象成员、字典和集合统一受 `MaxCollectionItems` 限制。`IVisionImage`、`CameraFrameData`、`IDisposable` 和字节缓冲区始终只保留摘要，因此 `OutputProduced` 事件不拥有、也不延长真实图像或设备资源的生命周期。
 
 Core 未显式配置 Sink 时使用 `BoundedFlowEventSink`，默认容量 1024、遥测溢出策略为 `DropOldest`、下游为 `NullFlowEventSink`。FlowRun 生命周期、Flow 启停和节点失败/取消属于关键事件：队列满时异步等待容量，不丢弃；`OutputProduced`、`ImageProduced` 和普通节点进度属于可丢弃遥测。出口暴露排队数、丢弃数、成功转发数、失败数和最近异常；有持久化或 UI 消费需求的宿主应把自己的 Sink 作为下游，并在释放前调用 `FlushAsync`。
 
