@@ -1,4 +1,4 @@
-﻿# 03 - Runtime Design
+# 03 - Runtime Design
 
 ## 目标
 
@@ -216,3 +216,7 @@ condition.if
 - 相机回调线程只做轻量封装和转发，不执行后续节点。
 - 重算法、保存、数据库等长耗时工作由具体项目节点自行放入后台任务或有界队列。
 - 生产运行不依赖 Designer UI。
+
+## 开发期协议清理
+
+配置基础类型兼容性只返回 `Compatible` 或 `Incompatible`；不保留运行时转换 `Warning` 状态和 `VariableTypeWarning` 问题码。数值拓宽、Object 到具体类型等绑定仍按当前严格规则拒绝。图入口和续流直接进入已编译就绪队列，不创建旧递归路径 HashSet，也不经过空转发包装。

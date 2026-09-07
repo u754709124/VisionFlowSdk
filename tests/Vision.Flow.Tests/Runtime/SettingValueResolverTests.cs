@@ -40,8 +40,21 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        /// <summary>验证所有基础类型组合保持严格匹配，旧警告枚举和问题码不再暴露。</summary>
         public static Task DataTypeCompatibilityRules()
         {
+            AssertEx.SequenceEqual(new[] { "Incompatible", "Compatible" }, Enum.GetNames(typeof(FlowDataTypeCompatibilityResult)), "Compatibility must expose only strict binary results.");
+            AssertEx.True(typeof(Vision.Flow.Core.Services.Validation.FlowValidationIssueCodes).GetField("VariableTypeWarning") == null, "Unreachable type-warning issue code must be removed.");
+            foreach (FlowDataType source in Enum.GetValues(typeof(FlowDataType)))
+            {
+                foreach (FlowDataType target in Enum.GetValues(typeof(FlowDataType)))
+                {
+                    var expected = source == target && source != FlowDataType.Control
+                        ? FlowDataTypeCompatibilityResult.Compatible
+                        : FlowDataTypeCompatibilityResult.Incompatible;
+                    AssertEx.Equal(expected, FlowDataTypeCompatibility.GetCompatibility(source, target), "Every type pair must follow strict assignment rules.");
+                }
+            }
             AssertEx.Equal(FlowDataTypeCompatibilityResult.Compatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Int32, FlowDataType.Int32), "Equal setting types should be compatible.");
             AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Int32, FlowDataType.Double), "Numeric widening should not bypass strict setting types.");
             AssertEx.Equal(FlowDataTypeCompatibilityResult.Incompatible, FlowDataTypeCompatibility.GetCompatibility(FlowDataType.Int64, FlowDataType.Double), "Potentially lossy numeric conversion should be incompatible.");

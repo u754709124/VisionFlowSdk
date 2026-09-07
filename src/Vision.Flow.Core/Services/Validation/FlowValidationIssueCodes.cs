@@ -59,7 +59,6 @@ namespace Vision.Flow.Core.Services.Validation
         public const string VariableSourceNotGuaranteed = "VariableSourceNotGuaranteed";
         public const string VariableOutputMissing = "VariableOutputMissing";
         public const string VariableTypeIncompatible = "VariableTypeIncompatible";
-        public const string VariableTypeWarning = "VariableTypeWarning";
         public const string TriggerInputUnavailable = "TriggerInputUnavailable";
         public const string TriggerInputNotGuaranteed = "TriggerInputNotGuaranteed";
         public const string TriggerInputTypeConflict = "TriggerInputTypeConflict";

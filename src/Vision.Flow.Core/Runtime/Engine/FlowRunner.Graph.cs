@@ -12,57 +12,6 @@ namespace Vision.Flow.Core.Runtime.Engine
 {
     public sealed partial class FlowRunner
     {
-        private async Task ExecuteGraphAsync(
-            string nodeId,
-            FlowToken token,
-            IVariablePool variables,
-            IDictionary<string, object> triggerInputs,
-            CancellationToken cancellationToken,
-            HashSet<string> currentPath,
-            string flowRunId)
-        {
-            if (string.IsNullOrWhiteSpace(nodeId))
-            {
-                return;
-            }
-
-            await ExecuteReadyQueueAsync(
-                nodeId,
-                null,
-                false,
-                token,
-                variables,
-                triggerInputs,
-                cancellationToken,
-                flowRunId).ConfigureAwait(false);
-        }
-
-        private async Task ExecuteOutgoingEdgesAsync(
-            NodeDefinition node,
-            string outputPort,
-            FlowToken token,
-            IVariablePool variables,
-            IDictionary<string, object> triggerInputs,
-            CancellationToken cancellationToken,
-            HashSet<string> currentPath,
-            string flowRunId)
-        {
-            if (node == null || string.IsNullOrWhiteSpace(node.Id))
-            {
-                return;
-            }
-
-            await ExecuteReadyQueueAsync(
-                node.Id,
-                outputPort,
-                true,
-                token,
-                variables,
-                triggerInputs,
-                cancellationToken,
-                flowRunId).ConfigureAwait(false);
-        }
-
         private FlowEntryDefinition FindEntry(string entryName)
         {
             FlowEntryDefinition entry;

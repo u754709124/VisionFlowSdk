@@ -172,13 +172,14 @@ namespace Vision.Flow.Core.Runtime.Engine
                                 : nodeEventContinuation.Variables;
                             if (nodeEventContinuation == null)
                             {
-                                await ExecuteGraphAsync(
+                                await ExecuteReadyQueueAsync(
                                     entry.TargetNodeId,
+                                    null,
+                                    false,
                                     token,
                                     variables,
                                     triggerInputs,
                                     linkedCancellation.Token,
-                                    new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                                     result.FlowRunId).ConfigureAwait(false);
                             }
                             else
@@ -270,15 +271,14 @@ namespace Vision.Flow.Core.Runtime.Engine
                     cancellationToken).ConfigureAwait(false);
             }
 
-            var path = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sourceNode.Id };
-            await ExecuteOutgoingEdgesAsync(
-                sourceNode,
+            await ExecuteReadyQueueAsync(
+                sourceNode.Id,
                 outputPort,
+                true,
                 token,
                 variables,
                 triggerInputs,
                 cancellationToken,
-                path,
                 flowRunId).ConfigureAwait(false);
         }
 
@@ -448,15 +448,14 @@ namespace Vision.Flow.Core.Runtime.Engine
                     cancellationToken).ConfigureAwait(false);
             }
 
-            var path = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sourceNode.Id };
-            await ExecuteOutgoingEdgesAsync(
-                sourceNode,
+            await ExecuteReadyQueueAsync(
+                sourceNode.Id,
                 outputPort,
+                true,
                 token,
                 variables,
                 triggerInputs,
                 cancellationToken,
-                path,
                 flowRunId).ConfigureAwait(false);
         }
 

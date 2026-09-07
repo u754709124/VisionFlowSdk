@@ -1,4 +1,4 @@
-﻿# 07 - Test Plan
+# 07 - Test Plan
 
 ## 测试项目
 
@@ -100,3 +100,7 @@ SDK 测试不再覆盖 light/motion/recipe/save/database/group/scan/stitch/fusio
 ./build/build.ps1
 ./build/test.ps1
 ```
+
+## 严格协议清理回归
+
+类型兼容测试遍历全部 `FlowDataType` 配对，确认只有相同非 Control 类型可赋值，并断言二值兼容枚举和旧 `VariableTypeWarning` 问题码已移除。图调度遗留参数删除复用线性、分支汇聚、条件 skip、NodeEvent 续流与环检测功能测试；运行器不得重新创建递归路径集合。

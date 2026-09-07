@@ -1137,11 +1137,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     " 不能赋给 " + targetType + "。");
             }
 
-            if (FlowDataTypeCompatibility.GetCompatibility(source.DataType, setting.DataType) == FlowDataTypeCompatibilityResult.Warning)
-            {
-                return CreateWarningText("变量类型需要在运行时转换为 " + FlowEnumConverter.ToWireValue(setting.DataType) + "。");
-            }
-
             return null;
         }
 
@@ -1865,11 +1860,6 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private static TextBlock CreateInvalidText(string text)
         {
             return CreateStatusText(text, FlowDesignerControl.BrushFromRgb(185, 28, 28));
-        }
-
-        private static TextBlock CreateWarningText(string text)
-        {
-            return CreateStatusText(text, FlowDesignerControl.BrushFromRgb(180, 83, 9));
         }
 
         private static TextBlock CreateStatusText(string text, Brush foreground)

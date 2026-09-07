@@ -4,13 +4,14 @@ using Vision.Flow.Core.Contracts.Devices;
 namespace Vision.Flow.Core.Domain.Nodes
 {
     /// <summary>
-    /// 数据类型赋值兼容性；Warning 为兼容保留值，严格配置绑定不再返回该状态。
+    /// 严格配置类型检查的二值结果；不提供运行时转换警告状态。
     /// </summary>
     public enum FlowDataTypeCompatibilityResult
     {
+        /// <summary>来源类型不能赋给目标配置。</summary>
         Incompatible = 0,
-        Compatible = 1,
-        Warning = 2
+        /// <summary>来源类型满足目标配置的严格类型要求。</summary>
+        Compatible = 1
     }
 
     /// <summary>

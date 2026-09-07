@@ -477,9 +477,6 @@ namespace Vision.Flow.Core.Services.Validation
                 return;
             }
 
-            var compatibility = FlowDataTypeCompatibility.GetCompatibility(
-                definition.DataType,
-                targetSetting.DataType);
             string typeError;
             if (!NodeSettingValueValidation.TryValidateVariableType(
                 targetSetting,
@@ -491,14 +488,6 @@ namespace Vision.Flow.Core.Services.Validation
                 result.AddError(
                     FlowValidationIssueCodes.VariableTypeIncompatible,
                     typeError,
-                    nodeId: node.Id,
-                    field: field);
-            }
-            else if (compatibility == FlowDataTypeCompatibilityResult.Warning)
-            {
-                result.AddWarning(
-                    FlowValidationIssueCodes.VariableTypeWarning,
-                    "Environment variable type will be checked at runtime.",
                     nodeId: node.Id,
                     field: field);
             }
@@ -587,7 +576,6 @@ namespace Vision.Flow.Core.Services.Validation
                 return;
             }
 
-            var compatibility = FlowDataTypeCompatibility.GetCompatibility(sourceType, targetSetting.DataType);
             string typeError;
             if (!NodeSettingValueValidation.TryValidateVariableType(
                 targetSetting,
@@ -599,14 +587,6 @@ namespace Vision.Flow.Core.Services.Validation
                 result.AddError(
                     FlowValidationIssueCodes.VariableTypeIncompatible,
                     typeError,
-                    nodeId: node.Id,
-                    field: field);
-            }
-            else if (compatibility == FlowDataTypeCompatibilityResult.Warning)
-            {
-                result.AddWarning(
-                    FlowValidationIssueCodes.VariableTypeWarning,
-                    "Trigger input type " + sourceType + " will be checked against " + targetSetting.DataType + " at runtime.",
                     nodeId: node.Id,
                     field: field);
             }
@@ -714,9 +694,6 @@ namespace Vision.Flow.Core.Services.Validation
                 sourceObjectType = memberMetadata.ObjectType;
             }
 
-            var compatibility = FlowDataTypeCompatibility.GetCompatibility(
-                sourceDataType,
-                targetSetting.DataType);
             string typeError;
             if (!NodeSettingValueValidation.TryValidateVariableType(
                 targetSetting,
@@ -742,10 +719,6 @@ namespace Vision.Flow.Core.Services.Validation
                         : typeError,
                     nodeId: node.Id,
                     field: field);
-            }
-            else if (compatibility == FlowDataTypeCompatibilityResult.Warning)
-            {
-                result.AddWarning(FlowValidationIssueCodes.VariableTypeWarning, "Variable output type Object will be checked against " + targetSetting.DataType + " at runtime.", nodeId: node.Id, field: field);
             }
         }
 
