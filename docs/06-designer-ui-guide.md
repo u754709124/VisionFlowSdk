@@ -174,3 +174,7 @@ Validator 只处理设计期常量，不读取其他配置项，也不在调试�
 Designer 根据 `FlowDataType` 选择属性编辑控件：`Boolean` 使用绿色开关，`Int32` / `Double` 使用手工输入及数字文本转换，其它普通类型使用手工输入文本框。`NodeSettingDescriptor.EnumType` 指向有效枚举类型时，设计器自动使用枚举成员下拉框；宿主也可以通过 `SettingConstantOptionsProvider` 为具体 Descriptor 提供优先级更高的明确选项数据源。
 
 端口连线规则使用 `FlowPortDirection` 判断输入/输出方向。IF 条件操作符由专用编辑器按左值类型生成候选；AND Join 重复策略和日志等级仍写回字符串协议值，并由校验器检查。宿主的业务枚举输出只需在 Descriptor 上同时声明 `DataType=String` 和具体 `EnumType`，IF 固定右值即可使用该枚举成员下拉框。
+
+节点拖动同样按合成帧合并：吸附后坐标未变时不触发布局或连线工作，单帧只更新被移动节点的邻接边。连线、命中路径、曲线几何及菜单在文档内复用；新增或删除连线时才增删对应视觉。向左/上扩展画布导致全图平移时执行一次全图同步，保存/加载继续保留独立文档快照。
+
+宿主批量同步变量时可将 UpdateEnvironmentVariables / UpdateGlobalVariables 的 refreshProperties 设为 false，完成全部候选写入后调用 RefreshSelectedNodeProperties 一次；默认仍即时刷新。

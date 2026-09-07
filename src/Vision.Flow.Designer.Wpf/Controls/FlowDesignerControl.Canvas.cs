@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -32,6 +32,10 @@ namespace Vision.Flow.Designer.Wpf.Controls
     // 画布辅助方法管理缩放、平移、节点拖拽、端口锚点和连线渲染。
     public sealed partial class FlowDesignerControl
     {
+        private readonly HashSet<string> _pendingEdgeNodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private IDictionary<string, Point> _portAnchors = new Dictionary<string, Point>(StringComparer.OrdinalIgnoreCase);
+        private bool _requiresFullEdgeRefresh;
+
         private void ApplyCanvasViewState()
         {
             if (_document == null || _document.View == null || _canvasScale == null)
@@ -75,7 +79,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
         }
 
-        private void ApplyCanvasSizeFromView()
+        private void ApplyCanvasSizeFromView(bool updateMiniMap = true)
         {
             if (_document == null || _document.View == null)
             {
@@ -110,7 +114,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 _edges.SetCanvasSize(_canvasWidth, _canvasHeight);
             }
 
-            UpdateMiniMap();
+            if (updateMiniMap)
+                UpdateMiniMap();
         }
 
         private void EnsureCanvasContainsNodes()
@@ -207,7 +212,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
-            ApplyCanvasSizeFromView();
+            ApplyCanvasSizeFromView(false);
             var nodeWidth = GetVisualExtent(nodeVisual.ActualWidth, nodeVisual.Width, NodeBoundsFallbackWidth);
             var nodeHeight = GetVisualExtent(nodeVisual.ActualHeight, nodeVisual.MinHeight, NodeBoundsFallbackHeight);
             var shiftX = x < CanvasExpansionMargin
@@ -222,6 +227,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 // 同步移动当前渲染层和滚动偏移，让视口看起来只是向左/上长出新空间。
                 TranslateDesignNodes(shiftX, shiftY);
                 ShiftRenderedNodeCards(shiftX, shiftY);
+                _requiresFullEdgeRefresh = true;
                 _document.View.CanvasWidth += shiftX;
                 _document.View.CanvasHeight += shiftY;
                 x += shiftX;
@@ -250,7 +256,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 _document.View.CanvasHeight = ExpandCanvasExtent(_document.View.CanvasHeight, requiredHeight, FlowViewState.DefaultCanvasHeight);
             }
 
-            ApplyCanvasSizeFromView();
+            ApplyCanvasSizeFromView(false);
         }
 
         private void ExpandCanvasForNewNode(ref double x, ref double y)
@@ -675,10 +681,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 _hasPendingCanvasZoom = false;
                 SetCanvasZoom(zoom, anchor);
             }
+
+            FlushNodeEdgeRefresh();
         }
 
         private void CancelCanvasInteractionFrame()
         {
+            // 节点逻辑坐标已写回文档；卸载前补齐最后一次曲线更新，重挂控件时不能显示旧位置。
+            FlushNodeEdgeRefresh();
             if (_isCanvasFrameScheduled)
             {
                 CompositionTarget.Rendering -= OnCanvasInteractionFrame;
@@ -687,6 +697,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _isCanvasFrameScheduled = false;
             _hasPendingCanvasPan = false;
             _hasPendingCanvasZoom = false;
+            _pendingEdgeNodes.Clear();
+            _requiresFullEdgeRefresh = false;
         }
 
         private double AlignScrollOffsetToDevicePixel(double offset)
@@ -782,17 +794,41 @@ namespace Vision.Flow.Designer.Wpf.Controls
             try
             {
                 _isRenderingEdges = true;
-                if (_nodeLayer != null)
-                {
+                if (_nodeLayer != null && (!_nodeLayer.IsMeasureValid || !_nodeLayer.IsArrangeValid))
                     _nodeLayer.UpdateLayout();
-                }
-
-                _edges.Render(_document, _selectedEdge, CreatePortAnchorMap());
+                _portAnchors = CreatePortAnchorMap();
+                _edges.Render(_document, _selectedEdge, _portAnchors);
+                _pendingEdgeNodes.Clear();
+                _requiresFullEdgeRefresh = false;
             }
             finally
             {
                 _isRenderingEdges = false;
             }
+        }
+
+        private void FlushNodeEdgeRefresh()
+        {
+            if (_requiresFullEdgeRefresh)
+            {
+                RenderEdges();
+                UpdateMiniMap();
+                return;
+            }
+            if (_pendingEdgeNodes.Count == 0)
+                return;
+            foreach (var nodeId in _pendingEdgeNodes)
+            {
+                NodeCardControl card;
+                if (!_nodeCards.TryGetValue(nodeId, out card))
+                    continue;
+                // 卡片内端口布局不随拖动变化；使用最新逻辑坐标，避免为父画布反复强制布局。
+                AddPortAnchors(_portAnchors, nodeId, FlowPortDirection.Input, card.InputPortControls, card);
+                AddPortAnchors(_portAnchors, nodeId, FlowPortDirection.Output, card.OutputPortControls, card);
+            }
+            _edges.UpdateNodes(_document, _pendingEdgeNodes, _portAnchors);
+            _pendingEdgeNodes.Clear();
+            UpdateMiniMap();
         }
 
         private void OnNodeLayerLayoutUpdated(object sender, EventArgs e)
@@ -824,7 +860,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
             return anchors;
         }
 
-        private void AddPortAnchors(IDictionary<string, Point> anchors, string nodeId, FlowPortDirection direction, IEnumerable<PortControl> ports)
+        private void AddPortAnchors(IDictionary<string, Point> anchors, string nodeId, FlowPortDirection direction, IEnumerable<PortControl> ports, NodeCardControl relativeCard = null)
         {
             if (anchors == null || string.IsNullOrWhiteSpace(nodeId) || ports == null)
             {
@@ -844,7 +880,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
                     firstPort = port;
                 }
 
-                var center = GetPortCenter(port);
+                var center = relativeCard == null ? GetPortCenter(port) : port.GetAnchorPoint(relativeCard);
+                if (relativeCard != null)
+                    center.Offset(Canvas.GetLeft(relativeCard), Canvas.GetTop(relativeCard));
                 if (!IsFinite(center.X) || !IsFinite(center.Y))
                 {
                     continue;
@@ -1053,9 +1091,15 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return;
             }
 
-            var point = e.GetPosition(_nodeLayer);
+            MoveDraggedNode(e.GetPosition(_nodeLayer));
+        }
+
+        private void MoveDraggedNode(Point point)
+        {
             var x = Math.Max(8, SnapToGrid(point.X - _dragOffset.X));
             var y = Math.Max(8, SnapToGrid(point.Y - _dragOffset.Y));
+            if (Canvas.GetLeft(_dragCard) == x && Canvas.GetTop(_dragCard) == y)
+                return;
             ExpandCanvasForNode(ref x, ref y, _dragCard);
             Canvas.SetLeft(_dragCard, x);
             Canvas.SetTop(_dragCard, y);
@@ -1067,11 +1111,14 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 _document.View.Nodes[node.Id].Y = y;
             }
 
-            RenderEdges();
+            if (node != null)
+                _pendingEdgeNodes.Add(node.Id);
+            ScheduleCanvasInteractionFrame();
         }
 
         private void OnNodeMouseUp(object sender, MouseButtonEventArgs e)
         {
+            FlushNodeEdgeRefresh();
             if (_dragCard != null)
             {
                 _dragCard.ReleaseMouseCapture();

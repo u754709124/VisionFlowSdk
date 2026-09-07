@@ -166,6 +166,8 @@ namespace Vision.Flow.Tests
                 new TestCase("ConditionNode routes true and false branches", ControlFlowNodeTests.ConditionTrueFalseRoutes),
                 new TestCase("ConditionNode accepts a strong operator", ControlFlowNodeTests.ConditionAcceptsStrongOperator),
                 new TestCase("ConditionNode supports typed comparisons", ControlFlowNodeTests.ConditionSupportsTypedComparisons),
+                new TestCase("Designer large graph updates only adjacent edges", DesignerRenderingTests.LargeGraphUpdatesOnlyAdjacentEdges),
+                new TestCase("Designer drag frames coalesce and preserve expansion", DesignerRenderingTests.DragFramesCoalesceAndPreserveExpansion),
                 new TestCase("Designer property panel applies custom constant validation", DesignerInteractionTests.PropertyPanelAppliesCustomConstantValidation),
                 new TestCase("Designer property panel read-only mode disables editors", DesignerInteractionTests.PropertyPanelReadOnlyDisablesEditors),
                 new TestCase("Designer property panel uses host provided constant options", DesignerInteractionTests.PropertyPanelUsesHostProvidedConstantOptions),

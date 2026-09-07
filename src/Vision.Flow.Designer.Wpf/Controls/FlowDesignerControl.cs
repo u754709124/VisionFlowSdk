@@ -239,8 +239,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
         /// <summary>
         /// 由嵌入式宿主原位替换环境变量定义并刷新当前属性草稿。
         /// </summary>
+        /// <param name="refreshProperties">批量候选同步时可设为 false，由宿主在批次结束统一刷新属性面板。</param>
         public void UpdateEnvironmentVariables(
-            IEnumerable<EnvironmentVariableDefinition> definitions)
+            IEnumerable<EnvironmentVariableDefinition> definitions, bool refreshProperties = true)
         {
             if (_document == null || _document.Runtime == null)
                 return;
@@ -257,14 +258,16 @@ namespace Vision.Flow.Designer.Wpf.Controls
                             DefaultValue = x.DefaultValue
                         })
                     .ToList();
-            RenderProperties();
+            if (refreshProperties)
+                RenderProperties();
         }
 
         /// <summary>
         /// 由嵌入式宿主原位替换全局变量定义并刷新变量候选和动态节点描述符。
         /// </summary>
+        /// <param name="refreshProperties">批量候选同步时可设为 false，由宿主在批次结束统一刷新属性面板。</param>
         public void UpdateGlobalVariables(
-            IEnumerable<GlobalVariableDefinition> definitions)
+            IEnumerable<GlobalVariableDefinition> definitions, bool refreshProperties = true)
         {
             if (_document == null || _document.Runtime == null)
                 return;
@@ -281,7 +284,8 @@ namespace Vision.Flow.Designer.Wpf.Controls
                             DefaultValue = x.DefaultValue
                         })
                     .ToList();
-            RenderProperties();
+            if (refreshProperties)
+                RenderProperties();
         }
 
     }
