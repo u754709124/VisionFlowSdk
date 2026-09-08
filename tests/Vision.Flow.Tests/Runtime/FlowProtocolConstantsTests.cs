@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Vision.Flow.Core.Contracts.Devices;
 using Vision.Flow.Core.Domain.Nodes;
 using Vision.Flow.Core.Runtime.Events;
 using Vision.Flow.Core.Services.Serialization;
@@ -42,6 +43,7 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        /// <summary>验证枚举字符串兼容，包括通过原 Adapter 使用的可编程光源模式。</summary>
         public static Task EnumWireValuesKeepExistingStrings()
         {
             AssertEx.Equal("Input", FlowEnumConverter.ToWireValue(FlowPortDirection.Input), "input port direction enum wire value");
@@ -51,6 +53,15 @@ namespace Vision.Flow.Tests
             AssertEx.Equal("Equal", FlowEnumConverter.ToWireValue(ConditionOperator.Equal), "condition operator enum wire value");
             AssertEx.Equal("Ignore", FlowEnumConverter.ToWireValue(FlowDuplicatePolicy.Ignore), "duplicate policy enum wire value");
             AssertEx.Equal("Warning", FlowEnumConverter.ToWireValue(FlowLogLevel.Warning), "log level enum wire value");
+
+            AssertEx.Equal(0, (int)LightOperatingMode.Continuous, "Continuous numeric value remains stable.");
+            AssertEx.Equal(1, (int)LightOperatingMode.Strobe, "Strobe numeric value remains stable.");
+            AssertEx.SequenceEqual(new[] { "Continuous", "Strobe", "Programmable" },
+                FlowEnumConverter.GetWireValues<LightOperatingMode>(), "Light mode protocol values.");
+            LightOperatingMode lightMode;
+            AssertEx.True(FlowEnumConverter.TryParse("Programmable", out lightMode), "Programmable wire value parses.");
+            AssertEx.Equal(LightOperatingMode.Programmable, lightMode, "Programmable round trip.");
+            AssertEx.Equal("Programmable", FlowEnumConverter.ToWireValue(lightMode), "Programmable wire value serializes.");
 
             FlowDuplicatePolicy duplicatePolicy;
             AssertEx.True(FlowEnumConverter.TryParse("replace", out duplicatePolicy), "Duplicate policy should parse case-insensitively.");

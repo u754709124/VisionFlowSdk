@@ -21,7 +21,7 @@ namespace Vision.Flow.Core.Contracts.Devices
         /// <summary>获取控制器当前可识别的工作模式；设备模式未知时为空。</summary>
         LightOperatingMode? CurrentMode { get; }
 
-        /// <summary>判断控制器是否支持指定工作模式。</summary>
+        /// <summary>判断控制器是否支持指定工作模式，包括可选的可编程触发模式。</summary>
         bool Supports(LightOperatingMode mode);
 
         /// <summary>判断指定模式是否能够读取状态用于失败恢复。</summary>
@@ -38,7 +38,7 @@ namespace Vision.Flow.Core.Contracts.Devices
     /// <summary>持有一个物理光源控制器的独占访问权，并提供物理通道级控制能力。</summary>
     public interface ILightControllerControlLease
     {
-        /// <summary>将当前控制器切换到目标工作模式。</summary>
+        /// <summary>在独占租约内切换常亮、频闪或可编程模式；不支持的模式应明确拒绝。</summary>
         Task SwitchModeAsync(
             LightOperatingMode mode,
             CancellationToken cancellationToken);

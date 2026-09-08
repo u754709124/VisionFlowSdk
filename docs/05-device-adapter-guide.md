@@ -64,3 +64,16 @@ event EventHandler<MotionAdapterCommandReceivedEventArgs> CommandReceived;
 ## 图像生命周期
 
 当图像跨异步任务、队列或延迟保存边界时，应使用 `IVisionImage.CloneReference()` 或项目自有引用计数机制保持底层句柄有效。拥有原生句柄的一方负责释放。
+
+## 可编程光源模式
+
+LightOperatingMode 追加 Programmable=2，保留 Continuous=0、Strobe=1 及既有字符串。
+直接通过 ILightControllerAdapter.Supports(Programmable) 查询能力，通过原
+ILightControllerControlLease.SwitchModeAsync(Programmable, cancellationToken) 切换，
+CurrentMode 可回报 Programmable，不引入额外模式接口或第二套枚举。
+
+模式切换能力不代表支持 ReadAsync、ApplyAsync 或 TurnOffAsync：
+这些操作应继续遵守各自的能力范围，不支持时明确拒绝，禁止将 Programmable
+误作 Strobe 处理。步序表及地址设置属于具体设备能力，不在此次契约中新增。
+
+上位机必须部署匹配的新 Core 程序集；使用旧模式的流程文件无需迁移。

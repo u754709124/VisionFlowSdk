@@ -7,7 +7,10 @@ namespace Vision.Flow.Core.Contracts.Devices
         Continuous = 0,
 
         /// <summary>外部触发频闪模式。</summary>
-        Strobe = 1
+        Strobe = 1,
+
+        /// <summary>使用设备预置步序表的可编程触发模式；是否支持由 Adapter 声明。</summary>
+        Programmable = 2
     }
 
     /// <summary>表示包含上下界的不可变整数范围。</summary>
