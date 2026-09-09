@@ -2499,6 +2499,12 @@ namespace Vision.Flow.Tests
                         .Select(x => x.Selector.Path[0])
                         .ToArray(),
                     "Designer Token suggestions should expose only the fixed runtime context fields.");
+                AssertEx.Equal(
+                    FlowDataType.Int32,
+                    suggestions.Single(x =>
+                        x.Selector.Scope == VariableSelectorScope.Token &&
+                        string.Equals(x.Selector.Path[0], "CaptureFrameId", StringComparison.OrdinalIgnoreCase)).DataType,
+                    "Designer should expose CaptureFrameId as an Int32 token value.");
                 AssertEx.True(suggestions.Any(x =>
                         x.Selector.Scope == VariableSelectorScope.NodeOutput &&
                         x.Selector.Path.Count >= 2 &&

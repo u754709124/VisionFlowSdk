@@ -35,7 +35,7 @@ namespace Vision.Flow.Tests
             var frame = new CameraFrameData
             {
                 CameraId = "camera-1",
-                CaptureFrameId = "frame-1",
+                CaptureFrameId = 1,
                 Image = image
             };
             var runtimeEvent = new FlowRuntimeEvent
@@ -57,7 +57,7 @@ namespace Vision.Flow.Tests
             AssertEx.True(frameSnapshot != null, "Camera frames must expose a typed member snapshot.");
             AssertEx.Equal(typeof(CameraFrameData).FullName, frameSnapshot.TypeName, "Camera frame snapshots must preserve the actual CLR type.");
             AssertEx.Equal("camera-1", Convert.ToString(frameSnapshot.Members["CameraId"]), "Camera frame metadata getters must remain inspectable.");
-            AssertEx.Equal("frame-1", Convert.ToString(frameSnapshot.Members["CaptureFrameId"]), "Camera frame identifier getters must remain inspectable.");
+            AssertEx.Equal(1, (int)frameSnapshot.Members["CaptureFrameId"], "Camera frame identifier getters must remain inspectable.");
             AssertEx.True(frameSnapshot.Members["Image"] is FlowRuntimeValueSummary, "Only the nested image resource must remain summarized.");
             AssertEx.True(snapshot.Data["Bytes"] is FlowRuntimeValueSummary, "Binary payloads must become lightweight summaries.");
             AssertEx.False(ReferenceEquals(snapshot.Data[FlowRuntimeDataKeys.Value], image), "The event snapshot must not retain the image object.");

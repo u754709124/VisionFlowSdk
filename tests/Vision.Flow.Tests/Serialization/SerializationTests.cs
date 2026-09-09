@@ -152,7 +152,7 @@ namespace Vision.Flow.Tests
                 {
                     { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(VariableSelector.ForToken("CaptureFrameId")) },
                     { FlowSettingNames.Operator, NodeSettingValue.ForConstant(ConditionOperator.Equal) },
-                    { FlowSettingNames.RightValue, NodeSettingValue.ForConstant("P01") }
+                    { FlowSettingNames.RightValue, NodeSettingValue.ForConstant(1) }
                 }
             });
             runtime.Nodes.Add(new NodeDefinition

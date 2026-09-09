@@ -43,6 +43,7 @@
     <Compile Include="Contracts\Devices\CameraParameterDescriptor.cs" />
     <Compile Include="Contracts\Devices\EmptyDeviceRegistry.cs" />
     <Compile Include="Contracts\Devices\ICameraAdapter.cs" />
+    <Compile Include="Contracts\Devices\ICameraFrameSequenceAdapter.cs" />
     <Compile Include="Contracts\Devices\IDeviceRegistry.cs" />
     <Compile Include="Contracts\Devices\ILightControllerAdapter.cs" />
     <Compile Include="Contracts\Devices\LightControllerModels.cs" />

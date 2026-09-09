@@ -29,9 +29,9 @@ namespace Vision.Flow.Core.Runtime.State
         public DateTime CreatedAt { get; set; }
 
         /// <summary>
-        /// 获取或设置当前流程令牌关联的相机采集帧技术追踪标识。
+        /// 获取或设置当前流程令牌关联的相机采集帧序号。
         /// </summary>
-        public string CaptureFrameId { get; set; }
+        public int CaptureFrameId { get; set; }
 
         /// <summary>
         /// 通用业务元数据，供节点和上位机传递非固定字段。

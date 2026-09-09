@@ -914,7 +914,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         {
             AddTokenVariableSuggestion(items, "TokenId", FlowDataType.String);
             AddTokenVariableSuggestion(items, "CreatedAt", FlowDataType.DateTime);
-            AddTokenVariableSuggestion(items, "CaptureFrameId", FlowDataType.String);
+            AddTokenVariableSuggestion(items, "CaptureFrameId", FlowDataType.Int32);
             AddTokenVariableSuggestion(items, "Metadata", FlowDataType.Object);
             AddTokenVariableSuggestion(items, "Values", FlowDataType.Object);
         }

@@ -247,7 +247,7 @@ namespace Vision.Flow.Tests
                 {
                     { FlowSettingNames.LeftValue, NodeSettingValue.ForVariable(VariableSelector.ForToken("CaptureFrameId")) },
                     { "Operator", NodeSettingValue.ForConstant(operatorName) },
-                    { "RightValue", NodeSettingValue.ForConstant("P01") }
+                    { "RightValue", NodeSettingValue.ForConstant(1) }
                 }
             });
             flow.Nodes.Add(CreateRecordNode("TrueNode"));
@@ -296,7 +296,7 @@ namespace Vision.Flow.Tests
         private static FlowToken CreateToken(string tokenId, string groupKey)
         {
             var token = new FlowToken { TokenId = tokenId };
-            token.CaptureFrameId = groupKey;
+            token.CaptureFrameId = string.Equals(groupKey, "P01", StringComparison.Ordinal) ? 1 : 2;
             token.Set("GroupKey", groupKey);
             return token;
         }
