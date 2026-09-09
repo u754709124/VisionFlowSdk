@@ -51,6 +51,9 @@
 - `Token`：Path 从 Token 属性、Values 或 Metadata 开始解析。
 - `TriggerInput`：Path 第一段为入口输入协议键，后续段用于访问对象、字典或列表的子路径。发布时至少要有一个声明该输入且能够到达目标节点的入口；同名输入在多个可达入口中的类型必须一致。
 
+Token 的 `CaptureFrameId` 使用 `Int32`，`0` 表示当前 Token 尚未关联有效采集帧；
+相机采集链路分配的有效序号从 `1` 开始。
+
 ## 入口与触发协议
 
 每个 `FlowEntryDefinition` 都完整声明触发方式、输入协议和入口级执行策略：

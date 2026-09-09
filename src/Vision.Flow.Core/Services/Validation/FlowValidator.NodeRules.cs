@@ -349,10 +349,14 @@ namespace Vision.Flow.Core.Services.Validation
             if (selector.Scope == VariableSelectorScope.Token &&
                 selector.Path.Count == 1)
             {
-                if (string.Equals(selector.Path[0], "TokenId", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(selector.Path[0], "CaptureFrameId", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(selector.Path[0], "TokenId", StringComparison.OrdinalIgnoreCase))
                 {
                     valueType = new ConditionValueType(FlowDataType.String, null, null);
+                    return true;
+                }
+                if (string.Equals(selector.Path[0], "CaptureFrameId", StringComparison.OrdinalIgnoreCase))
+                {
+                    valueType = new ConditionValueType(FlowDataType.Int32, null, null);
                     return true;
                 }
                 if (string.Equals(selector.Path[0], "CreatedAt", StringComparison.OrdinalIgnoreCase))

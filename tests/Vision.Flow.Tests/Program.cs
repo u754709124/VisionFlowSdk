@@ -150,6 +150,7 @@ namespace Vision.Flow.Tests
                 new TestCase("NodeEvent starts only its referenced listener", FlowTriggerTests.NodeEventStartsOnlyReferencedListener),
                 new TestCase("TriggerInput selectors are validated against reachable entries", FlowTriggerTests.TriggerInputSelectorsAreValidated),
                 new TestCase("VisionImageReference supports clone and disposal", CoreDeviceContractTests.VisionImageReferenceLifecycle),
+                new TestCase("Camera frame identifiers use Int32 contracts", CoreDeviceContractTests.CameraFrameIdentifiersUseInt32Contracts),
                 new TestCase("Motion adapter models use read-only snapshots", CoreDeviceContractTests.MotionAdapterModelsUseReadOnlySnapshots),
                 new TestCase("Light controller registry uses explicit contract", CoreDeviceContractTests.LightControllerRegistryUsesExplicitContract),
                 new TestCase("CommonNodeRegistration resolves common factories", CommonNodeTests.RegisterAllResolvesFactories),

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -28,7 +29,7 @@ namespace Vision.Flow.Tests
             var native = new DisposableProbe();
             var image = new VisionImageReference("image-001", 5, 6, "Mono8", new byte[] { 1, 2 }, native, true, "Raw");
             AssertEx.Equal(DateTimeKind.Local, image.CreatedAt.Kind, "Vision images must use the running machine's local creation time.");
-            image.Metadata[FlowMetadataKeys.CaptureFrameId] = "frame-001";
+            image.Metadata[FlowMetadataKeys.CaptureFrameId] = 1;
 
             var clone = image.CloneReference();
             image.Dispose();
@@ -38,8 +39,27 @@ namespace Vision.Flow.Tests
             AssertEx.False(image.TryGetBytes(out bytes), "Disposed image should not expose bytes.");
             AssertEx.True(clone.TryGetBytes(out bytes), "Cloned image reference should keep byte data.");
             AssertEx.Equal(2, bytes.Length, "Cloned bytes length should match.");
-            AssertEx.Equal("frame-001", Convert.ToString(clone.Metadata[FlowMetadataKeys.CaptureFrameId]), "Clone should copy metadata.");
+            AssertEx.Equal(1, (int)clone.Metadata[FlowMetadataKeys.CaptureFrameId], "Clone should copy metadata.");
             clone.Dispose();
+            return Task.FromResult(0);
+        }
+
+        public static Task CameraFrameIdentifiersUseInt32Contracts()
+        {
+            AssertEx.Equal(
+                typeof(int),
+                typeof(CameraFrameData).GetProperty("CaptureFrameId").PropertyType,
+                "Camera frame identifiers must use Int32.");
+            AssertEx.Equal(
+                typeof(int),
+                typeof(FlowToken).GetProperty("CaptureFrameId").PropertyType,
+                "Flow token camera frame identifiers must use Int32.");
+
+            MethodInfo reset = typeof(ICameraFrameSequenceAdapter).GetMethod(
+                "ResetCaptureFrameSequence",
+                Type.EmptyTypes);
+            AssertEx.True(reset != null, "Camera sequence adapters must expose the reset capability.");
+            AssertEx.Equal(typeof(int), reset.ReturnType, "Reset must return the previous Int32 sequence.");
             return Task.FromResult(0);
         }
 
@@ -146,13 +166,13 @@ namespace Vision.Flow.Tests
                 {
                     CameraId = CameraId,
                     TriggerId = "grab-one",
-                    CaptureFrameId = Guid.NewGuid().ToString("N"),
+                    CaptureFrameId = 1,
                     GrabTime = DateTime.Now,
                     Image = new VisionImageReference("grab-one-image", 1, 1, "Mono8", new byte[] { 7 })
                 });
             }
 
-            public void EmitFrame(string triggerId, string frameId)
+            public void EmitFrame(string triggerId, int frameId)
             {
                 var handler = FrameArrived;
                 if (handler == null)
@@ -169,7 +189,7 @@ namespace Vision.Flow.Tests
                             TriggerId = triggerId,
                             CaptureFrameId = frameId,
                             GrabTime = DateTime.Now,
-                            Image = new VisionImageReference(frameId, 1, 1, "Mono8", new byte[] { 7 })
+                            Image = new VisionImageReference(frameId.ToString(CultureInfo.InvariantCulture), 1, 1, "Mono8", new byte[] { 7 })
                         }));
             }
         }
