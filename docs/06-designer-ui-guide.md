@@ -84,6 +84,8 @@ var publishResult = designer.PublishRuntimeFile(@"C:\Flows\strategy-001.flowrunt
 
 属性面板根据 `NodeSettingDescriptor` 动态生成编辑器。输入端口只用于控制流连线，不生成独立的 `Input Bindings` 编辑区。
 
+连续配置项声明同一个非空 `GroupName` 时，属性面板会以带标题的嵌套卡片聚合显示；未分组配置项继续按原顺序直接显示。分组只影响设计态布局，不写入流程文件。
+
 选中节点后，属性面板编辑的是节点名称、`Settings` 和 `ExecutionPolicy` 的深拷贝草稿，而不是源文档：
 
 - “应用”先完成必填、数字转换、动态候选、变量来源/类型和执行策略校验，再一次性写回源节点；校验失败会保留原始文本和草稿，并聚焦首个错误控件。

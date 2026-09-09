@@ -170,6 +170,7 @@ namespace Vision.Flow.Tests
                 new TestCase("Designer drag frames coalesce and preserve expansion", DesignerRenderingTests.DragFramesCoalesceAndPreserveExpansion),
                 new TestCase("Designer property panel applies custom constant validation", DesignerInteractionTests.PropertyPanelAppliesCustomConstantValidation),
                 new TestCase("Designer property panel read-only mode disables editors", DesignerInteractionTests.PropertyPanelReadOnlyDisablesEditors),
+                new TestCase("Designer property panel groups settings by descriptor metadata", DesignerInteractionTests.PropertyPanelGroupsSettingsByDescriptorMetadata),
                 new TestCase("Designer property panel uses host provided constant options", DesignerInteractionTests.PropertyPanelUsesHostProvidedConstantOptions),
                 new TestCase("Designer property panel uses enum constants and exact enum variables", DesignerInteractionTests.PropertyPanelUsesEnumConstantsAndExactEnumVariables),
                 new TestCase("Designer condition editor follows the bound operand type", DesignerInteractionTests.ConditionEditorFollowsBoundOperandType),

@@ -284,8 +284,23 @@ namespace Vision.Flow.Designer.Wpf.Controls
             }
             else if (descriptor != null)
             {
+                string activeGroupName = null;
+                Panel activeSettingLayout = settingFields;
                 foreach (var setting in descriptor.Settings)
                 {
+                    string groupName = string.IsNullOrWhiteSpace(setting.GroupName)
+                        ? null
+                        : setting.GroupName.Trim();
+                    if (!string.Equals(activeGroupName, groupName, StringComparison.Ordinal))
+                    {
+                        activeGroupName = groupName;
+                        activeSettingLayout = settingFields;
+                        if (groupName != null)
+                        {
+                            activeSettingLayout = new StackPanel();
+                            settingFields.Children.Add(CreateSettingGroup(groupName, activeSettingLayout));
+                        }
+                    }
                     NodeSettingValue value;
                     node.Settings.TryGetValue(setting.Name, out value);
                     if (value == null)
@@ -293,7 +308,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
                         value = NodeSettingValue.ForConstant(setting.DefaultValue);
                     }
 
-                    AddSettingField(settingFields, setting, value, delegate(NodeSettingValue newValue)
+                    AddSettingField(activeSettingLayout, setting, value, delegate(NodeSettingValue newValue)
                     {
                         node.Settings[setting.Name] = newValue;
                     });
@@ -1730,6 +1745,38 @@ namespace Vision.Flow.Designer.Wpf.Controls
             };
             expander.SetResourceReference(FrameworkElement.StyleProperty, FlowDesignerTheme.ExpanderStyleKey);
             return expander;
+        }
+
+        private static UIElement CreateSettingGroup(string title, UIElement content)
+        {
+            var layout = new StackPanel();
+            layout.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 12.5,
+                Foreground = FlowDesignerControl.BrushFromRgb(14, 159, 110),
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+            layout.Children.Add(new Border
+            {
+                Height = 1,
+                Background = FlowDesignerControl.BrushFromRgb(226, 232, 240),
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+            layout.Children.Add(content);
+
+            return new Border
+            {
+                Background = FlowDesignerControl.BrushFromRgb(248, 250, 252),
+                BorderBrush = FlowDesignerControl.BrushFromRgb(221, 230, 239),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(7),
+                Padding = new Thickness(10, 9, 10, 4),
+                Margin = new Thickness(0, 8, 0, 2),
+                Tag = "SettingGroup:" + title,
+                Child = layout
+            };
         }
 
         private static UIElement CreateOutputTag(NodeOutputDescriptor output)

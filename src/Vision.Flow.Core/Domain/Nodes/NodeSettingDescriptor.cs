@@ -24,6 +24,12 @@ namespace Vision.Flow.Core.Domain.Nodes
 
         public string DisplayName { get; set; }
 
+        /// <summary>
+        /// 获取或设置设计器中的可选分组标题；连续且同名的设置会聚合显示。
+        /// 该元数据不写入流程文件，也不影响运行时设置协议。
+        /// </summary>
+        public string GroupName { get; set; }
+
         public FlowDataType DataType { get; set; }
 
         /// <summary>

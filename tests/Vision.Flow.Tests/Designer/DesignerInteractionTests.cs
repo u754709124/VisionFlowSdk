@@ -450,6 +450,65 @@ namespace Vision.Flow.Tests
             return Task.FromResult(0);
         }
 
+        public static Task PropertyPanelGroupsSettingsByDescriptorMetadata()
+        {
+            RunOnSta(delegate
+            {
+                var descriptor = CreateDescriptor();
+                descriptor.Settings[0].GroupName = "采集组 1";
+                descriptor.Settings[1].GroupName = "采集组 1";
+                descriptor.Settings.Add(new NodeSettingDescriptor
+                {
+                    Name = "Exposure",
+                    DisplayName = "曝光时间",
+                    GroupName = "采集组 1",
+                    DataType = FlowDataType.Int32,
+                    DefaultValue = 100,
+                    BindingMode = NodeSettingBindingMode.ConstantOnly
+                });
+                descriptor.Settings.Add(new NodeSettingDescriptor
+                {
+                    Name = "SecondMessage",
+                    DisplayName = "消息",
+                    GroupName = "采集组 2",
+                    DataType = FlowDataType.String,
+                    DefaultValue = "second",
+                    BindingMode = NodeSettingBindingMode.ConstantOnly
+                });
+                var node = CreateNode();
+                node.Settings["Exposure"] = NodeSettingValue.ForConstant(100);
+                node.Settings["SecondMessage"] = NodeSettingValue.ForConstant("second");
+                var panel = new PropertyPanelControl();
+                panel.ShowNode(node, descriptor, delegate { });
+                ArrangeAtPropertyPanelMinimum(panel);
+
+                Border[] groups = FindChildren<Border>(panel)
+                    .Where(x => Convert.ToString(x.Tag, CultureInfo.InvariantCulture)
+                        .StartsWith("SettingGroup:", StringComparison.Ordinal))
+                    .Distinct()
+                    .ToArray();
+                AssertEx.SequenceEqual(
+                    new[] { "SettingGroup:采集组 1", "SettingGroup:采集组 2" },
+                    groups.Select(x => Convert.ToString(x.Tag, CultureInfo.InvariantCulture)),
+                    "Settings with consecutive group metadata should render in distinct ordered cards.");
+                AssertEx.True(
+                    FindChildren<TextBox>(groups[0]).Any(x =>
+                        string.Equals(
+                            Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                            "Setting:Message",
+                            StringComparison.Ordinal)),
+                    "The first grouped card should contain the first group's editor.");
+                AssertEx.True(
+                    FindChildren<TextBox>(groups[1]).Any(x =>
+                        string.Equals(
+                            Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                            "Setting:SecondMessage",
+                            StringComparison.Ordinal)),
+                    "The second grouped card should contain only the second group's editor.");
+            });
+            return Task.FromResult(0);
+        }
+
         public static Task PropertyPanelUsesHostProvidedConstantOptions()
         {
             RunOnSta(delegate

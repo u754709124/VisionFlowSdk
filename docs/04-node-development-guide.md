@@ -95,6 +95,9 @@ Designer 的节点库、属性面板和变量选择器都依赖 Descriptor。
 - `AllowedVariableSources`：允许的 NodeOutput、Token、TriggerInput、EnvironmentVariable 范围
 - `AffectsDescriptor`：该常量变化后是否需要重新解析实例 Descriptor
 
+可选的 `GroupName` 只用于把连续且同名的配置项聚合到属性面板卡片中，不进入流程文件，
+也不改变设置键及运行时协议。适合动态重复组等字段较多的节点。
+
 配置项通过 `DataType` 对常量和变量实施统一的强类型约束。变量来源的
 `FlowDataType` 必须与配置项完全一致，不执行数值扩宽、`Object` 向具体类型转换
 或字符串隐式转换。需要范围、格式或枚举成员等业务约束时，可以声明同步单项
