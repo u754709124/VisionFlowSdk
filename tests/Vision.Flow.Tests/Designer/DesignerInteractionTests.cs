@@ -564,6 +564,53 @@ namespace Vision.Flow.Tests
                         string.Equals(Convert.ToString(x.Content, CultureInfo.InvariantCulture), "变量", StringComparison.Ordinal)),
                     "A constant-only device reference with no candidates must not expose a mode selector.");
 
+                var contextualPanel = new PropertyPanelControl(
+                    setting => new[]
+                    {
+                        new NodeSettingConstantOption("Global", "Global")
+                    },
+                    (currentNode, setting) =>
+                        currentNode != null &&
+                        string.Equals(setting.Name, "CameraId", StringComparison.OrdinalIgnoreCase)
+                            ? new[]
+                            {
+                                new NodeSettingConstantOption(
+                                    currentNode.Id + "-Camera",
+                                    "上下文相机")
+                            }
+                            : null);
+                contextualPanel.ShowNode(node, descriptor, delegate { });
+                var contextualSelector = FindChildren<ComboBox>(contextualPanel)
+                    .FirstOrDefault(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:CameraId",
+                        StringComparison.Ordinal));
+                AssertEx.NotNull(contextualSelector,
+                    "Contextual host options should render a fixed-value selector.");
+                AssertEx.Equal(1, contextualSelector.Items.Count,
+                    "Contextual host options should replace ordinary host options when supplied.");
+                AssertEx.Equal(
+                    node.Id + "-Camera",
+                    ((NodeSettingConstantOption)contextualSelector.Items[0]).Value,
+                    "Contextual host options should receive the current node draft.");
+                var emptyContextualPanel = new PropertyPanelControl(
+                    setting => new[]
+                    {
+                        new NodeSettingConstantOption("Global", "Global")
+                    },
+                    (currentNode, setting) =>
+                        string.Equals(setting.Name, "CameraId", StringComparison.OrdinalIgnoreCase)
+                            ? new NodeSettingConstantOption[0]
+                            : null);
+                emptyContextualPanel.ShowNode(node, descriptor, delegate { });
+                var emptyContextualSelector = FindChildren<ComboBox>(emptyContextualPanel)
+                    .FirstOrDefault(x => string.Equals(
+                        Convert.ToString(x.Tag, CultureInfo.InvariantCulture),
+                        "Setting:CameraId",
+                        StringComparison.Ordinal));
+                AssertEx.Equal(0, emptyContextualSelector.Items.Count,
+                    "An explicit empty contextual source should not fall back to ordinary host options.");
+
                 descriptor.Settings[0].Name = "QueueId";
                 descriptor.Settings[0].DisplayName = "队列";
                 descriptor.Settings[0].DataType = FlowDataType.Int32;

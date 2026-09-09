@@ -123,6 +123,8 @@ Attribute 名称和一个结构化变量来源，并支持新增和删除；映�
 
 嵌入式宿主还可以通过 `FlowDesignerOptions.SettingConstantOptionsProvider` 为固定值编辑器提供明确的动态候选项。例如项目相机节点的 `CameraId` 可以直接读取宿主当前绑定的设备配置，并在 Descriptor 中声明为 `ConstantOnly`，从而只显示设备数据源下拉框，不显示固定值/变量切换。候选项发生变化后调用 `RefreshSelectedNodeProperties()` 即可刷新当前属性面板。刷新同一节点会保留设置和执行策略的草稿、非法原始文本及行内错误；当前值从候选中失效时继续显示原值并禁止应用，不会清空用户输入。宿主为该 Descriptor 返回非 `null` 候选集合时，编辑器使用不可自由输入的现代下拉框；即使集合为空也保持空下拉框。宿主返回 `null` 时，声明了有效 `EnumType` 的设置使用枚举成员下拉框，其余设置继续使用手工输入控件。设计器不再为相机标识提供硬编码默认值。
 
+当候选依赖同一节点草稿中的其他配置项时，宿主可使用 `FlowDesignerOptions.ContextualSettingConstantOptionsProvider`，回调会同时收到当前 `NodeDefinition` 与配置项 Descriptor。上下文回调返回非 `null` 集合时优先于普通候选；返回空集合表示当前上下文没有任何可选项，返回 `null` 才回退到 `SettingConstantOptionsProvider`。依赖字段应声明 `AffectsDescriptor = true`，使其值变化后立即重新呈现属性面板并重新计算后续候选。
+
 对于支持“固定值 / 变量”切换的配置项，两个 40 px 圆角分段按钮之间保留明确间距，并与右侧 40 px 固定值编辑器或变量选择器顶边对齐。状态或校验提示显示在控件下方的固定错误槽内，红色描边只覆盖编辑器本身，不改变输入控件及相邻表单项的布局。
 
 配置项声明 `Validator` 后，普通文本框、Boolean 开关和宿主候选下拉都会在常量

@@ -73,6 +73,11 @@ namespace Vision.Flow.Designer.Wpf.Controls
         public Func<NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> SettingConstantOptionsProvider { get; set; }
 
         /// <summary>
+        /// 由嵌入式宿主根据当前节点草稿和配置项提供上下文相关的固定值候选项；返回 null 时回退到普通候选提供方。
+        /// </summary>
+        public Func<NodeDefinition, NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> ContextualSettingConstantOptionsProvider { get; set; }
+
+        /// <summary>
         /// 自定义未应用属性决策。测试或业务宿主可提供确定性决策；为空时使用设计器对话框。
         /// </summary>
         public Func<PendingPropertyChangesDecision> PendingPropertyChangesPrompt { get; set; }
@@ -158,7 +163,9 @@ namespace Vision.Flow.Designer.Wpf.Controls
             _nodeRegistry = nodeRegistry ?? CreateDefaultNodeRegistry();
             _nodeCards = new Dictionary<string, NodeCardControl>(StringComparer.OrdinalIgnoreCase);
             _palette = new NodePaletteControl();
-            _properties = new PropertyPanelControl(_options.SettingConstantOptionsProvider);
+            _properties = new PropertyPanelControl(
+                _options.SettingConstantOptionsProvider,
+                _options.ContextualSettingConstantOptionsProvider);
             _properties.ApplyRequested += delegate
             {
                 string error;

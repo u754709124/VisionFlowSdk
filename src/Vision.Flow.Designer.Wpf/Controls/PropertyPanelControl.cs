@@ -21,6 +21,7 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private const double EditorStatusSlotHeight = 34;
         private readonly StackPanel _rows;
         private readonly Func<NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> _constantOptionProvider;
+        private readonly Func<NodeDefinition, NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> _contextualConstantOptionProvider;
         private readonly Button _applyButton;
         private readonly Button _resetButton;
         private readonly TextBlock _readOnlyHint;
@@ -42,15 +43,35 @@ namespace Vision.Flow.Designer.Wpf.Controls
         private NodeDescriptor _currentDescriptor;
         private NodeExecutionPolicyPanelControl _executionPolicyPanel;
 
+        /// <summary>
+        /// 创建未配置宿主固定值候选项的属性面板。
+        /// </summary>
         public PropertyPanelControl()
-            : this(null)
+            : this(null, null)
         {
         }
 
+        /// <summary>
+        /// 创建使用普通宿主固定值候选项的属性面板。
+        /// </summary>
+        /// <param name="constantOptionProvider">按配置项描述提供候选项的回调。</param>
         public PropertyPanelControl(
             Func<NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> constantOptionProvider)
+            : this(constantOptionProvider, null)
+        {
+        }
+
+        /// <summary>
+        /// 创建同时支持普通候选与当前节点上下文候选的属性面板。
+        /// </summary>
+        /// <param name="constantOptionProvider">按配置项描述提供普通候选项的回调。</param>
+        /// <param name="contextualConstantOptionProvider">按当前节点草稿和配置项描述提供上下文候选项的回调；返回 null 时回退到普通候选。</param>
+        public PropertyPanelControl(
+            Func<NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> constantOptionProvider,
+            Func<NodeDefinition, NodeSettingDescriptor, IEnumerable<NodeSettingConstantOption>> contextualConstantOptionProvider)
         {
             _constantOptionProvider = constantOptionProvider;
+            _contextualConstantOptionProvider = contextualConstantOptionProvider;
             Padding = new Thickness(12);
             Background = Brushes.White;
             BorderBrush = FlowDesignerControl.BrushFromRgb(222, 229, 238);
@@ -1932,21 +1953,28 @@ namespace Vision.Flow.Designer.Wpf.Controls
                 return items;
             }
 
-            if (_constantOptionProvider != null)
+            IEnumerable<NodeSettingConstantOption> providedOptions = null;
+            if (_contextualConstantOptionProvider != null)
             {
-                var providedOptions = _constantOptionProvider(setting);
-                if (providedOptions != null)
+                providedOptions = _contextualConstantOptionProvider(
+                    _currentNode,
+                    setting);
+            }
+            if (providedOptions == null && _constantOptionProvider != null)
+            {
+                providedOptions = _constantOptionProvider(setting);
+            }
+            if (providedOptions != null)
+            {
+                usesHostOptions = true;
+                foreach (var option in providedOptions.Where(x => x != null))
                 {
-                    usesHostOptions = true;
-                    foreach (var option in providedOptions.Where(x => x != null))
+                    if (!items.Any(x => string.Equals(
+                        x.Value,
+                        option.Value,
+                        StringComparison.OrdinalIgnoreCase)))
                     {
-                        if (!items.Any(x => string.Equals(
-                            x.Value,
-                            option.Value,
-                            StringComparison.OrdinalIgnoreCase)))
-                        {
-                            items.Add(option);
-                        }
+                        items.Add(option);
                     }
                 }
             }
